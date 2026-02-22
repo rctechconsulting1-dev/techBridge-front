@@ -1,13 +1,15 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { useModal } from "../../hooks/useModal";
+import { useSidebar } from "@/context/SidebarContext";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { Database } from "../../../database.types";
-import { mutateUpdate } from "../../hooks/useMutateUpdate";
 import { getApiBaseUrl } from "@/lib/api";
+import useSWRMutation from "swr/mutation";
+import { fetcher } from "@/hooks/fetcher";
 
 // Define the type for the user table in the Database
 type User = Database["public"]["Tables"]["user"]["Row"];
@@ -15,9 +17,26 @@ type User = Database["public"]["Tables"]["user"]["Row"];
 export default function UserInfoCard({ user }: { user: User | null }) {
   // Modal state
   const { isOpen, openModal, closeModal } = useModal();
+  const { setSelectedClient } = useSidebar();
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const userKey = user?.id ? `${getApiBaseUrl()}/users/${user.id}` : null;
+  const { trigger, isMutating } = useSWRMutation(
+    userKey,
+    (url, { arg }: { arg: Partial<User> }) => {
+      if (!url) {
+        throw new Error("Missing user key");
+      }
+      return fetcher(url, "PATCH", undefined, arg);
+    }
+  );
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setSaveError(null);
+    if (!user?.id) {
+      setSaveError("Unable to save: missing user id.");
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     const updatedUser = {
       name: formData.get("name") as string,
@@ -25,19 +44,28 @@ export default function UserInfoCard({ user }: { user: User | null }) {
       phone: formData.get("phone") as string,
     };
 
-    // Call mutateUpdate and handle the response
-    const updateResult = await mutateUpdate({
-      path: user?.id ? `/users/${user?.id}` : null,
-      method: "PATCH",
-      payload: updatedUser,
-      mutateKey: `${getApiBaseUrl()}/users/${user?.id}`,
-    });
+    try {
+      const responseData = await trigger(updatedUser, {
+        optimisticData: (current) => ({
+          ...(current ?? user ?? {}),
+          ...updatedUser,
+        }),
+        rollbackOnError: true,
+        populateCache: true,
+        revalidate: false,
+      });
 
-    if (updateResult.error) {
-      console.error("Error details:", updateResult.error);
-    } else {
-      console.log("User updated successfully:", updateResult.response);
+      const nextUser = Array.isArray(responseData)
+        ? responseData[0]
+        : responseData || { ...user, ...updatedUser };
+      if (nextUser) {
+        setSelectedClient(nextUser as User);
+      }
+      console.log("User updated successfully:", responseData);
       closeModal();
+    } catch (error) {
+      console.error("Error details:", error);
+      setSaveError(error instanceof Error ? error.message : "Failed to update user.");
     }
   };
   return (
@@ -128,6 +156,11 @@ export default function UserInfoCard({ user }: { user: User | null }) {
             </p>
           </div>
           <form className="flex flex-col" onSubmit={handleSave}>
+            {saveError && (
+              <div className="px-2 mb-4 p-3 text-sm text-[#C41E3A] bg-[#C41E3A]/5 border border-[#C41E3A]/20 rounded-lg dark:bg-[#C41E3A]/10 dark:border-[#C41E3A]/30">
+                {saveError}
+              </div>
+            )}
             <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
               <div className="mt-7">
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
@@ -168,7 +201,7 @@ export default function UserInfoCard({ user }: { user: User | null }) {
               <Button size="sm" variant="outline" onClick={closeModal}>
                 Close
               </Button>
-              <Button size="sm" type="submit">
+              <Button size="sm" type="submit" disabled={isMutating}>
                 Save Changes
               </Button>
             </div>

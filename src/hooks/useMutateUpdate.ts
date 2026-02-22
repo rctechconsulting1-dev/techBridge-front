@@ -10,6 +10,10 @@ type UpdateType = {
     payload?: any;
     mutateKey?: string;
     additionalHeaders?: Record<string, string>;
+    optimisticData?: unknown | ((current: unknown) => unknown);
+    rollbackOnError?: boolean;
+    populateCache?: boolean | ((result: unknown, current: unknown) => unknown);
+    revalidate?: boolean | ((data: unknown, key: string) => boolean);
 }
 
 type UseMutateUpdateResponse = {
@@ -17,7 +21,17 @@ type UseMutateUpdateResponse = {
     error: unknown | null;
 };
 
-export async function mutateUpdate({ path, method, mutateKey, payload, additionalHeaders }: UpdateType): Promise<UseMutateUpdateResponse> {
+export async function mutateUpdate({
+    path,
+    method,
+    mutateKey,
+    payload,
+    additionalHeaders,
+    optimisticData,
+    rollbackOnError,
+    populateCache,
+    revalidate,
+}: UpdateType): Promise<UseMutateUpdateResponse> {
     if (!path) {
         return { response: null, error: 'Path is required' };
     }
@@ -26,7 +40,8 @@ export async function mutateUpdate({ path, method, mutateKey, payload, additiona
     const normalizedMethod = methodToBackendMethod(method);
 
     if (normalizedMethod === 'PUT') {
-        const pathUrl = new URL(fullPath);
+        const baseOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+        const pathUrl = new URL(fullPath, baseOrigin);
 
         if (pathUrl.pathname.endsWith('/users')) {
             const userId = pathUrl.searchParams.get('id');
@@ -61,10 +76,24 @@ export async function mutateUpdate({ path, method, mutateKey, payload, additiona
     console.log('mutateUpdate - Payload:', payload);
     
     try {
-        const res = await fetcher(fullPath, normalizedMethod, undefined, payload, additionalHeaders);
         if (mutateKey) {
-            void mutate(toApiUrl(mutateKey));
+            const resolvedKey = toApiUrl(mutateKey);
+            const res = await mutate(
+                resolvedKey,
+                async () => fetcher(fullPath, normalizedMethod, undefined, payload, additionalHeaders),
+                {
+                    optimisticData,
+                    rollbackOnError: rollbackOnError ?? true,
+                    populateCache: populateCache ?? true,
+                    revalidate: revalidate ?? false,
+                    throwOnError: true,
+                }
+            );
+            console.log('mutateUpdate - Success response:', res);
+            return { response: res, error: null };
         }
+
+        const res = await fetcher(fullPath, normalizedMethod, undefined, payload, additionalHeaders);
         console.log('mutateUpdate - Success response:', res);
         return { response: res, error: null };
     } catch (error) {

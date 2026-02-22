@@ -28,7 +28,10 @@ export const toApiUrl = (pathOrUrl: string): string => {
 
   const base = getApiBaseUrl();
   const [rawPath, rawQuery = ''] = pathOrUrl.split('?');
-  const normalizedPath = normalizePath(rawPath);
+  const baseHasApiPrefix = base.endsWith('/api');
+  const normalizedRawPath =
+    baseHasApiPrefix && rawPath.startsWith('/api/') ? rawPath.replace(/^\/api/, '') : rawPath;
+  const normalizedPath = normalizePath(normalizedRawPath);
   const query = new URLSearchParams(rawQuery);
 
   const websiteIdEq = query.get('website_id');

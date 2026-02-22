@@ -17,7 +17,7 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isExpanded, isHovered, isMobileOpen, setActiveUser } = useSidebar();
+  const { isExpanded, isHovered, isMobileOpen, setActiveUser, setSelectedClient } = useSidebar();
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [session, setSession] = useState<any>(null)
@@ -32,6 +32,15 @@ export default function AdminLayout({
         }
         setSession(user)
         setActiveUser(user || null)
+        if (user?.id || user?.email) {
+          const query = user?.id
+            ? `/users?users_id=eq.${encodeURIComponent(user.id)}`
+            : `/users?email=eq.${encodeURIComponent(user.email)}`;
+          const userRows = await fetcher(query, 'GET');
+          if (Array.isArray(userRows) && userRows[0]) {
+            setSelectedClient(userRows[0]);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch session:', error)
         router.push('/signin')
