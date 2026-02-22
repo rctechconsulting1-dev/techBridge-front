@@ -1,4 +1,5 @@
 import { mutate } from 'swr';
+import type { Arguments } from 'swr';
 import { fetcher } from './fetcher';
 import { toApiUrl, methodToBackendMethod } from '@/lib/api';
 
@@ -13,7 +14,7 @@ type UpdateType = {
     optimisticData?: unknown | ((current: unknown) => unknown);
     rollbackOnError?: boolean;
     populateCache?: boolean | ((result: unknown, current: unknown) => unknown);
-    revalidate?: boolean | ((data: unknown, key: string) => boolean);
+    revalidate?: boolean | ((data: unknown, key: Arguments) => boolean);
 }
 
 type UseMutateUpdateResponse = {
