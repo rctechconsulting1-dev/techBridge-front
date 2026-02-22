@@ -6,7 +6,7 @@ import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../superbase-client";
+import { apiClient } from "@/lib/api-client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignInForm() {
@@ -22,56 +22,15 @@ export default function SignInForm() {
   useEffect(() => {
     // Check for existing session on component mount
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        saveGoogleTokens(session);
-  // If already authenticated, go straight to destination
-  router.push(nextDest);
+      const user = await apiClient.getSession();
+      if (user) {
+        // If already authenticated, go straight to destination
+        router.push(nextDest);
       }
     };
 
     checkSession();
-
-    // Listen for auth state changes to capture tokens
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change event:', event, session);
-      
-      if (event === 'SIGNED_IN' && session) {
-        // Save Google tokens if available
-        saveGoogleTokens(session);
-  // Redirect to destination after successful login
-  router.push(nextDest);
-      }
-      
-      if (event === 'TOKEN_REFRESHED' && session) {
-        // Save refreshed Google tokens
-        saveGoogleTokens(session);
-      }
-    });
-
-    return () => subscription.unsubscribe();
   }, [router, nextDest]);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const saveGoogleTokens = async (session: any) => {
-    console.log('Session data:', session); // Debug log
-    
-    const { provider_token, provider_refresh_token } = session;
-    
-    if (provider_token) {
-      localStorage.setItem('google_access_token', provider_token);
-      console.log('Google access token saved to localStorage:', provider_token.substring(0, 20) + '...');
-    } else {
-      console.log('No provider_token found in session');
-    }
-    
-    if (provider_refresh_token) {
-      localStorage.setItem('google_refresh_token', provider_refresh_token);
-      console.log('Google refresh token saved to localStorage');
-    } else {
-      console.log('No provider_refresh_token found in session');
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,48 +42,30 @@ export default function SignInForm() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setError(error.message);
-    } else {
+    try {
+      await apiClient.signIn(email, password);
       router.push(nextDest);
+    } catch (err) {
+      const error = err as { message?: string };
+      setError(error?.message || "Sign in failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setError(null);
 
-  // Prefer server-side callback to exchange code and set cookies, then redirect to destination
-  const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextDest)}`;
-    console.log('Using redirect URL:', redirectUrl);
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        scopes: 'https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-        redirectTo: redirectUrl,
-      },
-    });
-
-    if (error) {
-      if (error.message.includes("provider is not enabled")) {
-        setError("Google sign-in is not configured. Please contact support or use email/password login.");
-      } else {
-        setError(error.message);
-      }
+    try {
+      // Redirect to backend Google OAuth endpoint
+      const redirectUrl = `${window.location.origin}/auth/callback`;
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google?redirect_uri=${encodeURIComponent(redirectUrl)}&next=${encodeURIComponent(nextDest)}`;
+    } catch (err) {
+      const error = err as { message?: string };
+      setError(error?.message || "Google sign-in failed. Please try again.");
       setIsGoogleLoading(false);
     }
-    // Note: Don't set loading to false here as the user will be redirected
   };
 
   return (
@@ -245,6 +186,7 @@ export default function SignInForm() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       name="password"
+                      autoComplete="current-password"
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}

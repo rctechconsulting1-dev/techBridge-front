@@ -3,7 +3,7 @@ import Image from "next/image";
 import React, { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { supabase } from "../../superbase-client";
+import { apiClient } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
 
 export default function UserDropdown() {
@@ -21,7 +21,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
   }
 
   const handleSignOut = async () =>{
-    await supabase.auth.signOut()
+    await apiClient.signOut()
     router.push('/signin')
   }
   return (

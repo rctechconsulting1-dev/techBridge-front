@@ -5,35 +5,42 @@ import Label from "@/components/form/Label";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
 import React, { useState, useTransition } from "react";
-import { supabase } from "../../superbase-client";
+import { apiClient } from "@/lib/api-client";
 import Alert from "../ui/alert/Alert";
+import { useRouter } from "next/navigation";
 
 export default function SignUpForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [showAlert, setShowAlert] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function signUpAction(formData: FormData) {
-    // This would typically call your signup API
-    const { error } = await supabase.auth.signUp({
-      email: formData.get('email') as string,
-      password: formData.get('password') as string,
-      options: {
-        data: {
-          displayName: `${formData.get('firstName')} ${formData.get('lastName')}` as string,
-        }
-      }
-    });
-    if (error) {
-      console.log("Signup error:", error);
-      return;
+    try {
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
+      const firstName = formData.get('firstName') as string;
+      const lastName = formData.get('lastName') as string;
+
+      await apiClient.signUp(email, password, firstName, lastName);
+      setShowAlert(true);
+      
+      // Redirect to signin after 2 seconds
+      setTimeout(() => {
+        router.push('/signin');
+      }, 2000);
+    } catch (err) {
+      const apiError = err as { message?: string };
+      setError(apiError?.message || "Sign up failed. Please try again.");
+      console.error("Signup error:", err);
     }
-    setShowAlert(true);
   }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     const formData = new FormData(e.currentTarget);
     startTransition(() => {
       signUpAction(formData);

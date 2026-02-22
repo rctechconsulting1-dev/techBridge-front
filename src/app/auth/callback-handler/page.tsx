@@ -1,45 +1,29 @@
 "use client";
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '../../../superbase-client';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
 
 export default function AuthCallbackHandler() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next') || '/admin';
 
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const user = await apiClient.getSession();
         
-        if (error) {
-          console.error('Auth callback error:', error);
-          router.push('/signin?error=auth_callback_failed');
+        if (!user) {
+          console.log('No session found in callback');
+          router.push('/signin');
           return;
         }
 
-        if (data.session) {
-          console.log('Session found in callback:', data.session);
-          
-          // Save Google tokens
-          const { provider_token, provider_refresh_token } = data.session;
-          
-          if (provider_token) {
-            localStorage.setItem('google_access_token', provider_token);
-            console.log('Google access token saved in callback:', provider_token.substring(0, 20) + '...');
-          }
-          
-          if (provider_refresh_token) {
-            localStorage.setItem('google_refresh_token', provider_refresh_token);
-            console.log('Google refresh token saved in callback');
-          }
-
-          // Redirect to admin dashboard
-          router.push('/admin');
-        } else {
-          console.log('No session found in callback');
-          router.push('/signin');
-        }
+        console.log('Session found in callback:', user);
+        
+        // Redirect to destination
+        router.push(next);
       } catch (error) {
         console.error('Callback handler error:', error);
         router.push('/signin?error=callback_error');
@@ -47,7 +31,7 @@ export default function AuthCallbackHandler() {
     };
 
     handleAuthCallback();
-  }, [router]);
+  }, [router, next]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

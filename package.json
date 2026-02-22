@@ -22,8 +22,6 @@
     "@mdxeditor/editor": "^3.40.0",
     "@react-jvectormap/core": "^1.0.4",
     "@react-jvectormap/world": "^1.1.2",
-    "@supabase/auth-helpers-nextjs": "^0.10.0",
-    "@supabase/supabase-js": "^2.50.5",
     "@tailwindcss/forms": "^0.5.9",
     "@tailwindcss/postcss": "^4.0.9",
     "@types/piexifjs": "^1.0.0",

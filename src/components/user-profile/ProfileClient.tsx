@@ -9,7 +9,7 @@ import Input from "../form/input/InputField";
 import { useSidebar } from "../../context/SidebarContext";
 import UserBusinessCard from "./UserBusinessCard";
 import { Modal } from "../ui/modal";
-import { supabase } from "../../superbase-client";
+import { apiClient } from "@/lib/api-client";
 
 const ProfileClient: React.FC = () => {
     // Context
@@ -22,6 +22,7 @@ const ProfileClient: React.FC = () => {
         email: "",
         password: "",
     });
+    const [error, setError] = useState<string | null>(null);
 
     //SWR
     // 1. Insert Website get last id
@@ -29,20 +30,16 @@ const ProfileClient: React.FC = () => {
     // 3. Insert Business Listing Table
     // 4. TODO: Create New User it only handles Update User
     const handleSave = async () => {
-        // Handle save logic here
-        const { error } = await supabase.auth.signUp({
-            email: formData.email,
-            password: formData.password,
-            options: {
-                data: {
-                    displayName: `${formData.name}` as string,
-                }
-            }
-        });
-        if (error) {
-            console.log("Signup error:", error)
+        try {
+            setError(null);
+            await apiClient.signUp(formData.email, formData.password, formData.name);
+            setFormData({ name: "", email: "", password: "" });
+            setIsNewUser(false);
+        } catch (err) {
+            const apiError = err as { message?: string };
+            setError(apiError?.message || "Failed to create user");
+            console.error("User creation error:", err);
         }
-
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,6 +69,11 @@ const ProfileClient: React.FC = () => {
                         </h4>
                     </div>
                     <form className="flex flex-col">
+                        {error && (
+                            <div className="px-2 mb-4 p-3 text-sm text-[#C41E3A] bg-[#C41E3A]/5 border border-[#C41E3A]/20 rounded-lg dark:bg-[#C41E3A]/10 dark:border-[#C41E3A]/30">
+                                {error}
+                            </div>
+                        )}
                         <div className="px-2 overflow-y-auto custom-scrollbar">
                             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                                 <div>
@@ -86,7 +88,7 @@ const ProfileClient: React.FC = () => {
 
                                 <div>
                                     <Label>Password</Label>
-                                    <Input type="text" name="password" value={formData.password ?? ""} onChange={handleChange} />
+                                    <Input type="password" name="password" value={formData.password ?? ""} onChange={handleChange} autoComplete="new-password" />
                                 </div>
                             </div>
                         </div>

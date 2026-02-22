@@ -1,23 +1,18 @@
-import { supabase } from '@/lib/supabase'; // Adjust to your database setup
+import { apiClient } from '@/lib/api-client'; // Adjust to your database setup
 import { GoogleOAuthManager } from './google-oauth';
 
 export class GoogleTokenManager {
   static async getValidToken(userId: string, clientId: string): Promise<string | null> {
     try {
-      const { data: tokenRecord, error: fetchError } = await supabase
-        .from('googleTokens')
-        .select('*')
-        .eq('userId', userId)
-        .eq('clientId', clientId)
-        .single();
+      const tokenRecord = await apiClient.get(`/google-tokens/${userId}/${clientId}`);
 
-      if (fetchError || !tokenRecord) {
+      if (!tokenRecord) {
         return null;
       }
 
       // Check if token is expired
       const now = new Date();
-      if (tokenRecord.expiresAt <= now) {
+      if (new Date(tokenRecord.expiresAt) <= now) {
         // Try to refresh the token
         try {
           const newCredentials = await GoogleOAuthManager.refreshAccessToken(
@@ -25,19 +20,11 @@ export class GoogleTokenManager {
           );
 
           // Update the database with new tokens
-          const { error: updateError } = await supabase
-            .from('googleTokens')
-            .update({
-              accessToken: newCredentials.access_token!,
-              expiresAt: new Date(newCredentials.expiry_date || Date.now() + 3600000),
-              updatedAt: new Date()
-            })
-            .eq('userId', userId)
-            .eq('clientId', clientId);
-
-          if (updateError) {
-            throw updateError;
-          }
+          await apiClient.put(`/google-tokens/${userId}/${clientId}`, {
+            accessToken: newCredentials.access_token!,
+            expiresAt: new Date(newCredentials.expiry_date || Date.now() + 3600000),
+            updatedAt: new Date()
+          });
 
           return newCredentials.access_token!;
         } catch (refreshError) {
@@ -57,28 +44,13 @@ export class GoogleTokenManager {
 
   static async deleteTokens(userId: string, clientId: string): Promise<void> {
     try {
-      const { error: deleteError } = await supabase
-        .from('googleTokens')
-        .delete()
-        .eq('userId', userId)
-        .eq('clientId', clientId);
-
-      if (deleteError) {
-        throw deleteError;
-      }
+      await apiClient.delete(`/google-tokens/${userId}/${clientId}`);
 
       // Update business record
-      const { error: updateError } = await supabase
-        .from('business')
-        .update({ 
-          gmb_connected: false,
-          gmb_connected_at: null
-        })
-        .eq('id', clientId);
-
-      if (updateError) {
-        throw updateError;
-      }
+      await apiClient.put(`/business/${clientId}`, { 
+        gmb_connected: false,
+        gmb_connected_at: null
+      });
     } catch (error) {
       console.error('Error deleting tokens:', error);
     }

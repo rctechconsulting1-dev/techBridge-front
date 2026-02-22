@@ -5,7 +5,7 @@ import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React, { useEffect, useState, useCallback } from "react";
-import { supabase } from "../../superbase-client";
+import { apiClient } from "@/lib/api-client";
 import Button from "../../components/ui/button/Button";
 import { useRouter } from "next/navigation";
 import { SWRConfig } from 'swr'
@@ -23,10 +23,14 @@ export default function AdminLayout({
   const [session, setSession] = useState<any>(null)
 
   const fetchSession = useCallback(async () => {
-    const currentSession = await supabase.auth.getSession()
-    setSession(currentSession.data.session)
-    setActiveUser(currentSession.data.session?.user || null)
-  }, [setActiveUser])
+    const user = await apiClient.getSession()
+    if (!user) {
+      router.push('/signin')
+      return
+    }
+    setSession(user)
+    setActiveUser(user || null)
+  }, [setActiveUser, router])
 
   useEffect(() => {
     fetchSession()

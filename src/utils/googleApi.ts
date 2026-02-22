@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Post } from "@/types/googleBusiness";
-import { supabase } from "../superbase-client";
+import { apiClient } from "@/lib/api-client";
 
 export const getStoredGoogleTokens = () => {
   if (typeof window === 'undefined') return null;
@@ -67,25 +67,15 @@ export async function createGoogleBusinessPost(locationId: string, postData: any
 
         const gmb_response = await callGoogleMyBusinessAPI(locationId, postData, accessToken);
         
-        console.log('Attempting to save post to Supabase...');
-        const { data: savedPost, error: saveError } = await supabase
-            .from('gmb_posts')
-            .insert({
-                client_id: clientIdInt,
-                location_id: locationId,
-                gmb_post_id: gmb_response.name,
-                post_data: postData,
-                status: "published",
-                created_at: new Date().toISOString()
-            })
-            .select()
-            .single();
+        console.log('Attempting to save post to database via API...');
+        const savedPost = await apiClient.post('/gmb-posts', {
+            location_id: locationId,
+            gmb_post_id: gmb_response.name,
+            post_data: postData,
+            status: "published"
+        });
 
-        if (saveError) {
-            console.error('Error saving post to Supabase:', saveError);
-        } else {
-            console.log('Successfully saved post to Supabase:', savedPost);
-        }
+        console.log('Successfully saved post:', savedPost);
 
         return {
             success: true,
