@@ -27,7 +27,7 @@ export default function UserInfoCard({ user }: { user: User | null }) {
 
     // Call mutateUpdate and handle the response
     const updateResult = await mutateUpdate({
-      path: user?.id ? `/user?id=eq.${user?.id}` : null,
+      path: user?.id ? `/users/${user?.id}` : null,
       method: "PATCH",
       payload: updatedUser,
       mutateKey: `${getApiBaseUrl()}/users/${user?.id}`,
