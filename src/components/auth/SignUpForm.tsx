@@ -159,6 +159,7 @@ export default function SignUpForm() {
                     id="email"
                     name="email"
                     placeholder="Enter your email"
+                    autoComplete="email"
                   />
                 </div>
                 {/* <!-- Password --> */}
@@ -172,6 +173,7 @@ export default function SignUpForm() {
                       type={showPassword ? "text" : "password"}
                       id="password"
                       name="password"
+                      autoComplete="new-password"
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
