@@ -175,7 +175,7 @@ export default function SignInForm() {
                   <Label>
                     Email <span className="text-[#C41E3A]">*</span>{" "}
                   </Label>
-                  <Input placeholder="info@gmail.com" type="email" name="email" />
+                  <Input placeholder="info@gmail.com" type="email" name="email" autoComplete="email" />
                 </div>
                 <div>
                   <Label>

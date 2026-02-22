@@ -1,10 +1,16 @@
 import { apiClient } from '@/lib/api-client'; // Adjust to your database setup
 import { GoogleOAuthManager } from './google-oauth';
 
+interface GoogleToken {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string | Date;
+}
+
 export class GoogleTokenManager {
   static async getValidToken(userId: string, clientId: string): Promise<string | null> {
     try {
-      const tokenRecord = await apiClient.get(`/google-tokens/${userId}/${clientId}`);
+      const tokenRecord = await apiClient.get<GoogleToken>(`/google-tokens/${userId}/${clientId}`);
 
       if (!tokenRecord) {
         return null;
