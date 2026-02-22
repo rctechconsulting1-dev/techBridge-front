@@ -14,7 +14,11 @@ const RESOURCE_PATH_MAP: Record<string, string> = {
 const normalizePath = (path: string) => RESOURCE_PATH_MAP[path] || path;
 
 export const getApiBaseUrl = (): string => {
-  return (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
+  const rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
+  if (typeof window !== 'undefined' && /^https?:\/\//i.test(rawBaseUrl)) {
+    return '/api';
+  }
+  return rawBaseUrl;
 };
 
 export const toApiUrl = (pathOrUrl: string): string => {

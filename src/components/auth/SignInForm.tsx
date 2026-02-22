@@ -7,6 +7,7 @@ import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
+import { getApiBaseUrl } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignInForm() {
@@ -60,7 +61,8 @@ export default function SignInForm() {
     try {
       // Redirect to backend Google OAuth endpoint
       const redirectUrl = `${window.location.origin}/auth/callback`;
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google?redirect_uri=${encodeURIComponent(redirectUrl)}&next=${encodeURIComponent(nextDest)}`;
+      const apiBaseUrl = getApiBaseUrl();
+      window.location.href = `${apiBaseUrl}/auth/google?redirect_uri=${encodeURIComponent(redirectUrl)}&next=${encodeURIComponent(nextDest)}`;
     } catch (err) {
       const error = err as { message?: string };
       setError(error?.message || "Google sign-in failed. Please try again.");

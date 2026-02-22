@@ -3,7 +3,9 @@
  * Replaces Supabase client for authentication and data operations
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+import { getApiBaseUrl } from "@/lib/api";
+
+const API_URL = getApiBaseUrl();
 
 export interface AuthResponse {
   token: string;
