@@ -4,6 +4,20 @@ import type { NextConfig } from "next";
 // client-reference manifests and route transitions. See docs:
 // https://nextjs.org/docs/app/building-your-application/configuring
 const nextConfig: NextConfig = {
+  async rewrites() {
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!rawApiUrl || !/^https?:\/\//i.test(rawApiUrl)) {
+      return [];
+    }
+
+    const normalized = rawApiUrl.replace(/\/$/, '');
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${normalized}/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
