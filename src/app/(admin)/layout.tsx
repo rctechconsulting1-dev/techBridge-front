@@ -4,7 +4,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import Button from "../../components/ui/button/Button";
 import { useRouter } from "next/navigation";
@@ -22,19 +22,26 @@ export default function AdminLayout({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [session, setSession] = useState<any>(null)
 
-  const fetchSession = useCallback(async () => {
-    const user = await apiClient.getSession()
-    if (!user) {
-      router.push('/signin')
-      return
-    }
-    setSession(user)
-    setActiveUser(user || null)
-  }, [setActiveUser, router])
-
   useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const user = await apiClient.getSession()
+        if (!user) {
+          router.push('/signin')
+          return
+        }
+        setSession(user)
+        setActiveUser(user || null)
+      } catch (error) {
+        console.error('Failed to fetch session:', error)
+        router.push('/signin')
+      }
+    }
+
     fetchSession()
-  }, [fetchSession])
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen
