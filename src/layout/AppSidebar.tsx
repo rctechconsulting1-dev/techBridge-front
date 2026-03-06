@@ -1,9 +1,10 @@
 "use client";
-import React, { useEffect, useRef, useState,useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
+import { apiClient } from "@/lib/api-client";
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -44,7 +45,7 @@ const navItems: NavItem[] = [
     name: "User Profile",
     path: "/profile",
   },
-    {
+  {
     name: "Prompts",
     icon: <FileIcon />,
     subItems: [{ name: "Chat GPT", path: "/chat-gpt", pro: false }],
@@ -52,14 +53,17 @@ const navItems: NavItem[] = [
   {
     name: "Forms",
     icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }, { name: "Main Pages", path: "/main-page", pro: false }],
+    subItems: [
+      { name: "Form Elements", path: "/form-elements", pro: false },
+      { name: "Main Pages", path: "/main-page", pro: false },
+    ],
   },
   {
     name: "Google Business",
     icon: <PlugInIcon />,
     path: "/google-business",
   },
-    {
+  {
     icon: <VideoIcon />,
     name: "Assets",
     path: "/assets",
@@ -73,6 +77,7 @@ const navItems: NavItem[] = [
     name: "Pages",
     icon: <PageIcon />,
     subItems: [
+      { name: "Site Settings", path: "/site-settings", pro: false },
       { name: "Blank Page", path: "/blank", pro: false },
       { name: "404 Error", path: "/error-404", pro: false },
     ],
@@ -104,19 +109,49 @@ const othersItems: NavItem[] = [
     icon: <PlugInIcon />,
     name: "Authentication",
     subItems: [
-  { name: "Sign In", path: "/signin?next=/admin", pro: false },
+      { name: "Sign In", path: "/signin?next=/admin", pro: false },
       { name: "Sign Up", path: "/signup", pro: false },
     ],
   },
 ];
 
-const AppSidebar = ({  }) => {
+const AppSidebar = ({}) => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const [websiteId, setWebsiteId] = useState<number | null>(null);
+
+  useEffect(() => {
+    apiClient.getSession().then((user) => {
+      const u = user as { website_id?: number } | null;
+      if (u?.website_id) setWebsiteId(u.website_id);
+    });
+  }, []);
+
+  const computedNavItems = navItems.map((item) => {
+    if (item.name === "Pages") {
+      return {
+        ...item,
+        subItems: [
+          ...(item.subItems || []),
+          ...(websiteId
+            ? [
+                {
+                  name: "Landing Page",
+                  path: `/sites/${websiteId}`,
+                  pro: false,
+                  new: false,
+                },
+              ]
+            : []),
+        ],
+      };
+    }
+    return item;
+  });
 
   const renderMenuItems = (
     navItems: NavItem[],
-    menuType: "main" | "others"
+    menuType: "main" | "others",
   ) => (
     <ul className="flex flex-col gap-4">
       {navItems.map((nav, index) => (
@@ -124,7 +159,7 @@ const AppSidebar = ({  }) => {
           {nav.subItems ? (
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
-              className={`menu-item group  ${
+              className={`menu-item group ${
                 openSubmenu?.type === menuType && openSubmenu?.index === index
                   ? "menu-item-active"
                   : "menu-item-inactive"
@@ -148,10 +183,10 @@ const AppSidebar = ({  }) => {
               )}
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200  ${
+                  className={`ml-auto h-5 w-5 transition-transform duration-200 ${
                     openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
-                      ? "rotate-180 text-brand-500"
+                      ? "text-brand-500 rotate-180"
                       : ""
                   }`}
                 />
@@ -193,7 +228,7 @@ const AppSidebar = ({  }) => {
                     : "0px",
               }}
             >
-              <ul className="mt-2 space-y-1 ml-9">
+              <ul className="mt-2 ml-9 space-y-1">
                 {nav.subItems.map((subItem) => (
                   <li key={subItem.name}>
                     <Link
@@ -205,14 +240,14 @@ const AppSidebar = ({  }) => {
                       }`}
                     >
                       {subItem.name}
-                      <span className="flex items-center gap-1 ml-auto">
+                      <span className="ml-auto flex items-center gap-1">
                         {subItem.new && (
                           <span
                             className={`ml-auto ${
                               isActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge `}
+                            } menu-dropdown-badge`}
                           >
                             new
                           </span>
@@ -223,7 +258,7 @@ const AppSidebar = ({  }) => {
                               isActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge `}
+                            } menu-dropdown-badge`}
                           >
                             pro
                           </span>
@@ -245,12 +280,12 @@ const AppSidebar = ({  }) => {
     index: number;
   } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
+    {},
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => path === pathname;
-   const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
     // Check if the current path matches any submenu item
@@ -276,7 +311,7 @@ const AppSidebar = ({  }) => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [pathname,isActive]);
+  }, [pathname, isActive]);
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened
@@ -306,21 +341,18 @@ const AppSidebar = ({  }) => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
-        ${
-          isExpanded || isMobileOpen
-            ? "w-[290px]"
-            : isHovered
+      className={`fixed top-0 left-0 z-50 mt-16 flex h-screen flex-col border-r border-gray-200 bg-white px-5 text-gray-900 transition-all duration-300 ease-in-out lg:mt-0 dark:border-gray-800 dark:bg-gray-900 ${
+        isExpanded || isMobileOpen
+          ? "w-[290px]"
+          : isHovered
             ? "w-[290px]"
             : "w-[90px]"
-        }
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0`}
+      } ${isMobileOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-8 flex  ${
+        className={`flex py-8 ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
@@ -352,12 +384,12 @@ const AppSidebar = ({  }) => {
           )}
         </Link>
       </div>
-      <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
+      <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 flex text-xs leading-[20px] text-gray-400 uppercase ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
@@ -369,12 +401,12 @@ const AppSidebar = ({  }) => {
                   <HorizontaLDots />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(computedNavItems, "main")}
             </div>
 
             <div className="">
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 flex text-xs leading-[20px] text-gray-400 uppercase ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
