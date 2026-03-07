@@ -120,20 +120,22 @@ export default function SiteSettingsPage() {
       });
       if (res.ok) {
         const data: SiteSettings = await res.json();
-        const {
-          id: _id,
-          website_id: _wid,
-          created_at: _c,
-          updated_at: _u,
-          footer_nav_links: _fnl,
-          ...editable
-        } = data;
-        void _id;
-        void _wid;
-        void _c;
-        void _u;
-        void _fnl;
-        setForm(editable);
+        if (data?.id) {
+          const {
+            id: _id,
+            website_id: _wid,
+            created_at: _c,
+            updated_at: _u,
+            footer_nav_links: _fnl,
+            ...editable
+          } = data;
+          void _id;
+          void _wid;
+          void _c;
+          void _u;
+          void _fnl;
+          setForm(editable);
+        }
       }
     } finally {
       setLoading(false);

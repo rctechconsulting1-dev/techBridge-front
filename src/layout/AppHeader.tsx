@@ -12,7 +12,7 @@ import { useUser } from "../hooks/useUser";
 
 const AppHeader = ({ }: { session?: unknown }) => {
   // Context
-    const { isMobileOpen, toggleSidebar, toggleMobileSidebar, setSelectedClient } = useSidebar();
+    const { isMobileOpen, toggleSidebar, toggleMobileSidebar, setSelectedClient, user: currentUser } = useSidebar();
 
   // State
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
@@ -159,7 +159,7 @@ const AppHeader = ({ }: { session?: unknown }) => {
             </svg>
           </button>
 
-          <div className="hidden lg:block">
+          {currentUser?.role === 'admin' && <div className="hidden lg:block">
             <form onSubmit={(e) => e.preventDefault()}>
               <div className="relative">
                 <span className="absolute -translate-y-1/2 left-4 top-1/2 pointer-events-none">
@@ -208,7 +208,7 @@ const AppHeader = ({ }: { session?: unknown }) => {
                 />
               </div>
             </form>
-          </div>
+          </div>}
         </div>
         <div
           className={`${

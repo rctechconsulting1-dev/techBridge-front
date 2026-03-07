@@ -32,13 +32,12 @@ export default function AdminLayout({
         }
         setSession(user)
         setActiveUser(user || null)
-        if (user?.id || user?.email) {
-          const query = user?.id
-            ? `/users?users_id=eq.${encodeURIComponent(user.id)}`
-            : `/users?email=eq.${encodeURIComponent(user.email)}`;
-          const userRows = await fetcher(query, 'GET');
-          if (Array.isArray(userRows) && userRows[0]) {
-            setSelectedClient(userRows[0]);
+        if (user?.id) {
+          const fetched = await fetcher(`/users/${user.id}`, 'GET');
+          const dbUser = Array.isArray(fetched) ? fetched[0] : fetched;
+          if (dbUser) {
+            setActiveUser(dbUser);
+            setSelectedClient(dbUser);
           }
         }
       } catch (error) {
