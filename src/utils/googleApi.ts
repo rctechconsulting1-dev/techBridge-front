@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Post } from "@/types/googleBusiness";
-import { apiClient } from "@/lib/api-client";
 
 export const getStoredGoogleTokens = () => {
   if (typeof window === 'undefined') return null;
@@ -39,7 +38,28 @@ export const getGoogleUserProfile = async () => {
   return makeGoogleApiRequest('https://www.googleapis.com/oauth2/v2/userinfo');
 };
 
-export async function createGoogleBusinessPost(locationId: string, postData: any, clientId: number) {
+const _GOOGLE_API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+
+export async function createGoogleBusinessPost(locationId: string, postData: any, _clientId?: number) {
+    try {
+        const res = await fetch(`${_GOOGLE_API_URL}/google/post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ locationId, postData }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error((err as { error?: string }).error || `Google post failed: ${res.status}`);
+        }
+        return await res.json();
+    } catch (error) {
+        console.error('Error in createGoogleBusinessPost:', error);
+        throw error;
+    }
+}
+
+// Legacy direct-call kept for reference (no longer used by the app)
+export async function createGoogleBusinessPost_legacy(locationId: string, postData: any, clientId: number) {
     try {
         const clientIdInt = parseInt(clientId.toString());
         if (isNaN(clientIdInt)) {

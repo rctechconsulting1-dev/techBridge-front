@@ -16,12 +16,13 @@ const SCOPES = [
 ];
 
 export class GoogleOAuthManager {
-  static generateAuthUrl(state?: string) {
+  static generateAuthUrl(state?: string, loginHint?: string) {
     return oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent',
-      state: state || 'default'
+      state: state || 'default',
+      ...(loginHint ? { login_hint: loginHint } : {}),
     });
   }
 

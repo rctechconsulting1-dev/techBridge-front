@@ -11,6 +11,7 @@ export const useBusinessByWebsiteId = (websiteId: number | null): {
     business: BusinessListingRow | null;
     isLoading: boolean;
     error: Error | undefined;
+    mutate: () => void;
 } => {
     const res: SWRResponse = useSWR(
         websiteId ? `${getApiBaseUrl()}/business-listings?website_id=${websiteId}` : null,
@@ -23,5 +24,6 @@ export const useBusinessByWebsiteId = (websiteId: number | null): {
         business: res?.data ? res.data[0] : null,
         isLoading: websiteId ? !res.error && !res.data : false,
         error: res.error,
+        mutate: res.mutate,
     };
 }
