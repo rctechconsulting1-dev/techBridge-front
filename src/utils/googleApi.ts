@@ -41,8 +41,6 @@ export const getGoogleUserProfile = async () => {
 
 export async function createGoogleBusinessPost(locationId: string, postData: any, clientId: number) {
     try {
-        console.log('Creating GMB post:', { locationId, postData, clientId });
-
         const clientIdInt = parseInt(clientId.toString());
         if (isNaN(clientIdInt)) {
             throw new Error('Invalid clientId format');
@@ -56,7 +54,6 @@ export async function createGoogleBusinessPost(locationId: string, postData: any
         }
 
         if (isTokenExpired(accessToken)) {
-            console.log('Access token expired, attempting to refresh...');
             accessToken = await refreshGoogleToken();
             
             if (!accessToken) {
@@ -67,15 +64,12 @@ export async function createGoogleBusinessPost(locationId: string, postData: any
 
         const gmb_response = await callGoogleMyBusinessAPI(locationId, postData, accessToken);
         
-        console.log('Attempting to save post to database via API...');
         const savedPost = await apiClient.post('/gmb-posts', {
             location_id: locationId,
             gmb_post_id: gmb_response.name,
             post_data: postData,
             status: "published"
         });
-
-        console.log('Successfully saved post:', savedPost);
 
         return {
             success: true,
@@ -90,26 +84,16 @@ export async function createGoogleBusinessPost(locationId: string, postData: any
 }
 
 export async function callGoogleMyBusinessAPI(locationId: string, postData: any, accessToken: string) {
-    console.log('Using Google Business Profile API v4');
-    console.log('Post data:', postData);
-    
     try {
         const googleUrl = `https://mybusiness.googleapis.com/v4/accounts/${process.env.NEXT_PUBLIC_GOOGLE_MY_BUSINESS_ACCOUNT_ID}/locations/${locationId}/localPosts`;
-        const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/google-business-posts`;
 
-        const response = await fetch(functionUrl, {
+        const response = await fetch(googleUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_KEY ?? '',
-                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY ?? ''}`,
-            } as HeadersInit,
-            body: JSON.stringify({
-                url: googleUrl,
-                method: 'POST',
-                payload: postData,
-                googleAuth: `Bearer ${accessToken}`,
-            }),
+                'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(postData),
         });
 
         if (!response.ok) {
@@ -129,7 +113,6 @@ export async function callGoogleMyBusinessAPI(locationId: string, postData: any,
         }
 
         const result = await response.json();
-        console.log('Google Business Profile API response:', result);
         return result;
 
     } catch (error) {
@@ -202,7 +185,6 @@ export function formatPostForAPI(post: Post) {
         formattedPost.product = post.product;
     }
 
-    console.log('Formatted post for API:', formattedPost);
     return formattedPost;
 }
 
@@ -239,7 +221,6 @@ export async function refreshGoogleToken(): Promise<string | null> {
 
         const { accessToken } = await response.json();
         localStorage.setItem('google_access_token', accessToken);
-        console.log('Successfully refreshed Google access token');
         return accessToken;
     } catch (error) {
         console.error('Error refreshing token:', error);

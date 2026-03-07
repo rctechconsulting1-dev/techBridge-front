@@ -60,7 +60,6 @@ export default forwardRef<MultipleFileInputRef, {
     const uploadedImages = images.filter(img => img.uploadedUrl);
     
     if (uploadedImages.length === 0) {
-      console.log('No images to save');
       return;
     }
 

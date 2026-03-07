@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { apiClient } from "@/lib/api-client";
+import { toast } from "react-toastify";
 import { getApiBaseUrl } from "@/lib/api";
+import { useSidebar } from "@/context/SidebarContext";
 import type { SiteSettings } from "@/lib/cms-types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -69,7 +71,10 @@ function authHeaders() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SiteSettingsPage() {
+  const { selectedClient } = useSidebar();
+  const router = useRouter();
   const [websiteId, setWebsiteId] = useState<number | null>(null);
+  const toastShown = useRef(false);
   const [tab, setTab] = useState<Tab>("settings");
 
   // Settings state
@@ -163,19 +168,21 @@ export default function SiteSettingsPage() {
   }, []);
 
   useEffect(() => {
-    apiClient.getSession().then((user) => {
-      const u = user as { website_id?: number } | null;
-      const wid = u?.website_id ?? null;
-      setWebsiteId(wid);
-      if (wid) {
-        loadSettings(wid);
-        loadServices(wid);
-        loadTeam(wid);
-      } else {
-        setLoading(false);
+    const wid = selectedClient?.website_id ?? null;
+    if (!wid) {
+      if (selectedClient !== undefined && !toastShown.current) {
+        toastShown.current = true;
+        toast.warn("No website found for this account. Please complete your profile setup first.");
+        router.push('/profile');
       }
-    });
-  }, [loadSettings, loadServices, loadTeam]);
+      return;
+    }
+    toastShown.current = false;
+    setWebsiteId(wid);
+    loadSettings(wid);
+    loadServices(wid);
+    loadTeam(wid);
+  }, [selectedClient, router, loadSettings, loadServices, loadTeam]);
 
   // ── Settings save ──
   const handleSave = async () => {

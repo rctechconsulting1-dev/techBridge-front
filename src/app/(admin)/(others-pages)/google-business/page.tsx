@@ -47,8 +47,6 @@ export default function GoogleBusinessPage() {
 
     const handleCreatePost = async (postData: Post[]) => {
         try {
-            console.log("Creating posts:", postData);
-
             const validPosts = postData.filter(post => {
                 if (!post.summary || post.summary.trim() === '') {
                     console.warn('Skipping post with empty summary');
@@ -84,7 +82,6 @@ export default function GoogleBusinessPage() {
             const failed = results.filter(r => r.status === 'rejected');
 
             if (successful > 0) {
-                console.log(`Successfully created ${successful} post(s)`);
                 setOauthStatus({ type: 'success', message: `Successfully created ${successful} post(s)!` });
             }
 

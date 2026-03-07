@@ -10,10 +10,6 @@ export const fetcher = async <T>(
   const resolvedUrl = toApiUrl(url);
   const resolvedMethod = methodToBackendMethod(method);
 
-  console.log('Fetcher - Making request to:', resolvedUrl);
-  console.log('Fetcher - Method:', method);
-  console.log('Fetcher - Payload:', payload);
-
   const res = await fetch(resolvedUrl, {
     method: resolvedMethod,
     headers: {
@@ -23,9 +19,6 @@ export const fetcher = async <T>(
     credentials: 'include',
     body: payload ? JSON.stringify(payload) : null,
   });
-
-  console.log('Fetcher - Response status:', res.status);
-  console.log('Fetcher - Response ok:', res.ok);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -41,6 +34,5 @@ export const fetcher = async <T>(
 
   // Check if the response body is empty
   const text = await res.text();
-  console.log('Fetcher - Response text:', text);
   return text ? JSON.parse(text) : null;
 };

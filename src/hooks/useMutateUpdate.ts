@@ -72,10 +72,6 @@ export async function mutateUpdate({
         }
     }
 
-    console.log('mutateUpdate - Full URL:', fullPath);
-    console.log('mutateUpdate - Method:', normalizedMethod);
-    console.log('mutateUpdate - Payload:', payload);
-    
     try {
         if (mutateKey) {
             const resolvedKey = toApiUrl(mutateKey);
@@ -90,12 +86,10 @@ export async function mutateUpdate({
                     throwOnError: true,
                 }
             );
-            console.log('mutateUpdate - Success response:', res);
             return { response: res, error: null };
         }
 
         const res = await fetcher(fullPath, normalizedMethod, undefined, payload, additionalHeaders);
-        console.log('mutateUpdate - Success response:', res);
         return { response: res, error: null };
     } catch (error) {
         console.error('Error in mutateUpdate:', error);

@@ -56,9 +56,6 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
   }, []);
 
   const createNewPage = useCallback(async (data: PageCreationData & { content?: string }) => {
-    console.log('usePageManager createNewPage called with:', data);
-    console.log('websiteId:', websiteId);
-    
     if (!websiteId) {
       console.error('No websiteId provided to createNewPage');
       return;
@@ -80,8 +77,6 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
       sort_order: 0,
     };
 
-    console.log('Sending pageData to API:', pageData);
-
     const result = await mutateUpdate({
       path: "/page",
       method: "POST",
@@ -90,8 +85,6 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
         Prefer: "return=representation",
       },
     });
-
-    console.log('mutateUpdate result:', result);
 
     if (result.response && onSuccess) {
       onSuccess();

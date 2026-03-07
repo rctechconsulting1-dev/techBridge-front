@@ -23,9 +23,9 @@ const AppHeader = ({ }: { session?: unknown }) => {
   //SWR Hooks
   const { user } = useUser(userId);
 
-  useEffect(()=>{
-    if (Array.isArray(user) && user[0]) {
-      setSelectedClient(user[0])
+  useEffect(() => {
+    if (user) {
+      setSelectedClient(user);
     }
   }, [user, setSelectedClient])
 
@@ -59,6 +59,7 @@ const AppHeader = ({ }: { session?: unknown }) => {
   }, []);
 
   const onHandleSearchChosen = (user: UserTable) => {
+    setSelectedClient(user);
     setSearchValue(user.email ?? "");
     setUserId(user.id);
     setSearchDropdownOpen(false);

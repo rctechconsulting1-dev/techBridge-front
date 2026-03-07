@@ -24,22 +24,16 @@ export const useImageUpload = () => {
     imageData: ImageData[]
   ) => {
     if (!pageId || !imageData || imageData.length === 0) {
-      console.log('No images to upload or page ID missing');
       return { success: true, imageIds: [] };
     }
 
     try {
-      console.log('Starting image upload process for page:', pageId);
-      console.log('Image data:', imageData);
-
       // Step 1: Create image entries in the image table
       const imagePayload: ImageInsert[] = imageData.map(img => ({
         url: img.url,
         alt_text: img.alt_text || null,
         caption: img.caption || null,
       }));
-
-      console.log('Creating image entries:', imagePayload);
 
       const imageResponse = await mutateUpdate({
         path: "/image",
@@ -55,8 +49,6 @@ export const useImageUpload = () => {
         throw new Error(`Failed to create images: ${imageResponse.error}`);
       }
 
-      console.log("Image creation response:", imageResponse.response);
-
       // Step 2: Create page_image relationships
       if (imageResponse.response && Array.isArray(imageResponse.response)) {
         const createdImages = imageResponse.response as Array<{ id: number }>;
@@ -65,8 +57,6 @@ export const useImageUpload = () => {
           page_id: pageId,
           image_id: img.id,
         }));
-
-        console.log('Creating page-image relationships:', pageImagePayload);
 
         const relationshipResponse = await mutateUpdate({
           path: "/page_image",
@@ -81,8 +71,6 @@ export const useImageUpload = () => {
           console.error("Error creating page-image relationships:", relationshipResponse.error);
           throw new Error(`Failed to create page-image relationships: ${relationshipResponse.error}`);
         }
-
-        console.log("Page-image relationships created:", relationshipResponse.response);
 
         return {
           success: true,
@@ -128,7 +116,6 @@ export const useImageUpload = () => {
       
       if (pages && pages.length > 0) {
         const lastPageId = pages[0].id;
-        console.log('Last page ID:', lastPageId);
         return lastPageId;
       } else {
         throw new Error('No pages found');

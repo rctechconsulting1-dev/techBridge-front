@@ -145,13 +145,9 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
 
   // Effect to handle AI content agent responses
   useEffect(() => {
-    console.log('AI Effect triggered:', { data, error, isAILoading });
-    
     if (data && !isAILoading) {
       const ideas = parseIdeas(data);
       const messageId = Date.now().toString();
-      
-      console.log('Processing AI data:', { step: data.step, ideasLength: ideas.length });
       
       if (ideas.length > 0 && data.step === 'ideas_generated') {
         setChatMessages(prev => [...prev, {
@@ -234,8 +230,6 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
 
   const handleGenerateIdeas = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Generating ideas with data:', aiFormData);
-    
     const userMessage = `Starting content generation for ${aiFormData.industry} business in ${aiFormData.city}, targeting "${aiFormData.keyword}"`;
     setChatMessages(prev => [...prev, {
       id: Date.now().toString(),
@@ -248,8 +242,6 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   };
 
   const handleChooseIdea = (idea: string) => {
-    console.log('Choosing idea:', idea);
-    
     setChatMessages(prev => [...prev, {
       id: Date.now().toString(),
       type: 'user',
@@ -296,19 +288,6 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   const canSubmit = !!(formData.title && formData.slug && canProceedToStep2);
 
   const handleSubmit = () => {
-    console.log('PageCreationWizard handleSubmit called', {
-      canSubmit,
-      formData,
-      selectedContent: selectedContent?.substring(0, 100),
-      validation: {
-        hasTitle: !!formData.title,
-        hasSlug: !!formData.slug,
-        hasPageType: !!formData.page_type,
-        hasTemplateType: !!formData.template_type,
-        canProceedToStep2
-      }
-    });
-    
     if (canSubmit && formData.page_type && formData.template_type && formData.title && formData.slug) {
       const pageData: PageCreationData & { content?: string } = {
         page_type: formData.page_type,
@@ -326,16 +305,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
         pageData.content = selectedContent;
       }
       
-      console.log('Calling onCreatePage with:', pageData);
       onCreatePage(pageData);
-    } else {
-      console.log('Cannot submit - validation failed:', {
-        canSubmit,
-        hasPageType: !!formData.page_type,
-        hasTemplateType: !!formData.template_type,
-        hasTitle: !!formData.title,
-        hasSlug: !!formData.slug
-      });
     }
   };
 

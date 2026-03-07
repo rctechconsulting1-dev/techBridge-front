@@ -1,8 +1,10 @@
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import "@mdxeditor/editor/style.css";
+import "react-toastify/dist/ReactToastify.css";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { ToastContainer } from "react-toastify";
 import type { Metadata } from "next";
 
 const outfit = Outfit({
@@ -100,6 +102,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SidebarProvider>{children}</SidebarProvider>
         </ThemeProvider>
+        <ToastContainer position="top-right" autoClose={false} hideProgressBar closeOnClick={false} newestOnTop theme="colored" style={{ top: "1rem", right: "1rem", width: "360px", zIndex: 999999 }} />
       </body>
     </html>
   );

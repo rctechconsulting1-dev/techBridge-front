@@ -62,7 +62,6 @@ export class GoogleOAuthManager {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Token is expired, try to refresh
-      console.log('Access token expired, refreshing...');
       const newCredentials = await this.refreshAccessToken(refreshToken);
       return newCredentials.access_token;
     }

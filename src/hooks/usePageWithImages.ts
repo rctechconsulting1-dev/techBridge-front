@@ -40,11 +40,6 @@ export const usePageWithImages = (websiteId?: number | null) => {
     onError?: (error: string) => void
   ) => {
     try {
-      console.log('Starting page creation with images...');
-      console.log('Page data:', pageData);
-      console.log('Image data:', imageData);
-      console.log('Website ID:', websiteId);
-
       if (!websiteId) {
         const errorMsg = 'No websiteId provided for page creation';
         console.error(errorMsg);
@@ -68,8 +63,6 @@ export const usePageWithImages = (websiteId?: number | null) => {
         sort_order: 0,
       };
 
-      console.log('Creating page with payload:', pagePayload);
-
       const pageResult = await mutateUpdate({
         path: "/page",
         method: "POST",
@@ -86,40 +79,28 @@ export const usePageWithImages = (websiteId?: number | null) => {
         return { success: false, error: errorMsg };
       }
 
-      console.log('Page created successfully:', pageResult.response);
-
       // Get the created page ID
       let pageId: number;
       
       if (pageResult.response && Array.isArray(pageResult.response) && pageResult.response.length > 0) {
         // If the response contains the created page with ID
         const firstPage = pageResult.response[0] as Record<string, unknown>;
-        console.log('First page object from response:', firstPage);
-        
         if (firstPage && typeof firstPage.id === 'number') {
           pageId = firstPage.id;
-          console.log('Successfully extracted page ID from response:', pageId);
         } else {
           console.warn('Page object does not have valid ID, using fallback method');
-          console.log('Page object structure:', firstPage);
           // Fallback: get the last inserted page ID
           pageId = await getLastPageId(websiteId);
         }
       } else {
         // Fallback: get the last inserted page ID
-        console.log('Response is not an array or empty, getting last page ID as fallback...');
-        console.log('Response structure:', pageResult.response);
         pageId = await getLastPageId(websiteId);
       }
-
-      console.log('Using page ID:', pageId);
 
       // Step 2: Upload images if provided
       let imageIds: number[] = [];
       
       if (imageData && imageData.length > 0) {
-        console.log('Uploading images for page...');
-        
         const imageUploadResult = await uploadImagesForPage(pageId, imageData);
         
         if (!imageUploadResult.success) {
@@ -135,13 +116,10 @@ export const usePageWithImages = (websiteId?: number | null) => {
         }
         
         imageIds = imageUploadResult.imageIds;
-        console.log('Images uploaded successfully. Image IDs:', imageIds);
       }
 
       // Step 3: Success callback
       const result = { pageId, imageIds };
-      console.log('Page creation with images completed successfully:', result);
-      
       if (onSuccess) onSuccess(result);
       
       return { 

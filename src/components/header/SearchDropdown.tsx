@@ -99,7 +99,6 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
   
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCtaClick = (user: any) => {
-    console.log("User clicked:", user);
     onHandleSearchChosen(user);
     onClose();
   }

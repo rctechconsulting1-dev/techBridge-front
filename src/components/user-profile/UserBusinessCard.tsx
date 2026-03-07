@@ -10,11 +10,12 @@ import { mutateUpdate } from "../../hooks/useMutateUpdate";
 import { useSidebar } from "../../context/SidebarContext";
 import { mutate } from "swr";
 import { getApiBaseUrl } from "@/lib/api";
+import { toast } from "react-toastify";
 
 
 export default function UserBusinessCard() {
   // Context
-  const { selectedClient } = useSidebar();
+  const { selectedClient, setSelectedClient } = useSidebar();
   // SWR
   const { business } = useBusinessByWebsiteId(selectedClient?.website_id ?? null);
   // Modal state
@@ -62,70 +63,80 @@ export default function UserBusinessCard() {
     }));
   };
   const handleSave = async () => {
-    if (!selectedClient?.website_id) {
-      const result = await mutateUpdate({
+    let websiteId = selectedClient?.website_id ?? null;
+
+    // Step 1: If no website yet, create one and link it to the user
+    if (!websiteId) {
+      const websiteResult = await mutateUpdate({
         path: "/website",
         method: "POST",
-        payload: {
-          name: formData.name,
-        },
-        additionalHeaders: {
-          Prefer: "return=representation",
-        },
-      })
-      if (result.error) {
-        console.error("Error saving user data:", result.error);
-        return
+        payload: { name: formData.name },
+        additionalHeaders: { Prefer: "return=representation" },
+      });
+      if (websiteResult.error) {
+        toast.error("Failed to create website. Please try again.");
+        return;
       }
-      const websiteResponse = result.response as { id: number } | { id: number }[];
-      const websiteId: number | undefined = Array.isArray(websiteResponse) ? websiteResponse[0]?.id : websiteResponse?.id;
-
+      const websiteResponse = websiteResult.response as { id: number } | { id: number }[];
+      websiteId = Array.isArray(websiteResponse) ? websiteResponse[0]?.id : websiteResponse?.id;
       if (!websiteId) {
-        console.error("Website creation did not return an id");
+        toast.error("Website creation did not return an id.");
         return;
       }
 
-      mutateUpdate({
+      // Link website to user
+      await mutateUpdate({
         path: `/user?id=eq.${selectedClient?.id}`,
         method: "PATCH",
-        payload: {
-          website_id: websiteId,
-        },
+        payload: { website_id: websiteId },
       });
-      mutateUpdate({
-        path: `/business_listing`,
-        method: "POST",
-        mutateKey: `${getApiBaseUrl()}/business-listings?website_id=${websiteId}`,
-        payload: {
-          business_name: formData.name,
-          address: formData.address,
-          rating: formData.rating,
-          review_count: formData.reviewCount,
-          xUrl: formData.xUrl,
-          instagram: formData.instagram,
-          facebook: formData.facebook,
-          website_id: websiteId,
-        },
-      });
+
+      // Update context so future saves know the website_id
+      setSelectedClient({ ...selectedClient, website_id: websiteId });
     }
-    if(selectedClient?.website_id) {
-    mutateUpdate({
-      path: `/business_listing?website_id=eq.${selectedClient?.website_id}`,
-      method: "PATCH",
-      mutateKey: `${getApiBaseUrl()}/business-listings?website_id=${selectedClient?.website_id}`,
-      payload: {
-        business_name: formData.name,
-        address: formData.address,
-        rating: formData.rating,
-        review_count: formData.reviewCount,
-        xUrl: formData.xUrl,
-        instagram: formData.instagram,
-        facebook: formData.facebook,
-        website_id: selectedClient?.website_id,
-      },
-    });
-  }
-    mutate(`${getApiBaseUrl()}/users/${selectedClient?.id}`);
+
+    // Step 2: Build the business listing payload
+    const listingPayload = {
+      business_name: formData.name,
+      address: formData.address,
+      rating: formData.rating,
+      review_count: formData.reviewCount,
+      xUrl: formData.xUrl,
+      instagram: formData.instagram,
+      facebook: formData.facebook,
+      website_id: websiteId,
+    };
+
+    const mutateKey = `${getApiBaseUrl()}/business-listings?website_id=${websiteId}`;
+
+    if (business?.id) {
+      // Update existing listing
+      const result = await mutateUpdate({
+        path: `/business-listings/${business.id}`,
+        method: "PATCH",
+        mutateKey,
+        payload: listingPayload,
+      });
+      if (result.error) {
+        toast.error("Failed to update business information.");
+        return;
+      }
+    } else {
+      // Create first listing
+      const result = await mutateUpdate({
+        path: "/business_listing",
+        method: "POST",
+        mutateKey,
+        payload: listingPayload,
+      });
+      if (result.error) {
+        toast.error("Failed to save business information.");
+        return;
+      }
+    }
+
+    await mutate(`${getApiBaseUrl()}/users/${selectedClient?.id}`);
+    toast.success("Business information saved successfully.");
     closeModal();
   };
   return (

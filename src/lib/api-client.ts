@@ -1,6 +1,5 @@
 /**
  * API Client for communicating with the Node.js/Express backend
- * Replaces Supabase client for authentication and data operations
  */
 
 import { getApiBaseUrl } from "@/lib/api";

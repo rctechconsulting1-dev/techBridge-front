@@ -151,7 +151,6 @@ export default function FileInputExample() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      console.log("Selected file:", file.name);
       setImageFile(file);
       setUploading(true);
       
@@ -170,7 +169,6 @@ export default function FileInputExample() {
         const { url } = await uploadToS3(fileWithGeo);
 
         setUploadedUrl(url);
-        console.log("Image compressed, EXIF data added, and uploaded successfully to:", url);
       } catch (error) {
         console.error("Error processing image:", error);
       } finally {

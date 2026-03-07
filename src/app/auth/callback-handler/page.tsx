@@ -15,13 +15,10 @@ function AuthCallbackHandlerContent() {
         const user = await apiClient.getSession();
         
         if (!user) {
-          console.log('No session found in callback');
           router.push('/signin');
           return;
         }
 
-        console.log('Session found in callback:', user);
-        
         // Redirect to destination
         router.push(next);
       } catch (error) {

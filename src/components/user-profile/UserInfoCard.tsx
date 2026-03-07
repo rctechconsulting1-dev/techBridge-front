@@ -61,7 +61,6 @@ export default function UserInfoCard({ user }: { user: User | null }) {
       if (nextUser) {
         setSelectedClient(nextUser as User);
       }
-      console.log("User updated successfully:", responseData);
       closeModal();
     } catch (error) {
       console.error("Error details:", error);

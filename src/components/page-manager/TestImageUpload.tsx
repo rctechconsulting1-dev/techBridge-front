@@ -52,7 +52,6 @@ export default function TestImageUpload({ websiteId }: TestImageUploadProps) {
         pageData,
         imageData,
         (successResult) => {
-          console.log('✅ Success callback triggered:', successResult);
           setResult(`✅ Success! Page ID: ${successResult.pageId}, Image IDs: ${successResult.imageIds.join(', ')}`);
         },
         (error) => {
@@ -61,8 +60,6 @@ export default function TestImageUpload({ websiteId }: TestImageUploadProps) {
         }
       );
 
-      console.log('Final result:', uploadResult);
-      
       if (uploadResult.success) {
         setResult(prev => prev + `\n\nFinal result: Page created with ID ${uploadResult.pageId}`);
         if (uploadResult.imageIds && uploadResult.imageIds.length > 0) {

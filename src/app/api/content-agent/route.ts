@@ -83,7 +83,6 @@ const generateContentIdeas = async ({ city, industry, keyword }: { city: string,
   });
   
   const parsedResponse = ContentIdeas.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  console.log("Content Ideas Response:", parsedResponse);
   return parsedResponse;
 };
 
@@ -139,7 +138,6 @@ Analyze potential gaps and opportunities. Provide target keywords, titles, and s
       }
     }
   });
-  console.log("Competitor Gaps Response:", response);
   return response.choices[0].message.content;
 };
 
@@ -166,7 +164,6 @@ const createContentOutline = async ({ userChosenIdea }: { userChosenIdea: string
   });
   
   const parsedResponse = Content.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  console.log("Content Outline Response:", parsedResponse);
   return parsedResponse;
 };
 
@@ -224,7 +221,6 @@ Focus on providing real value to readers while naturally incorporating the targe
   });
   
   const parsedResponse = MarkdownContent.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  console.log("Markdown Content Response:", parsedResponse);
   return parsedResponse;
 };
 
@@ -256,7 +252,6 @@ const generateMetadata = async ({ content }: { content: string }) => {
   });
   
   const parsedResponse = Metadata.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  console.log("Metadata Response:", parsedResponse);
   return parsedResponse;
 };
 
@@ -269,8 +264,6 @@ export async function POST(request: Request) {
     }
 
     const { ourUrl, city, industry, keyword, competitor1Url, service, userChosenIdea, content } = await request.json();
-    console.log("Request Data:", { ourUrl, city, industry, keyword, competitor1Url, service, userChosenIdea, content });
-    
     // Step 1: Generate content ideas (initial request)
     if (!userChosenIdea && !content && city && industry && keyword) {
       const contentIdeas = await generateContentIdeas({ city, industry, keyword });
