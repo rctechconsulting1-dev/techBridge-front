@@ -31,8 +31,9 @@ export default function FeaturesSection({ services, settings }: Props) {
               key={service.id}
               className="group rounded-2xl border border-gray-100 bg-gray-50 p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
             >
-              {/* Accent bar */}
+              {/* Accent bar - decorative */}
               <div
+                aria-hidden="true"
                 className="mb-6 h-1 w-12 rounded-full transition-all duration-300 group-hover:w-20"
                 style={{ backgroundColor: primary }}
               />

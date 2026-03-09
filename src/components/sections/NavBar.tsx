@@ -42,6 +42,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
 
   return (
     <nav
+      aria-label="Main navigation"
       className={`sticky top-0 z-50 w-full bg-white transition-shadow duration-200 ${
         scrolled ? "shadow-md" : "border-b border-gray-100"
       }`}
@@ -50,7 +51,8 @@ export default function NavBar({ websiteId, website, settings }: Props) {
         {/* Logo / Brand */}
         <Link
           href={base}
-          className="flex items-center gap-2 focus:outline-none"
+          className="flex items-center gap-2 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{ outlineColor: primary } as React.CSSProperties}
         >
           {logoUrl ? (
             <Image
@@ -79,7 +81,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
                 <Link
                   href={href}
                   onClick={() => setMenuOpen(false)}
-                  className="group flex flex-col items-center gap-0.5 text-sm font-medium text-gray-600 transition-colors focus:outline-none"
+                  className="group flex flex-col items-center gap-0.5 rounded-sm text-sm font-medium text-gray-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: active ? primary : undefined }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = primary;
@@ -112,10 +114,11 @@ export default function NavBar({ websiteId, website, settings }: Props) {
 
         {/* Mobile hamburger */}
         <button
-          className="flex flex-col items-center justify-center gap-1.5 rounded-md p-2 text-gray-600 md:hidden"
+          className="flex flex-col items-center justify-center gap-1.5 rounded-md p-2 text-gray-600 focus-visible:outline-2 focus-visible:outline-offset-2 md:hidden"
           onClick={() => setMenuOpen((o) => !o)}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
+          aria-controls="mobile-menu"
         >
           <span
             className={`block h-0.5 w-6 rounded bg-current transition-transform duration-200 ${
@@ -137,7 +140,10 @@ export default function NavBar({ websiteId, website, settings }: Props) {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="border-t border-gray-100 bg-white md:hidden">
+        <div
+          id="mobile-menu"
+          className="border-t border-gray-100 bg-white md:hidden"
+        >
           <ul className="flex flex-col px-4 py-3">
             {NAV_LINKS.map(({ label, href }) => {
               const active = isActive(href);

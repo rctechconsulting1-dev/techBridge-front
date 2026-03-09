@@ -20,6 +20,8 @@ export interface SiteSettings {
   primary_color: string;
   secondary_color: string;
   accent_color: string;
+  font_url: string | null;
+  font_family: string | null;
   // Contact
   contact_email: string | null;
   contact_phone: string | null;

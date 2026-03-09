@@ -53,21 +53,21 @@ export default function FooterSection({ website, settings }: Props) {
 
           {/* Nav links */}
           {navLinks.length > 0 && (
-            <div>
+            <nav aria-label="Footer navigation">
               <h4 className="mb-4 font-semibold text-white">Quick Links</h4>
               <ul className="space-y-2">
                 {navLinks.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm transition-colors hover:text-white"
+                      className="rounded-sm text-sm transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2"
                     >
                       {link.label}
                     </Link>
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
           )}
 
           {/* Social */}
@@ -81,7 +81,8 @@ export default function FooterSection({ website, settings }: Props) {
                     href={s.href!}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80"
+                    aria-label={`${s.label} (opens in new tab)`}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{ backgroundColor: primary }}
                   >
                     {s.label}
