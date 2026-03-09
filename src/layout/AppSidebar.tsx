@@ -26,7 +26,13 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  subItems?: {
+    name: string;
+    path: string;
+    pro?: boolean;
+    new?: boolean;
+    external?: boolean;
+  }[];
 };
 
 const navItems: NavItem[] = [
@@ -140,6 +146,7 @@ const AppSidebar = ({}) => {
                   path: `/sites/${websiteId}`,
                   pro: false,
                   new: false,
+                  external: true,
                 },
               ]
             : []),
@@ -238,6 +245,8 @@ const AppSidebar = ({}) => {
                           ? "menu-dropdown-item-active"
                           : "menu-dropdown-item-inactive"
                       }`}
+                      target={subItem.external ? "_blank" : undefined}
+                      rel={subItem.external ? "noopener noreferrer" : undefined}
                     >
                       {subItem.name}
                       <span className="ml-auto flex items-center gap-1">
