@@ -1,3 +1,25 @@
+// Shared display type used across components and utils
+export interface Post {
+  id: number;
+  topicType: string;
+  languageCode: string;
+  summary: string;
+  callToAction: {
+    actionType: string;
+    url: string;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  media: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  event: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  offer: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  product: any;
+  scheduleTime: string;
+  alertType: string;
+}
+
 export interface GoogleBusinessPost {
   languageCode: string;
   summary: string;

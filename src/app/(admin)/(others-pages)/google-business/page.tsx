@@ -7,7 +7,7 @@ import { useSidebar } from "../../../../context/SidebarContext";
 import { GoogleBusinessProfileView } from "../../../../components/google-business/GoogleBusinessProfileView";
 import { CreatePostModal } from "../../../../components/google-business/CreatePostModal";
 import { createGoogleBusinessPost, formatPostForAPI } from "../../../../utils/googleApi";
-import type { Post } from "@/types/googleBusiness";
+import type { Post } from "@/types/google-business";
 
 interface OAuthStatus { type: 'success' | 'error'; message: string; }
 interface GmbLocation { locationId: string; name: string; title: string; address: string; accountId: string; }

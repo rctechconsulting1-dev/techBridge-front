@@ -1,173 +1,152 @@
-# TailAdmin Next.js - Free Next.js Tailwind Admin Dashboard Template
+# RC Tech Bridge — Admin Dashboard
 
-TailAdmin is a free and open-source admin dashboard template built on **Next.js and Tailwind CSS** providing developers with everything they need to create a feature-rich and data-driven: back-end, dashboard, or admin panel solution for any sort of web project.
+A custom admin dashboard built for RC Tech Bridge, powering multi-tenant client website management, Google Business Profile integration, and AI-assisted content generation.
 
-![TailAdmin - Next.js Dashboard Preview](./banner.png)
+Built on **Next.js 15**, **React 19**, **TypeScript**, and **Tailwind CSS v4**.
 
-With TailAdmin Next.js, you get access to all the necessary dashboard UI components, elements, and pages required to build a high-quality and complete dashboard or admin panel. Whether you're building a dashboard or admin panel for a complex web application or a simple website. 
-
-TailAdmin utilizes the powerful features of **Next.js 15** and common features of Next.js such as server-side rendering (SSR), static site generation (SSG), and seamless API route integration. Combined with the advancements of **React 19** and the robustness of **TypeScript**, TailAdmin is the perfect solution to help get your project up and running quickly.
+---
 
 ## Overview
 
-TailAdmin provides essential UI components and layouts for building feature-rich, data-driven admin dashboards and control panels. It's built on:
+This dashboard enables RC Tech Bridge to manage client digital presence end-to-end:
 
-- Next.js 15.x
+- **Multi-tenant CMS** — Create and publish dynamic websites for each client via ISR-powered `sites/[websiteId]` routes
+- **Google Business Profile** — Connect, post, view reviews, and track performance for client GMB listings
+- **AI Content Agent** — OpenAI-powered pipeline: idea generation → outline → full markdown content → SEO metadata
+- **Page Manager** — MDX editor with image uploads, page hierarchy, and SEO metadata management
+- **Asset Manager** — S3 image uploads and asset library per client
+- **Calendar** — FullCalendar integration for scheduling
+- **Authentication** — Supabase-backed sign-in/sign-up with Google OAuth
+
+### Tech Stack
+
+- Next.js 15.x (App Router, Server Components, ISR)
 - React 19
 - TypeScript
-- Tailwind CSS V4
+- Tailwind CSS v4
+- Supabase (auth + database)
+- AWS S3 (asset storage)
+- OpenAI (content generation)
+- Google Business Profile API
 
-### Quick Links
-- [✨ Visit Website](https://tailadmin.com)
-- [📄 Documentation](https://tailadmin.com/docs)
-- [⬇️ Download](https://tailadmin.com/download)
-- [🖌️ Figma Design File (Community Edition)](https://www.figma.com/community/file/1463141366275764364)
-- [⚡ Get PRO Version](https://tailadmin.com/pricing)
-
-### Demos
-- [Free Version](https://nextjs-free-demo.tailadmin.com)
-- [Pro Version](https://nextjs-demo.tailadmin.com)
-
-### Other Versions
-- [HTML Version](https://github.com/TailAdmin/tailadmin-free-tailwind-dashboard-template)
-- [React Version](https://github.com/TailAdmin/free-react-tailwind-admin-dashboard)
-- [Vue.js Version](https://github.com/TailAdmin/vue-tailwind-admin-dashboard)
+---
 
 ## Installation
 
 ### Prerequisites
-To get started with TailAdmin, ensure you have the following prerequisites installed and set up:
 
-- Node.js 18.x or later (recommended to use Node.js 20.x or later)
+- Node.js 18.x or later (20.x recommended)
 
-### Cloning the Repository
-Clone the repository using the following command:
+### Setup
 
-```bash
-git clone https://github.com/TailAdmin/free-nextjs-admin-dashboard.git
-```
-
-> Windows Users: place the repository near the root of your drive if you face issues while cloning.
-
-1. Install dependencies:
+1. Clone the repository and install dependencies:
     ```bash
     npm install
-    # or
-    yarn install
     ```
-    > Use `--legacy-peer-deps` flag if you face peer-dependency error during installation.
+    > Use `--legacy-peer-deps` if you encounter peer-dependency errors.
 
-2. Start the development server:
+2. Copy environment variables and fill in your values:
+    ```bash
+    cp .env.example .env.local
+    ```
+
+3. Start the development server:
     ```bash
     npm run dev
-    # or
-    yarn dev
     ```
 
-## Components
+---
 
-TailAdmin is a pre-designed starting point for building a web-based dashboard using Next.js and Tailwind CSS. The template includes:
+## Project Structure
 
-- Sophisticated and accessible sidebar
-- Data visualization components
-- Profile management and custom 404 page
-- Tables and Charts(Line and Bar)
-- Authentication forms and input elements
-- Alerts, Dropdowns, Modals, Buttons and more
-- Can't forget Dark Mode 🕶️
+```
+src/
+├── app/
+│   ├── (admin)/          # Protected admin routes (auth-guarded)
+│   ├── (full-width-pages)/ # Auth pages and error pages
+│   ├── api/              # API routes (Google OAuth, content agent, S3, revalidation)
+│   ├── auth/             # Supabase auth callback handlers
+│   ├── sites/[websiteId]/ # ISR-rendered public client websites
+│   └── page.tsx          # RC Tech Bridge public landing page
+├── components/
+│   ├── google-business/  # GMB connect, posts, reviews, performance
+│   ├── landing/          # Public marketing page sections
+│   ├── page-manager/     # Page creation wizard and MDX editor
+│   ├── sections/         # CMS-driven client site sections (templates)
+│   ├── ecommerce/        # Dashboard metric components (UI templates)
+│   ├── charts/           # Chart components (UI templates)
+│   ├── form/             # Form primitives and field components
+│   └── ui/               # Core UI primitives (Alert, Badge, Button, Modal, etc.)
+├── hooks/                # SWR data hooks
+├── lib/                  # API client, CMS helpers, Google OAuth manager
+├── types/                # TypeScript type definitions
+└── utils/                # Google Business API utilities
+```
 
-All components are built with React and styled using Tailwind CSS for easy customization.
+---
 
-## Feature Comparison
+## Key Features
 
-### Free Version
-- 1 Unique Dashboard
-- 30+ dashboard components
-- 50+ UI elements
-- Basic Figma design files
-- Community support
+### Client Site Engine
+Each client gets a dynamically-generated website served from `sites/[websiteId]/`. Pages are rendered server-side with ISR and driven entirely by CMS data — branding colors, content, team, services, FAQs, and testimonials are all configurable per client.
 
-### Pro Version
-- 5 Unique Dashboards: Analytics, Ecommerce, Marketing, CRM, Stocks (more coming soon)
-- 400+ dashboard components and UI elements
-- Complete Figma design file
-- Email support
+### Google Business Integration
+Admins can connect a client's Google Business Profile via OAuth, create posts (standard, event, offer), view reviews, and monitor performance metrics — all from the dashboard.
 
-To learn more about pro version features and pricing, visit our [pricing page](https://tailadmin.com/pricing).
+### AI Content Agent
+The `/chat-gpt` page runs a multi-step AI pipeline: enter a topic, select from generated ideas, get a full outline, then generate complete page-ready markdown content with SEO metadata.
 
-## Changelog
+### Page Manager
+The `/main-page` form combines MDX editing, AI content generation, image management, and SEO metadata into a single workflow for creating and updating client pages.
 
-### Version 2.0.2 - [March 25, 2025]
+---
 
-- Upgraded to Next v15.2.3 for [CVE-2025-29927](https://nextjs.org/blog/cve-2025-29927) concerns
-- Included overrides vectormap for packages to prevent peer dependency errors during installation.
-- Migrated from react-flatpickr to flatpickr package for React 19 support
+## Component Library
 
-### Version 2.0.1 - [February 27, 2025]
+The dashboard includes a set of reusable UI primitives and template components deliberately kept for building new features and client sites:
 
-#### Update Overview
+- **UI elements** — Alert, Avatar, Badge, Button, Dropdown, Modal, Table
+- **Charts** — Bar and Line charts (ApexCharts)
+- **Ecommerce widgets** — KPI cards, sales charts, demographic map (dashboard templates)
+- **Form elements** — All input types, dropdowns, file upload, date picker
+- **Video embeds** — YouTube embed and aspect ratio wrappers
+- **Image grids** — Responsive and multi-column layouts
+- **Sections** — NavBar, Hero, Features, Testimonials, Team, FAQ, CTA, Footer (for client sites)
 
-- Upgraded to Tailwind CSS v4 for better performance and efficiency.
-- Updated class usage to match the latest syntax and features.
-- Replaced deprecated class and optimized styles.
+---
 
-#### Next Steps
+## Environment Variables
 
-- Run npm install or yarn install to update dependencies.
-- Check for any style changes or compatibility issues.
-- Refer to the Tailwind CSS v4 [Migration Guide](https://tailwindcss.com/docs/upgrade-guide) on this release. if needed.
-- This update keeps the project up to date with the latest Tailwind improvements. 🚀
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | Backend API base URL |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | Google OAuth redirect URI |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `REVALIDATE_SECRET` | Secret for ISR revalidation webhook |
+| `S3_UPLOAD_KEY` | AWS S3 access key |
+| `S3_UPLOAD_SECRET` | AWS S3 secret key |
+| `S3_UPLOAD_BUCKET` | AWS S3 bucket name |
+| `S3_UPLOAD_REGION` | AWS S3 region |
 
-### v2.0.0 (February 2025)
-A major update focused on Next.js 15 implementation and comprehensive redesign.
+---
 
-#### Major Improvements
-- Complete redesign using Next.js 15 App Router and React Server Components
-- Enhanced user interface with Next.js-optimized components
-- Improved responsiveness and accessibility
-- New features including collapsible sidebar, chat screens, and calendar
-- Redesigned authentication using Next.js App Router and server actions
-- Updated data visualization using ApexCharts for React
+## Developer Guide
 
-#### Breaking Changes
+See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for:
+- Breaking changes and how to update imports after each refactor
+- New environment setup steps
+- Database migration instructions
+- Google Business OAuth setup
+- Adding new client sites
+- Troubleshooting common issues
 
-- Migrated from Next.js 14 to Next.js 15
-- Chart components now use ApexCharts for React
-- Authentication flow updated to use Server Actions and middleware
-
-[Read more](https://tailadmin.com/docs/update-logs/nextjs) on this release.
-
-#### Breaking Changes
-- Migrated from Next.js 14 to Next.js 15
-- Chart components now use ApexCharts for React
-- Authentication flow updated to use Server Actions and middleware
-
-### v1.3.4 (July 01, 2024)
-- Fixed JSvectormap rendering issues
-
-### v1.3.3 (June 20, 2024)
-- Fixed build error related to Loader component
-
-### v1.3.2 (June 19, 2024)
-- Added ClickOutside component for dropdown menus
-- Refactored sidebar components
-- Updated Jsvectormap package
-
-### v1.3.1 (Feb 12, 2024)
-- Fixed layout naming consistency
-- Updated styles
-
-### v1.3.0 (Feb 05, 2024)
-- Upgraded to Next.js 14
-- Added Flatpickr integration
-- Improved form elements
-- Enhanced multiselect functionality
-- Added default layout component
+---
 
 ## License
 
-TailAdmin Next.js Free Version is released under the MIT License.
+MIT
 
-## Support
-
-If you find this project helpful, please consider giving it a star on GitHub. Your support helps us continue developing and maintaining this template.
