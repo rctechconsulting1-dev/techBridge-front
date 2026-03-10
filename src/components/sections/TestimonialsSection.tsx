@@ -30,10 +30,15 @@ export default function TestimonialsSection({ testimonials, settings }: Props) {
               className="flex flex-col rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100"
             >
               {/* Stars */}
-              <div className="mb-4 flex gap-1">
+              <div
+                className="mb-4 flex gap-1"
+                role="img"
+                aria-label={`${t.star_rating} out of 5 stars`}
+              >
                 {Array.from({ length: 5 }).map((_, i) => (
                   <svg
                     key={i}
+                    aria-hidden="true"
                     className="h-5 w-5"
                     fill={i < t.star_rating ? primary : "#e5e7eb"}
                     viewBox="0 0 20 20"
@@ -58,6 +63,7 @@ export default function TestimonialsSection({ testimonials, settings }: Props) {
                   </div>
                 ) : (
                   <div
+                    aria-label={t.author_name}
                     className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white"
                     style={{ backgroundColor: primary }}
                   >

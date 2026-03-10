@@ -174,8 +174,10 @@ export default function SiteSettingsPage() {
     if (!wid) {
       if (selectedClient !== undefined && !toastShown.current) {
         toastShown.current = true;
-        toast.warn("No website found for this account. Please complete your profile setup first.");
-        router.push('/profile');
+        toast.warn(
+          "No website found for this account. Please complete your profile setup first.",
+        );
+        router.push("/profile");
       }
       return;
     }
@@ -394,11 +396,26 @@ export default function SiteSettingsPage() {
       </div>
     );
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "settings", label: "Site Settings" },
-    { id: "services", label: "Services" },
-    { id: "team", label: "Team / About" },
+  const TABS: { id: Tab; label: string; previewPath: string }[] = [
+    {
+      id: "settings",
+      label: "Site Settings",
+      previewPath: `/sites/${websiteId}`,
+    },
+    {
+      id: "services",
+      label: "Services",
+      previewPath: `/sites/${websiteId}/services`,
+    },
+    {
+      id: "team",
+      label: "Team / About",
+      previewPath: `/sites/${websiteId}/about`,
+    },
   ];
+
+  const previewUrl =
+    TABS.find((t) => t.id === tab)?.previewPath ?? `/sites/${websiteId}`;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
@@ -413,7 +430,7 @@ export default function SiteSettingsPage() {
           </p>
         </div>
         <Link
-          href={`/sites/${websiteId}`}
+          href={previewUrl}
           target="_blank"
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
         >
@@ -501,6 +518,20 @@ export default function SiteSettingsPage() {
                 label="Logo URL (optional)"
                 value={form.logo_url ?? ""}
                 onChange={(v) => set("logo_url", v)}
+              />
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="Google Fonts URL (optional)"
+                value={form.font_url ?? ""}
+                onChange={(v) => set("font_url", v)}
+                hint="Paste a Google Fonts embed URL, e.g. https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+              />
+              <Field
+                label="Font Family CSS (optional)"
+                value={form.font_family ?? ""}
+                onChange={(v) => set("font_family", v)}
+                hint="CSS font-family value, e.g. 'Inter', sans-serif"
               />
             </div>
           </div>

@@ -33,6 +33,7 @@ export default function TeamSection({ team, settings }: Props) {
                   />
                 ) : (
                   <div
+                    aria-label={member.name}
                     className="flex h-full w-full items-center justify-center text-4xl font-bold text-white"
                     style={{ backgroundColor: primary }}
                   >
@@ -62,10 +63,25 @@ export default function TeamSection({ team, settings }: Props) {
                   href={member.linkedin_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm font-medium transition-colors hover:underline"
+                  aria-label={`${member.name}'s LinkedIn profile (opens in new tab)`}
+                  className="inline-flex items-center gap-1 rounded-sm text-sm font-medium transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: primary }}
                 >
-                  LinkedIn ↗
+                  LinkedIn
+                  <svg
+                    aria-hidden="true"
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
                 </a>
               )}
             </div>
