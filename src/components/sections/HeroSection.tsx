@@ -19,6 +19,7 @@ export default function HeroSection({ website, settings }: Props) {
   return (
     <section
       id="hero"
+      aria-label="Hero"
       className="relative flex min-h-[80vh] scroll-mt-16 items-center overflow-hidden"
       style={{
         background: bgImage
@@ -32,6 +33,7 @@ export default function HeroSection({ website, settings }: Props) {
           <EditableImage src={bgImage} alt={headline} fill priority />
           <div
             className="absolute inset-0"
+            aria-hidden="true"
             style={{
               backgroundColor: settings?.hero_bg_overlay_color ?? "#000000",
               opacity: 0.5,

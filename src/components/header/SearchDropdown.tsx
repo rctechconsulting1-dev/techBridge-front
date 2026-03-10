@@ -30,7 +30,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
 }) => {
   // Context 
   const dropdownRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const [filteredResults, setFilteredResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
 

@@ -54,7 +54,7 @@ export default function GoogleBusinessPage() {
             setPendingLocationPick(false);
             if (business?.id) openLocationPicker();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [pendingLocationPick, agencyConnected, isLoading, business?.id]);
 
     const connectAgencyGoogle = async () => {

@@ -53,18 +53,22 @@ export default async function SiteLandingPage({ params }: Props) {
     "--cms-primary": settings?.primary_color ?? "#CD7F32",
     "--cms-secondary": settings?.secondary_color ?? "#ffffff",
     "--cms-accent": settings?.accent_color ?? "#0070f3",
+    ...(settings?.font_family && { fontFamily: settings.font_family }),
   } as React.CSSProperties;
 
   return (
-    <div style={cssVars} className="[scroll-behavior:smooth]">
-      <NavBar websiteId={websiteId} website={website} settings={settings} />
-      <HeroSection website={website} settings={settings} />
-      <FeaturesSection services={services} settings={settings} />
-      <TestimonialsSection testimonials={testimonials} settings={settings} />
-      <TeamSection team={team} settings={settings} />
-      <FAQSection faq={faq} settings={settings} />
-      <CTASection settings={settings} />
-      <FooterSection website={website} settings={settings} />
-    </div>
+    <>
+      {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
+      <div style={cssVars} className="[scroll-behavior:smooth]">
+        <NavBar websiteId={websiteId} website={website} settings={settings} />
+        <HeroSection website={website} settings={settings} />
+        <FeaturesSection services={services} settings={settings} />
+        <TestimonialsSection testimonials={testimonials} settings={settings} />
+        <TeamSection team={team} settings={settings} />
+        <FAQSection faq={faq} settings={settings} />
+        <CTASection settings={settings} />
+        <FooterSection website={website} settings={settings} />
+      </div>
+    </>
   );
 }

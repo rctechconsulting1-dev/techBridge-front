@@ -30,12 +30,16 @@ export default function FAQSection({ faq, settings }: Props) {
             >
               <button
                 onClick={() => setOpen(open === item.id ? null : item.id)}
-                className="flex w-full items-center justify-between px-6 py-5 text-left"
+                aria-expanded={open === item.id}
+                aria-controls={`faq-answer-${item.id}`}
+                id={`faq-question-${item.id}`}
+                className="flex w-full items-center justify-between rounded-xl px-6 py-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 <span className="pr-4 font-semibold text-gray-900">
                   {item.question}
                 </span>
                 <span
+                  aria-hidden="true"
                   className="flex-shrink-0 text-2xl font-light transition-transform duration-300"
                   style={{
                     color: primary,
@@ -47,7 +51,12 @@ export default function FAQSection({ faq, settings }: Props) {
               </button>
 
               {open === item.id && (
-                <div className="border-t border-gray-100 px-6 py-5">
+                <div
+                  id={`faq-answer-${item.id}`}
+                  role="region"
+                  aria-labelledby={`faq-question-${item.id}`}
+                  className="border-t border-gray-100 px-6 py-5"
+                >
                   <p className="leading-relaxed text-gray-600">{item.answer}</p>
                 </div>
               )}
