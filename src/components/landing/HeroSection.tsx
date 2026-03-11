@@ -32,7 +32,7 @@ const HeroSection = () => {
 
             <p className="mb-8 text-xl leading-relaxed text-gray-600">
               Focus on growing your business while we handle all the technical
-              obstacles. RC-ND Tech Bridge provides seamless technology solutions
+              obstacles. RiNa Tech Bridge provides seamless technology solutions
               that work behind the scenes.
             </p>
 
