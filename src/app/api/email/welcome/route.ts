@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   const { to, firstName } = parsed.data;
 
-  const { data, error } = await sendWelcomeEmail({ to, firstName });
+  const { data, error } = await sendWelcomeEmail({ to, firstName: firstName ?? undefined });
 
   if (error) {
     console.error("[email/welcome] Resend error:", JSON.stringify(error));
