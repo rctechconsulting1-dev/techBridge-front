@@ -14,26 +14,29 @@ export default function FAQSection({ faq, settings }: Props) {
   if (faq.length === 0) return null;
 
   return (
-    <section id="faq" className="scroll-mt-16 bg-gray-50 py-20 lg:py-28">
+    <section id="faq" className="scroll-mt-20 bg-white py-24">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-16 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-gray-900 sm:text-4xl">
-            Frequently Asked Questions
+        <div className="mb-14 text-center">
+          <p
+            className="mb-3 text-xs font-semibold uppercase tracking-widest"
+            style={{ color: primary }}
+          >
+            Got Questions?
+          </p>
+          <h2 className="text-4xl font-bold text-gray-900 sm:text-5xl">
+            FAQ
           </h2>
         </div>
 
-        <div className="space-y-4">
+        <div className="divide-y divide-gray-100 border border-gray-100">
           {faq.map((item) => (
-            <div
-              key={item.id}
-              className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-            >
+            <div key={item.id}>
               <button
                 onClick={() => setOpen(open === item.id ? null : item.id)}
                 aria-expanded={open === item.id}
                 aria-controls={`faq-answer-${item.id}`}
                 id={`faq-question-${item.id}`}
-                className="flex w-full items-center justify-between rounded-xl px-6 py-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="flex w-full items-center justify-between px-6 py-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 <span className="pr-4 font-semibold text-gray-900">
                   {item.question}
@@ -55,7 +58,7 @@ export default function FAQSection({ faq, settings }: Props) {
                   id={`faq-answer-${item.id}`}
                   role="region"
                   aria-labelledby={`faq-question-${item.id}`}
-                  className="border-t border-gray-100 px-6 py-5"
+                  className="border-t border-gray-100 bg-[#FDF8F3] px-6 py-5"
                 >
                   <p className="leading-relaxed text-gray-600">{item.answer}</p>
                 </div>

@@ -23,44 +23,58 @@ export default function FooterSection({ website, settings }: Props) {
   ].filter((s) => !!s.href);
 
   return (
-    <footer className="bg-gray-900 text-gray-400">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <footer style={{ backgroundColor: "#111" }} className="text-gray-400">
+      {/* Main footer columns */}
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-3">
           {/* Brand */}
-          <div>
-            <h3 className="mb-3 text-xl font-bold text-white">{siteName}</h3>
-            {tagline && <p className="mb-4 leading-relaxed">{tagline}</p>}
-            {settings?.contact_email && (
-              <a
-                href={`mailto:${settings.contact_email}`}
-                className="block text-sm hover:text-white"
-              >
-                {settings.contact_email}
-              </a>
+          <div className="md:col-span-1">
+            <h3
+              className="mb-4 text-2xl font-bold"
+              style={{ color: primary }}
+            >
+              {siteName}
+            </h3>
+            {tagline && (
+              <p className="mb-6 text-sm leading-relaxed italic text-gray-400">
+                {tagline}
+              </p>
             )}
-            {settings?.contact_phone && (
-              <a
-                href={`tel:${settings.contact_phone}`}
-                className="block text-sm hover:text-white"
-              >
-                {settings.contact_phone}
-              </a>
-            )}
-            {settings?.address && (
-              <p className="mt-2 text-sm">{settings.address}</p>
-            )}
+            <div className="space-y-2 text-sm">
+              {settings?.contact_email && (
+                <a
+                  href={`mailto:${settings.contact_email}`}
+                  className="block transition-colors hover:text-white"
+                >
+                  {settings.contact_email}
+                </a>
+              )}
+              {settings?.contact_phone && (
+                <a
+                  href={`tel:${settings.contact_phone}`}
+                  className="block transition-colors hover:text-white"
+                >
+                  {settings.contact_phone}
+                </a>
+              )}
+              {settings?.address && (
+                <p className="text-sm">{settings.address}</p>
+              )}
+            </div>
           </div>
 
           {/* Nav links */}
           {navLinks.length > 0 && (
             <nav aria-label="Footer navigation">
-              <h4 className="mb-4 font-semibold text-white">Quick Links</h4>
-              <ul className="space-y-2">
+              <h4 className="mb-5 text-xs font-semibold uppercase tracking-widest text-white">
+                Quick Links
+              </h4>
+              <ul className="space-y-3">
                 {navLinks.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="rounded-sm text-sm transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+                      className="text-sm transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2"
                     >
                       {link.label}
                     </Link>
@@ -73,7 +87,9 @@ export default function FooterSection({ website, settings }: Props) {
           {/* Social */}
           {socials.length > 0 && (
             <div>
-              <h4 className="mb-4 font-semibold text-white">Follow Us</h4>
+              <h4 className="mb-5 text-xs font-semibold uppercase tracking-widest text-white">
+                Follow Us
+              </h4>
               <div className="flex flex-wrap gap-3">
                 {socials.map((s) => (
                   <a
@@ -82,7 +98,7 @@ export default function FooterSection({ website, settings }: Props) {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`${s.label} (opens in new tab)`}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{ backgroundColor: primary }}
                   >
                     {s.label}
@@ -92,10 +108,11 @@ export default function FooterSection({ website, settings }: Props) {
             </div>
           )}
         </div>
+      </div>
 
-        <div className="mt-12 border-t border-gray-800 pt-8 text-center text-sm">
-          {copyright}
-        </div>
+      {/* Bottom bar */}
+      <div className="border-t border-gray-800 py-6 text-center text-xs text-gray-600">
+        {copyright}
       </div>
 
       {/* Google Maps embed */}
