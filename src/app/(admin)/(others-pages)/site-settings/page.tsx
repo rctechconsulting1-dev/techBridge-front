@@ -551,6 +551,15 @@ export default function SiteSettingsPage() {
     setConfirmDeleteProductId(null);
   };
 
+  const toggleEcommerce = () => {
+    const currentTab = tab;
+    setForm((prev) => {
+      const next = !prev.ecommerce_enabled;
+      if (!next && currentTab === "shop") setTab("settings");
+      return { ...prev, ecommerce_enabled: next };
+    });
+  };
+
   // ── Guards ──
   if (loading)
     return <div className="p-8 text-gray-400">Loading settings…</div>;
@@ -863,13 +872,7 @@ export default function SiteSettingsPage() {
               </div>
               <button
                 type="button"
-                onClick={() =>
-                  setForm((prev) => {
-                    const next = !prev.ecommerce_enabled;
-                    if (!next && tab === "shop") setTab("settings");
-                    return { ...prev, ecommerce_enabled: next };
-                  })
-                }
+                onClick={toggleEcommerce}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
                   form.ecommerce_enabled
                     ? "bg-[#CD7F32]"
