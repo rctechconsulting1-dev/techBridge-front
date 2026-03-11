@@ -12,7 +12,10 @@ export default function CTASection({ settings }: Props) {
   const buttonText = settings?.cta_button_text;
   const buttonUrl = settings?.cta_button_url ?? "#contact";
   const bgColor =
-    settings?.cta_bg_color ?? settings?.primary_color ?? "#CD7F32";
+    settings?.cta_bg_color ??
+    settings?.accent_color ??
+    settings?.primary_color ??
+    "#CD7F32";
 
   if (!headline && !buttonText) return null;
 
@@ -29,14 +32,14 @@ export default function CTASection({ settings }: Props) {
           </h2>
         )}
         {body && (
-          <p className="mx-auto mb-10 max-w-xl text-lg font-light italic leading-relaxed text-white/85">
+          <p className="mx-auto mb-10 max-w-xl text-lg leading-relaxed font-light text-white/85 italic">
             {body}
           </p>
         )}
         {buttonText && (
           <Link
             href={buttonUrl}
-            className="inline-block border-2 border-white px-10 py-4 text-sm font-semibold uppercase tracking-widest text-white transition-colors duration-300 hover:bg-white"
+            className="inline-block border-2 border-white px-10 py-4 text-sm font-semibold tracking-widest text-white uppercase transition-colors duration-300 hover:bg-white"
             style={{ "--hover-color": bgColor } as React.CSSProperties}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLAnchorElement).style.color = bgColor;

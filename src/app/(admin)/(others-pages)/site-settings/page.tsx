@@ -21,6 +21,22 @@ interface Service {
   title: string;
   slug: string;
   content: string | null;
+  image_url: string | null;
+}
+
+interface Product {
+  id: number;
+  title: string;
+  slug: string;
+  description: string | null;
+  price: string;
+  compare_at_price: string | null;
+  image_url: string | null;
+  stock_quantity: number;
+  is_published: boolean;
+  sort_order: number;
+  average_rating: string;
+  review_count: number;
 }
 
 interface TeamMember {
@@ -33,7 +49,7 @@ interface TeamMember {
   sort_order: number;
 }
 
-type Tab = "settings" | "services" | "team";
+type Tab = "settings" | "services" | "team" | "shop";
 
 // ─── Style constants ──────────────────────────────────────────────────────────
 
@@ -92,6 +108,7 @@ export default function SiteSettingsPage() {
     title: "",
     slug: "",
     content: "",
+    image_url: "",
   });
   const [serviceSaving, setServiceSaving] = useState(false);
   const [serviceError, setServiceError] = useState<string | null>(null);
@@ -110,6 +127,27 @@ export default function SiteSettingsPage() {
   });
   const [teamSaving, setTeamSaving] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
+
+  // Products state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productEdit, setProductEdit] = useState<number | "new" | null>(null);
+  const [productForm, setProductForm] = useState({
+    title: "",
+    slug: "",
+    description: "",
+    price: "",
+    compare_at_price: "",
+    image_url: "",
+    stock_quantity: "99",
+    is_published: true,
+    sort_order: 0,
+  });
+  const [productSaving, setProductSaving] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+  const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<
+    number | null
+  >(null);
 
   // ── Load settings ──
   const loadSettings = useCallback(async (wid: number) => {
@@ -169,6 +207,19 @@ export default function SiteSettingsPage() {
     }
   }, []);
 
+  // ── Load products ──
+  const loadProducts = useCallback(async (wid: number) => {
+    setProductsLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/products?website_id=${wid}`, {
+        cache: "no-store",
+      });
+      if (res.ok) setProducts(await res.json());
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const wid = selectedClient?.website_id ?? null;
     if (!wid) {
@@ -186,7 +237,15 @@ export default function SiteSettingsPage() {
     loadSettings(wid);
     loadServices(wid);
     loadTeam(wid);
-  }, [selectedClient, router, loadSettings, loadServices, loadTeam]);
+    loadProducts(wid);
+  }, [
+    selectedClient,
+    router,
+    loadSettings,
+    loadServices,
+    loadTeam,
+    loadProducts,
+  ]);
 
   // ── Settings save ──
   const handleSave = async () => {
@@ -230,12 +289,17 @@ export default function SiteSettingsPage() {
 
   // ── Services CRUD ──
   const startNewService = () => {
-    setServiceForm({ title: "", slug: "", content: "" });
+    setServiceForm({ title: "", slug: "", content: "", image_url: "" });
     setServiceEdit("new");
     setServiceError(null);
   };
   const startEditService = (s: Service) => {
-    setServiceForm({ title: s.title, slug: s.slug, content: s.content ?? "" });
+    setServiceForm({
+      title: s.title,
+      slug: s.slug,
+      content: s.content ?? "",
+      image_url: s.image_url ?? "",
+    });
     setServiceEdit(s.id);
     setServiceError(null);
   };
@@ -385,6 +449,108 @@ export default function SiteSettingsPage() {
     if (res.ok) setTeam((p) => p.filter((m) => m.id !== id));
   };
 
+  // ── Products CRUD ──
+  const startNewProduct = () => {
+    setProductForm({
+      title: "",
+      slug: "",
+      description: "",
+      price: "",
+      compare_at_price: "",
+      image_url: "",
+      stock_quantity: "99",
+      is_published: true,
+      sort_order: 0,
+    });
+    setProductEdit("new");
+    setProductError(null);
+  };
+  const startEditProduct = (p: Product) => {
+    setProductForm({
+      title: p.title,
+      slug: p.slug,
+      description: p.description ?? "",
+      price: p.price,
+      compare_at_price: p.compare_at_price ?? "",
+      image_url: p.image_url ?? "",
+      stock_quantity: String(p.stock_quantity),
+      is_published: p.is_published,
+      sort_order: p.sort_order,
+    });
+    setProductEdit(p.id);
+    setProductError(null);
+  };
+  const cancelProduct = () => {
+    setProductEdit(null);
+    setProductError(null);
+  };
+  const setProductField = (
+    key: keyof typeof productForm,
+    val: string | boolean | number,
+  ) =>
+    setProductForm((f) => ({
+      ...f,
+      [key]: val,
+      ...(key === "title" && productEdit === "new"
+        ? { slug: slugify(String(val)) }
+        : {}),
+    }));
+
+  const saveProduct = async () => {
+    if (!productForm.title.trim() || !productForm.price) {
+      setProductError("Title and price are required.");
+      return;
+    }
+    setProductSaving(true);
+    setProductError(null);
+    try {
+      const payload = {
+        ...productForm,
+        price: parseFloat(productForm.price),
+        compare_at_price: productForm.compare_at_price
+          ? parseFloat(productForm.compare_at_price)
+          : null,
+        stock_quantity: parseInt(String(productForm.stock_quantity), 10),
+        compare_at_price_val: undefined,
+      };
+      if (productEdit === "new") {
+        const res = await fetch(`${getApiBaseUrl()}/products`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ ...payload, website_id: websiteId }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const created: Product = await res.json();
+        setProducts((prev) => [created, ...prev]);
+      } else {
+        const res = await fetch(`${getApiBaseUrl()}/products/${productEdit}`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const updated: Product = await res.json();
+        setProducts((prev) =>
+          prev.map((p) => (p.id === updated.id ? updated : p)),
+        );
+      }
+      cancelProduct();
+    } catch (e) {
+      setProductError(e instanceof Error ? e.message : "Save failed.");
+    } finally {
+      setProductSaving(false);
+    }
+  };
+
+  const deleteProduct = async (id: number) => {
+    const res = await fetch(`${getApiBaseUrl()}/products/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (res.ok) setProducts((prev) => prev.filter((p) => p.id !== id));
+    setConfirmDeleteProductId(null);
+  };
+
   // ── Guards ──
   if (loading)
     return <div className="p-8 text-gray-400">Loading settings…</div>;
@@ -412,6 +578,15 @@ export default function SiteSettingsPage() {
       label: "Team / About",
       previewPath: `/sites/${websiteId}/about`,
     },
+    ...(form.ecommerce_enabled
+      ? [
+          {
+            id: "shop" as Tab,
+            label: "Shop",
+            previewPath: `/sites/${websiteId}/shop`,
+          },
+        ]
+      : []),
   ];
 
   const previewUrl =
@@ -485,11 +660,28 @@ export default function SiteSettingsPage() {
                   onChange={(v) => set("hero_cta_url", v)}
                 />
               </div>
-              <Field
-                label="Background Image URL (optional)"
-                value={form.hero_bg_image_url ?? ""}
-                onChange={(v) => set("hero_bg_image_url", v)}
-              />
+              <div>
+                <Field
+                  label="Background Image URL (optional)"
+                  value={form.hero_bg_image_url ?? ""}
+                  onChange={(v) => set("hero_bg_image_url", v)}
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Paste a direct image URL. Used as the hero background on your
+                  public site.
+                </p>
+                {form.hero_bg_image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={form.hero_bg_image_url}
+                    alt="Hero background preview"
+                    className="mt-3 h-40 w-full rounded-lg border border-gray-200 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
@@ -563,11 +755,25 @@ export default function SiteSettingsPage() {
                   onChange={(v) => set("cta_button_url", v)}
                 />
               </div>
-              <ColorField
-                label="Background Color"
-                value={form.cta_bg_color ?? "#CD7F32"}
-                onChange={(v) => set("cta_bg_color", v)}
-              />
+              <div>
+                <ColorField
+                  label="Background Color"
+                  value={form.cta_bg_color ?? "#CD7F32"}
+                  onChange={(v) => set("cta_bg_color", v)}
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  If left at default, falls back to:{" "}
+                  <span className="font-medium text-gray-500">
+                    Accent color
+                  </span>
+                  {" → "}
+                  <span className="font-medium text-gray-500">
+                    Primary color
+                  </span>
+                  {" → "}
+                  <span className="font-medium text-gray-500">#CD7F32</span>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -639,6 +845,45 @@ export default function SiteSettingsPage() {
                   hint="Paste the src URL from Google Maps → Share → Embed a map"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* E-commerce */}
+          <div className={SECTION}>
+            <p className={SECTION_TITLE}>E-commerce</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-white">
+                  Enable Shop
+                </p>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Shows a Shop link in the nav and enables the product grid
+                  page.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((prev) => {
+                    const next = !prev.ecommerce_enabled;
+                    if (!next && tab === "shop") setTab("settings");
+                    return { ...prev, ecommerce_enabled: next };
+                  })
+                }
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  form.ecommerce_enabled
+                    ? "bg-[#CD7F32]"
+                    : "bg-gray-200 dark:bg-gray-600"
+                }`}
+                aria-checked={!!form.ecommerce_enabled}
+                role="switch"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    form.ecommerce_enabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
@@ -720,6 +965,32 @@ export default function SiteSettingsPage() {
                     placeholder="Describe this service…"
                   />
                 </div>
+                <div>
+                  <label className={LABEL}>Service Image URL (optional)</label>
+                  <input
+                    className={INPUT}
+                    value={serviceForm.image_url}
+                    onChange={(e) =>
+                      setServiceField("image_url", e.target.value)
+                    }
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Paste a direct image URL. Displayed in the services panel on
+                    your public site.
+                  </p>
+                  {serviceForm.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={serviceForm.image_url}
+                      alt="Service preview"
+                      className="mt-3 h-36 w-full rounded-lg border border-gray-200 object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  )}
+                </div>
               </div>
               {serviceError && (
                 <p className="mt-2 text-sm text-red-500">{serviceError}</p>
@@ -757,16 +1028,31 @@ export default function SiteSettingsPage() {
                   key={s.id}
                   className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
                 >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      {s.title}
-                    </p>
-                    {s.content && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-                        {s.content.replace(/<[^>]+>/g, "")}
-                      </p>
+                  <div className="flex min-w-0 gap-3">
+                    {s.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={s.image_url}
+                        alt={s.title}
+                        className="h-14 w-14 shrink-0 rounded-lg border border-gray-200 object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
                     )}
-                    <p className="mt-1 text-xs text-gray-400">slug: {s.slug}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {s.title}
+                      </p>
+                      {s.content && (
+                        <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                          {s.content.replace(/<[^>]+>/g, "")}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-400">
+                        slug: {s.slug}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <button
@@ -961,6 +1247,287 @@ export default function SiteSettingsPage() {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* ── Shop tab ── */}
+      {tab === "shop" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              Manage products shown on your public <strong>Shop</strong> page.
+              Enable the shop in <strong>Site Settings</strong> to show the nav
+              link.
+            </p>
+            {productEdit === null && (
+              <button
+                onClick={startNewProduct}
+                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                + Add Product
+              </button>
+            )}
+          </div>
+
+          {/* Product form */}
+          {productEdit !== null && (
+            <div className="rounded-xl border border-[#CD7F32]/30 bg-orange-50/40 p-5 shadow-sm dark:bg-gray-800">
+              <p className="mb-4 text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
+                {productEdit === "new" ? "New Product" : "Edit Product"}
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className={LABEL}>Title *</label>
+                  <input
+                    className={INPUT}
+                    value={productForm.title}
+                    onChange={(e) => setProductField("title", e.target.value)}
+                    placeholder="e.g. Small Wrapped Bouquet"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={LABEL}>Slug</label>
+                  <input
+                    className={INPUT}
+                    value={productForm.slug}
+                    onChange={(e) =>
+                      setProductField("slug", slugify(e.target.value))
+                    }
+                    placeholder="e.g. small-wrapped-bouquet"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Auto-generated from title.
+                  </p>
+                </div>
+                <div>
+                  <label className={LABEL}>Price ($) *</label>
+                  <input
+                    className={INPUT}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={productForm.price}
+                    onChange={(e) => setProductField("price", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className={LABEL}>Compare-at Price ($)</label>
+                  <input
+                    className={INPUT}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={productForm.compare_at_price}
+                    onChange={(e) =>
+                      setProductField("compare_at_price", e.target.value)
+                    }
+                    placeholder="0.00 (optional strikethrough price)"
+                  />
+                </div>
+                <div>
+                  <label className={LABEL}>Stock Quantity</label>
+                  <input
+                    className={INPUT}
+                    type="number"
+                    min="0"
+                    value={productForm.stock_quantity}
+                    onChange={(e) =>
+                      setProductField("stock_quantity", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className={LABEL}>Sort Order</label>
+                  <input
+                    className={INPUT}
+                    type="number"
+                    min="0"
+                    value={productForm.sort_order}
+                    onChange={(e) =>
+                      setProductField("sort_order", Number(e.target.value))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Lower = appears first.
+                  </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={LABEL}>Image URL</label>
+                  <input
+                    className={INPUT}
+                    value={productForm.image_url}
+                    onChange={(e) =>
+                      setProductField("image_url", e.target.value)
+                    }
+                    placeholder="https://example.com/product.jpg"
+                  />
+                  {productForm.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={productForm.image_url}
+                      alt="preview"
+                      className="mt-3 h-40 w-full rounded-lg border border-gray-200 object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={LABEL}>Description</label>
+                  <textarea
+                    className={INPUT}
+                    rows={4}
+                    value={productForm.description}
+                    onChange={(e) =>
+                      setProductField("description", e.target.value)
+                    }
+                    placeholder="Describe this product…"
+                  />
+                </div>
+                <div className="flex items-center gap-3 sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setProductField("is_published", !productForm.is_published)
+                    }
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      productForm.is_published ? "bg-[#CD7F32]" : "bg-gray-200"
+                    }`}
+                    role="switch"
+                    aria-checked={productForm.is_published}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                        productForm.is_published
+                          ? "translate-x-4"
+                          : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Published (visible on shop)
+                  </span>
+                </div>
+              </div>
+              {productError && (
+                <p className="mt-2 text-sm text-red-500">{productError}</p>
+              )}
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={saveProduct}
+                  disabled={productSaving}
+                  className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {productSaving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  onClick={cancelProduct}
+                  className="rounded-lg border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Product list */}
+          {productsLoading ? (
+            <p className="text-sm text-gray-400">Loading…</p>
+          ) : products.length === 0 && productEdit === null ? (
+            <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
+              No products yet. Click <strong>+ Add Product</strong> to get
+              started.
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {products.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                >
+                  <div className="flex min-w-0 gap-3">
+                    {p.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.image_url}
+                        alt={p.title}
+                        className="h-14 w-14 shrink-0 rounded-lg border border-gray-200 object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {p.title}
+                      </p>
+                      <p className="text-sm text-[#CD7F32]">
+                        ${parseFloat(p.price).toFixed(2)}
+                        {p.compare_at_price && (
+                          <span className="ml-2 text-gray-400 line-through">
+                            ${parseFloat(p.compare_at_price).toFixed(2)}
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        slug: {p.slug} · stock: {p.stock_quantity} ·{" "}
+                        {p.is_published ? (
+                          <span className="text-green-500">published</span>
+                        ) : (
+                          <span className="text-gray-400">draft</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => startEditProduct(p)}
+                      className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteProductId(p.id)}
+                      className="rounded-md border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* ── Delete product confirmation modal ── */}
+      {confirmDeleteProductId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Delete product?
+            </h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              This action cannot be undone. The product will be permanently
+              removed from your shop.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setConfirmDeleteProductId(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteProduct(confirmDeleteProductId)}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+              >
+                Yes, delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

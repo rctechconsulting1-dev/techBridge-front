@@ -26,6 +26,9 @@ export default function NavBar({ websiteId, website, settings }: Props) {
     { label: "Home", href: base },
     { label: "Services", href: `${base}/services` },
     { label: "About", href: `${base}/about` },
+    ...(settings?.ecommerce_enabled
+      ? [{ label: "Shop", href: `${base}/shop` }]
+      : []),
     { label: "Contact", href: `${base}#contact` },
   ];
 
@@ -47,7 +50,10 @@ export default function NavBar({ websiteId, website, settings }: Props) {
         scrolled ? "shadow-sm" : "border-b border-gray-100"
       }`}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-0 sm:px-6 lg:px-8" style={{ minHeight: "5rem" }}>
+      <div
+        className="mx-auto flex max-w-7xl items-center justify-between px-4 py-0 sm:px-6 lg:px-8"
+        style={{ minHeight: "5rem" }}
+      >
         {/* Logo / Brand */}
         <Link
           href={base}
@@ -81,7 +87,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
                 <Link
                   href={href}
                   onClick={() => setMenuOpen(false)}
-                  className="text-xs font-semibold uppercase tracking-widest text-gray-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="text-xs font-semibold tracking-widest text-gray-600 uppercase underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: active ? primary : undefined }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = primary;
@@ -100,7 +106,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
         {/* CTA button (desktop) */}
         <Link
           href={`${base}#contact`}
-          className="hidden px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-white transition-opacity hover:opacity-80 md:inline-block"
+          className="hidden px-6 py-2.5 text-xs font-semibold tracking-widest text-white uppercase transition-opacity hover:opacity-80 md:inline-block"
           style={{ backgroundColor: primary }}
         >
           Get in Touch
@@ -146,7 +152,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
                   <Link
                     href={href}
                     onClick={() => setMenuOpen(false)}
-                    className="block w-full border-b border-gray-100 py-3 text-left text-xs font-semibold uppercase tracking-widest focus:outline-none"
+                    className="block w-full border-b border-gray-100 py-3 text-left text-xs font-semibold tracking-widest uppercase underline-offset-4 hover:underline focus:outline-none"
                     style={{ color: active ? primary : "#374151" }}
                   >
                     {label}
@@ -158,7 +164,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
               <Link
                 href={`${base}#contact`}
                 onClick={() => setMenuOpen(false)}
-                className="block w-full py-3 text-center text-xs font-semibold uppercase tracking-widest text-white"
+                className="block w-full py-3 text-center text-xs font-semibold tracking-widest text-white uppercase"
                 style={{ backgroundColor: primary }}
               >
                 Get in Touch

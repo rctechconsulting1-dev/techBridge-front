@@ -49,6 +49,26 @@ export interface SiteSettings {
   footer_social_linkedin: string | null;
   // Map
   google_maps_url: string | null;
+  // E-commerce
+  ecommerce_enabled: boolean | null;
+}
+
+export interface Product {
+  id: number;
+  website_id: number | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  price: string; // comes back as string from pg NUMERIC
+  compare_at_price: string | null;
+  image_url: string | null;
+  stock_quantity: number;
+  is_published: boolean;
+  sort_order: number;
+  average_rating: string;
+  review_count: number;
 }
 
 export interface FooterNavLink {
@@ -62,6 +82,7 @@ export interface Service {
   title: string;
   slug: string;
   content: string | null;
+  image_url: string | null;
   website_id: number | null;
 }
 

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import RichText from "@/components/ui/RichText";
 import type { Service, SiteSettings } from "@/lib/cms-types";
@@ -8,12 +9,7 @@ interface Props {
 }
 
 // Warm tinted backgrounds that alternate per panel
-const PANEL_BG = [
-  "#FAF0E6",
-  "#FDF8F3",
-  "#FFF8F0",
-  "#FAF5F0",
-];
+const PANEL_BG = ["#FAF0E6", "#FDF8F3", "#FFF8F0", "#FAF5F0"];
 
 export default function FeaturesSection({ services, settings }: Props) {
   const primary = settings?.primary_color ?? "#CD7F32";
@@ -27,7 +23,7 @@ export default function FeaturesSection({ services, settings }: Props) {
       {/* Section header */}
       <div className="border-b border-gray-100 py-20 text-center">
         <p
-          className="mb-3 text-xs font-semibold uppercase tracking-widest"
+          className="mb-3 text-xs font-semibold tracking-widest uppercase"
           style={{ color: primary }}
         >
           What We Offer
@@ -54,39 +50,53 @@ export default function FeaturesSection({ services, settings }: Props) {
           >
             {/* Visual panel */}
             <div
-              className={`flex min-h-[260px] items-center justify-center p-12 lg:p-16 ${
+              className={`flex min-h-[260px] items-center justify-center overflow-hidden p-12 lg:p-16 ${
                 flip ? "lg:order-last" : ""
               }`}
-              style={{ backgroundColor: panelBg }}
+              style={{
+                backgroundColor: service.image_url ? undefined : panelBg,
+              }}
             >
-              {/* Decorative icon block */}
-              <div className="text-center">
-                <div
-                  className="mx-auto mb-4 flex h-20 w-20 items-center justify-center"
-                  style={{ backgroundColor: primary }}
-                  aria-hidden="true"
-                >
-                  <svg
-                    className="h-10 w-10 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
+              {service.image_url ? (
+                <div className="relative h-full min-h-[260px] w-full">
+                  <Image
+                    src={service.image_url}
+                    alt={service.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                  />
                 </div>
-                <p
-                  className="text-xs font-semibold uppercase tracking-widest"
-                  style={{ color: primary }}
-                >
-                  {service.title}
-                </p>
-              </div>
+              ) : (
+                /* Decorative icon block */
+                <div className="text-center">
+                  <div
+                    className="mx-auto mb-4 flex h-20 w-20 items-center justify-center"
+                    style={{ backgroundColor: primary }}
+                    aria-hidden="true"
+                  >
+                    <svg
+                      className="h-10 w-10 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  </div>
+                  <p
+                    className="text-xs font-semibold tracking-widest uppercase"
+                    style={{ color: primary }}
+                  >
+                    {service.title}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Text panel */}
@@ -107,12 +117,12 @@ export default function FeaturesSection({ services, settings }: Props) {
                 {service.content && (
                   <RichText
                     html={service.content}
-                    className="mb-8 text-lg leading-relaxed text-gray-600 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1"
+                    className="mb-8 text-lg leading-relaxed text-gray-600 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
                   />
                 )}
                 <Link
                   href="#contact"
-                  className="group inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide transition-opacity hover:opacity-70"
+                  className="group inline-flex items-center gap-2 text-sm font-semibold tracking-wide uppercase transition-opacity hover:opacity-70"
                   style={{ color: primary }}
                 >
                   Learn More
