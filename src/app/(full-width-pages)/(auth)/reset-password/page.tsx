@@ -20,7 +20,11 @@ export default function ResetPasswordPage() {
     setError(null);
 
     try {
+      // Notify the auth backend (generates/stores the reset token server-side)
       await apiClient.resetPassword(email);
+      // Send the branded email via Resend.
+      // If your backend returns a token, pass it as the third argument.
+      await apiClient.sendResetPasswordEmail(email);
       setSuccess(true);
       setEmail("");
     } catch (err) {

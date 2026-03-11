@@ -1,0 +1,221 @@
+/**
+ * Email service using Resend.
+ *
+ * Required env vars:
+ *   RESEND_API_KEY      – API key from resend.com
+ *   RESEND_FROM_EMAIL   – Verified sender address (e.g. "RC TechBridge <noreply@yourdomain.com>")
+ *   NEXT_PUBLIC_APP_URL – Public base URL used to build links (e.g. https://app.yourdomain.com)
+ */
+
+import { Resend } from "resend";
+import {
+  buildWelcomeHtml,
+  buildVerifyHtml,
+  buildResetPasswordHtml,
+  buildNotificationHtml,
+  type NotificationPayload,
+} from "@/lib/email-templates";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const FROM_EMAIL =
+  process.env.RESEND_FROM_EMAIL ?? "RC TechBridge <noreply@rctechbridge.com>";
+
+const APP_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
+
+// ─── HMAC token helpers ───────────────────────────────────────────────────────
+// Provides lightweight signed tokens stored entirely in the URL (no DB needed).
+
+const VERIFY_TOKEN_SECRET =
+  process.env.EMAIL_VERIFY_SECRET ?? "change-me-in-production";
+
+const RESET_TOKEN_SECRET =
+  process.env.EMAIL_RESET_SECRET ?? "change-me-in-production-reset";
+
+async function hmacSign(
+  secret: string,
+  payload: string,
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sigBuffer = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(payload),
+  );
+  return Buffer.from(sigBuffer).toString("base64url");
+}
+
+async function hmacVerify(
+  secret: string,
+  payload: string,
+  signature: string,
+): Promise<boolean> {
+  const expected = await hmacSign(secret, payload);
+  return expected === signature;
+}
+
+/** Encode an HMAC-signed token: `base64url(payload).signature` */
+export async function createSignedToken(
+  secret: string,
+  data: Record<string, unknown>,
+  ttlSeconds = 86400,
+): Promise<string> {
+  const payload = Buffer.from(
+    JSON.stringify({ ...data, exp: Math.floor(Date.now() / 1000) + ttlSeconds }),
+  ).toString("base64url");
+  const sig = await hmacSign(secret, payload);
+  return `${payload}.${sig}`;
+}
+
+export type TokenPayload = Record<string, unknown> & { exp: number };
+
+/** Verify and decode a signed token. Returns null if invalid or expired. */
+export async function verifySignedToken(
+  secret: string,
+  token: string,
+): Promise<TokenPayload | null> {
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [payload, sig] = parts;
+  const valid = await hmacVerify(secret, payload, sig);
+  if (!valid) return null;
+  try {
+    const data = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as TokenPayload;
+    if (data.exp < Math.floor(Date.now() / 1000)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Public-facing token factories ───────────────────────────────────────────
+
+/** Build a 24-hour email verification token for a user. */
+export async function createVerificationToken(
+  email: string,
+  userId?: string,
+): Promise<string> {
+  return createSignedToken(
+    VERIFY_TOKEN_SECRET,
+    { email, userId },
+    60 * 60 * 24, // 24 h
+  );
+}
+
+/** Build a 1-hour password-reset token for a user. */
+export async function createPasswordResetToken(
+  email: string,
+  userId?: string,
+): Promise<string> {
+  return createSignedToken(
+    RESET_TOKEN_SECRET,
+    { email, userId },
+    60 * 60, // 1 h
+  );
+}
+
+/** Verify an email verification token. */
+export async function verifyVerificationToken(
+  token: string,
+): Promise<TokenPayload | null> {
+  return verifySignedToken(VERIFY_TOKEN_SECRET, token);
+}
+
+/** Verify a password-reset token. */
+export async function verifyPasswordResetToken(
+  token: string,
+): Promise<TokenPayload | null> {
+  return verifySignedToken(RESET_TOKEN_SECRET, token);
+}
+
+// ─── Email senders ────────────────────────────────────────────────────────────
+
+export interface SendWelcomeEmailOptions {
+  to: string;
+  firstName?: string;
+}
+
+export async function sendWelcomeEmail({
+  to,
+  firstName,
+}: SendWelcomeEmailOptions) {
+  return resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: "Welcome to RC TechBridge!",
+    html: buildWelcomeHtml({ firstName }),
+  });
+}
+
+export interface SendVerifyEmailOptions {
+  to: string;
+  firstName?: string;
+  /** Pre-generated token. If omitted, one will be created automatically. */
+  token?: string;
+  userId?: string;
+}
+
+export async function sendVerifyEmail({
+  to,
+  firstName,
+  token,
+  userId,
+}: SendVerifyEmailOptions) {
+  const verifyToken = token ?? (await createVerificationToken(to, userId));
+  const verifyUrl = `${APP_URL}/auth/verify-email?token=${encodeURIComponent(verifyToken)}`;
+
+  return resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: "Verify your email – RC TechBridge",
+    html: buildVerifyHtml({ firstName, verifyUrl }),
+  });
+}
+
+export interface SendResetPasswordEmailOptions {
+  to: string;
+  firstName?: string;
+  /** Pre-generated token. If omitted, one will be created automatically. */
+  token?: string;
+  userId?: string;
+}
+
+export async function sendResetPasswordEmail({
+  to,
+  firstName,
+  token,
+  userId,
+}: SendResetPasswordEmailOptions) {
+  const resetToken = token ?? (await createPasswordResetToken(to, userId));
+  const resetUrl = `${APP_URL}/reset-password/confirm?token=${encodeURIComponent(resetToken)}`;
+
+  return resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: "Reset your password – RC TechBridge",
+    html: buildResetPasswordHtml({ firstName, resetUrl }),
+  });
+}
+
+export async function sendNotificationEmail(
+  to: string,
+  payload: NotificationPayload,
+) {
+  return resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: payload.subject,
+    html: buildNotificationHtml(payload),
+  });
+}

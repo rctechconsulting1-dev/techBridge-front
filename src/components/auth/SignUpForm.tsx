@@ -24,9 +24,19 @@ export default function SignUpForm() {
       const firstName = formData.get('firstName') as string;
       const lastName = formData.get('lastName') as string;
 
-      await apiClient.signUp(email, password, firstName, lastName);
+      const authData = await apiClient.signUp(email, password, firstName, lastName);
+      const userId = authData?.user?.id;
+
+      // Fire welcome + verification emails (non-blocking — don't block the signup flow)
+      apiClient.sendWelcomeEmail(email, firstName ?? undefined).catch((e) =>
+        console.error("Welcome email failed:", e),
+      );
+      apiClient.sendVerifyEmail(email, firstName ?? undefined, userId).catch((e) =>
+        console.error("Verify email failed:", e),
+      );
+
       setShowAlert(true);
-      
+
       // Redirect to signin after 2 seconds
       setTimeout(() => {
         router.push('/signin');

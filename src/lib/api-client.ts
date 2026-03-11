@@ -194,6 +194,48 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
+  // ─── Email helpers ────────────────────────────────────────────────────────────
+  // These call the Next.js /api/email/* routes, which send via Resend.
+
+  async sendWelcomeEmail(to: string, firstName?: string): Promise<{ id: string }> {
+    const response = await fetch('/api/email/welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, firstName: firstName ?? undefined }),
+    });
+    return this.handleResponse(response);
+  }
+
+  async sendVerifyEmail(to: string, firstName?: string, userId?: string): Promise<{ id: string }> {
+    const response = await fetch('/api/email/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, firstName: firstName ?? undefined, userId: userId ?? undefined }),
+    });
+    return this.handleResponse(response);
+  }
+
+  async sendResetPasswordEmail(to: string, firstName?: string, token?: string): Promise<{ id: string }> {
+    const response = await fetch('/api/email/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, firstName: firstName ?? undefined, token: token ?? undefined }),
+    });
+    return this.handleResponse(response);
+  }
+
+  async sendNotificationEmail(
+    to: string,
+    payload: { subject: string; heading: string; body: string; cta?: { label: string; href: string } },
+  ): Promise<{ id: string }> {
+    const response = await fetch('/api/email/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, ...payload }),
+    });
+    return this.handleResponse(response);
+  }
+
   async delete<T = unknown>(endpoint: string, includeAuth = true): Promise<T> {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'DELETE',

@@ -33,6 +33,14 @@ const ProfileClient: React.FC = () => {
         try {
             setError(null);
             await apiClient.signUp(formData.email, formData.password, formData.name);
+            const firstName = formData.name.split(" ")[0] || undefined;
+
+            // Send welcome email + password-reset so the user can set their own password
+            await Promise.allSettled([
+                apiClient.sendWelcomeEmail(formData.email, firstName),
+                apiClient.sendResetPasswordEmail(formData.email, firstName),
+            ]);
+
             setFormData({ name: "", email: "", password: "" });
             setIsNewUser(false);
         } catch (err) {
