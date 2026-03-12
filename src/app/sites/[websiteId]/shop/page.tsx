@@ -42,6 +42,7 @@ export default async function ShopPage({ params }: Props) {
   if (!website || !settings?.ecommerce_enabled) notFound();
 
   const primary = settings?.primary_color ?? "#CD7F32";
+  const publishedProducts = products.filter((p) => p.is_published);
 
   const cssVars = {
     "--cms-primary": primary,
@@ -72,13 +73,13 @@ export default async function ShopPage({ params }: Props) {
               Shop
             </h1>
             <p className="text-lg text-gray-500">
-              {products.filter((p) => p.is_published).length} product
-              {products.filter((p) => p.is_published).length !== 1 ? "s" : ""}
+              {publishedProducts.length} product
+              {publishedProducts.length !== 1 ? "s" : ""}
             </p>
           </div>
         </section>
 
-        {products.filter((p) => p.is_published).length > 0 ? (
+        {publishedProducts.length > 0 ? (
           <ShopGridSection
             products={products}
             settings={settings}

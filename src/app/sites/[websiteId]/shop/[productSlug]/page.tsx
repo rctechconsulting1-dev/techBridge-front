@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import EditableImage from "@/components/ui/EditableImage";
 import { getWebsite, getSiteSettings, getProductBySlug } from "@/lib/cms-api";
 import NavBar from "@/components/sections/NavBar";
 import FooterSection from "@/components/sections/FooterSection";
@@ -87,12 +87,11 @@ export default async function ProductDetailPage({ params }: Props) {
           {/* Image */}
           <div className="relative aspect-square w-full overflow-hidden bg-gray-50">
             {product.image_url ? (
-              <Image
+              <EditableImage
                 src={product.image_url}
                 alt={product.title}
                 fill
                 className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
               />
             ) : (
