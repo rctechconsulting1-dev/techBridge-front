@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import EditableImage from "@/components/ui/EditableImage";
 import RichText from "@/components/ui/RichText";
 import type { Service, SiteSettings } from "@/lib/cms-types";
 
@@ -59,12 +59,11 @@ export default function FeaturesSection({ services, settings }: Props) {
             >
               {service.image_url ? (
                 <div className="relative h-full min-h-[260px] w-full">
-                  <Image
+                  <EditableImage
                     src={service.image_url}
                     alt={service.title}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
                   />
                 </div>
               ) : (

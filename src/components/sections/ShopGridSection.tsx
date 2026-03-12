@@ -1,6 +1,6 @@
 import type React from "react";
-import Image from "next/image";
 import Link from "next/link";
+import EditableImage from "@/components/ui/EditableImage";
 import type { Product, SiteSettings } from "@/lib/cms-types";
 
 interface Props {
@@ -76,12 +76,11 @@ export default function ShopGridSection({
                   {/* Image */}
                   <div className="relative aspect-square overflow-hidden bg-gray-100">
                     {product.image_url ? (
-                      <Image
+                      <EditableImage
                         src={product.image_url}
                         alt={product.title}
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                       />
                     ) : (
                       <div

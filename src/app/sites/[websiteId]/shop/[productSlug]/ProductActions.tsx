@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Product } from "@/lib/cms-types";
 
 interface Props {
@@ -44,6 +44,13 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
 export default function ProductActions({ product, primary }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    };
+  }, []);
 
   const price = parseFloat(product.price);
   const compareAt = product.compare_at_price
@@ -54,7 +61,8 @@ export default function ProductActions({ product, primary }: Props) {
   const handleAddToCart = () => {
     // TODO: hook up to Stripe Checkout / cart context
     setAdded(true);
-    setTimeout(() => setAdded(false), 2500);
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => setAdded(false), 2500);
   };
 
   return (
