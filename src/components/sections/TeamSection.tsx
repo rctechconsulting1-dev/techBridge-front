@@ -12,24 +12,31 @@ export default function TeamSection({ team, settings }: Props) {
   if (team.length === 0) return null;
 
   return (
-    <section id="team" className="scroll-mt-16 bg-white py-20 lg:py-28">
+    <section id="team" className="scroll-mt-20 bg-[#FDF8F3] py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-16 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-gray-900 sm:text-4xl">
+          <p
+            className="mb-3 text-xs font-semibold uppercase tracking-widest"
+            style={{ color: primary }}
+          >
+            The People
+          </p>
+          <h2 className="text-4xl font-bold text-gray-900 sm:text-5xl">
             Meet the Team
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {team.map((member) => (
             <div key={member.id} className="text-center">
               {/* Photo */}
-              <div className="relative mx-auto mb-4 h-40 w-40 overflow-hidden rounded-full shadow-md">
+              <div className="relative mx-auto mb-5 h-44 w-44 overflow-hidden">
                 {member.photo_url ? (
                   <EditableImage
                     src={member.photo_url}
                     alt={member.name}
                     fill
+                    className="object-cover"
                   />
                 ) : (
                   <div
@@ -47,7 +54,7 @@ export default function TeamSection({ team, settings }: Props) {
               </h3>
               {member.title && (
                 <p
-                  className="mb-3 text-sm font-medium"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wider"
                   style={{ color: primary }}
                 >
                   {member.title}
@@ -64,24 +71,10 @@ export default function TeamSection({ team, settings }: Props) {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`${member.name}'s LinkedIn profile (opens in new tab)`}
-                  className="inline-flex items-center gap-1 rounded-sm text-sm font-medium transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="text-xs font-semibold uppercase tracking-wide underline-offset-2 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: primary }}
                 >
                   LinkedIn
-                  <svg
-                    aria-hidden="true"
-                    className="h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
                 </a>
               )}
             </div>

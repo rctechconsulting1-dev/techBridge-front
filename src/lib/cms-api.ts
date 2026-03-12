@@ -14,6 +14,7 @@ import type {
   Testimonial,
   TeamMember,
   FAQItem,
+  Product,
   LandingPageData,
 } from "./cms-types";
 import { getToken } from "./cms-auth";
@@ -104,6 +105,19 @@ export async function getTeamMembers(
 
 export async function getFAQ(websiteId: number | string): Promise<FAQItem[]> {
   return (await cmsGet<FAQItem[]>(`/faq?website_id=${websiteId}`)) ?? [];
+}
+
+export async function getProducts(
+  websiteId: number | string,
+): Promise<Product[]> {
+  return (await cmsGet<Product[]>(`/products?website_id=${websiteId}`)) ?? [];
+}
+
+export async function getProductBySlug(
+  websiteId: number | string,
+  slug: string,
+): Promise<Product | null> {
+  return cmsGet<Product>(`/products/slug/${slug}?website_id=${websiteId}`);
 }
 
 /** Fetches all landing page data in parallel — use in page.tsx */

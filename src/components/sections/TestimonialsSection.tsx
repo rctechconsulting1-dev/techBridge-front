@@ -14,24 +14,31 @@ export default function TestimonialsSection({ testimonials, settings }: Props) {
   return (
     <section
       id="testimonials"
-      className="scroll-mt-16 bg-gray-50 py-20 lg:py-28"
+      className="scroll-mt-20 bg-white py-24"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Header */}
         <div className="mb-16 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-gray-900 sm:text-4xl">
+          <p
+            className="mb-3 text-xs font-semibold uppercase tracking-widest"
+            style={{ color: primary }}
+          >
+            Client Stories
+          </p>
+          <h2 className="text-4xl font-bold text-gray-900 sm:text-5xl">
             What Our Clients Say
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-px border border-gray-100 md:grid-cols-2 lg:grid-cols-3">
           {testimonials.map((t) => (
             <div
               key={t.id}
-              className="flex flex-col rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100"
+              className="flex flex-col bg-white p-10"
             >
               {/* Stars */}
               <div
-                className="mb-4 flex gap-1"
+                className="mb-6 flex gap-1"
                 role="img"
                 aria-label={`${t.star_rating} out of 5 stars`}
               >
@@ -39,7 +46,7 @@ export default function TestimonialsSection({ testimonials, settings }: Props) {
                   <svg
                     key={i}
                     aria-hidden="true"
-                    className="h-5 w-5"
+                    className="h-4 w-4"
                     fill={i < t.star_rating ? primary : "#e5e7eb"}
                     viewBox="0 0 20 20"
                   >
@@ -48,13 +55,13 @@ export default function TestimonialsSection({ testimonials, settings }: Props) {
                 ))}
               </div>
 
-              <blockquote className="mb-6 flex-1 text-gray-700 italic">
+              <blockquote className="mb-8 flex-1 text-lg font-light italic leading-relaxed text-gray-700">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
 
               <div className="flex items-center gap-4">
                 {t.avatar_url ? (
-                  <div className="relative h-12 w-12 overflow-hidden rounded-full">
+                  <div className="relative h-11 w-11 flex-shrink-0 overflow-hidden rounded-full">
                     <EditableImage
                       src={t.avatar_url}
                       alt={t.author_name}
@@ -64,7 +71,7 @@ export default function TestimonialsSection({ testimonials, settings }: Props) {
                 ) : (
                   <div
                     aria-label={t.author_name}
-                    className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white"
+                    className="flex h-11 w-11 flex-shrink-0 items-center justify-center text-sm font-bold text-white"
                     style={{ backgroundColor: primary }}
                   >
                     {t.author_name.charAt(0).toUpperCase()}

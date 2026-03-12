@@ -26,6 +26,9 @@ export default function NavBar({ websiteId, website, settings }: Props) {
     { label: "Home", href: base },
     { label: "Services", href: `${base}/services` },
     { label: "About", href: `${base}/about` },
+    ...(settings?.ecommerce_enabled
+      ? [{ label: "Shop", href: `${base}/shop` }]
+      : []),
     { label: "Contact", href: `${base}#contact` },
   ];
 
@@ -44,27 +47,30 @@ export default function NavBar({ websiteId, website, settings }: Props) {
     <nav
       aria-label="Main navigation"
       className={`sticky top-0 z-50 w-full bg-white transition-shadow duration-200 ${
-        scrolled ? "shadow-md" : "border-b border-gray-100"
+        scrolled ? "shadow-sm" : "border-b border-gray-100"
       }`}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+      <div
+        className="mx-auto flex max-w-7xl items-center justify-between px-4 py-0 sm:px-6 lg:px-8"
+        style={{ minHeight: "5rem" }}
+      >
         {/* Logo / Brand */}
         <Link
           href={base}
-          className="flex items-center gap-2 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="flex items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ outlineColor: primary } as React.CSSProperties}
         >
           {logoUrl ? (
             <Image
               src={logoUrl}
               alt={siteName}
-              width={120}
-              height={40}
-              className="h-10 w-auto object-contain"
+              width={140}
+              height={44}
+              className="h-11 w-auto object-contain"
             />
           ) : (
             <span
-              className="text-xl font-bold tracking-tight"
+              className="text-2xl font-bold tracking-tight"
               style={{ color: primary }}
             >
               {siteName}
@@ -73,7 +79,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
         </Link>
 
         {/* Desktop links */}
-        <ul className="hidden items-center gap-8 md:flex">
+        <ul className="hidden items-center gap-10 md:flex">
           {NAV_LINKS.map(({ label, href }) => {
             const active = isActive(href);
             return (
@@ -81,7 +87,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
                 <Link
                   href={href}
                   onClick={() => setMenuOpen(false)}
-                  className="group flex flex-col items-center gap-0.5 rounded-sm text-sm font-medium text-gray-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="text-xs font-semibold tracking-widest text-gray-600 uppercase underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: active ? primary : undefined }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = primary;
@@ -91,12 +97,6 @@ export default function NavBar({ websiteId, website, settings }: Props) {
                   }}
                 >
                   {label}
-                  <span
-                    className={`h-[2px] rounded-full transition-all duration-200 ${
-                      active ? "w-full" : "w-0 group-hover:w-full"
-                    }`}
-                    style={{ backgroundColor: primary }}
-                  />
                 </Link>
               </li>
             );
@@ -106,7 +106,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
         {/* CTA button (desktop) */}
         <Link
           href={`${base}#contact`}
-          className="hidden rounded-full px-5 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 md:inline-block"
+          className="hidden px-6 py-2.5 text-xs font-semibold tracking-widest text-white uppercase transition-opacity hover:opacity-80 md:inline-block"
           style={{ backgroundColor: primary }}
         >
           Get in Touch
@@ -152,11 +152,8 @@ export default function NavBar({ websiteId, website, settings }: Props) {
                   <Link
                     href={href}
                     onClick={() => setMenuOpen(false)}
-                    className="block w-full py-3 text-left text-sm font-medium focus:outline-none"
-                    style={{
-                      color: active ? primary : undefined,
-                      borderBottom: "1px solid #f3f4f6",
-                    }}
+                    className="block w-full border-b border-gray-100 py-3 text-left text-xs font-semibold tracking-widest uppercase underline-offset-4 hover:underline focus:outline-none"
+                    style={{ color: active ? primary : "#374151" }}
                   >
                     {label}
                   </Link>
@@ -167,7 +164,7 @@ export default function NavBar({ websiteId, website, settings }: Props) {
               <Link
                 href={`${base}#contact`}
                 onClick={() => setMenuOpen(false)}
-                className="block w-full rounded-full py-2.5 text-center text-sm font-semibold text-white"
+                className="block w-full py-3 text-center text-xs font-semibold tracking-widest text-white uppercase"
                 style={{ backgroundColor: primary }}
               >
                 Get in Touch
