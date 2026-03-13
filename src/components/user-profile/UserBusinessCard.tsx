@@ -26,7 +26,7 @@ export default function UserBusinessCard() {
     address: "",
     rating: 0,
     reviewCount: 0,
-    xUrl: "",
+    x_url: "",
     instagram: "",
     facebook: "",
   });
@@ -38,7 +38,7 @@ export default function UserBusinessCard() {
         address: business.address || "",
         rating: business.rating || 0,
         reviewCount: business.review_count || 0,
-        xUrl: business.xUrl || "",
+        x_url: business.x_url || "",
         instagram: business.instagram || "",
         facebook: business.facebook || "",
       });
@@ -48,7 +48,7 @@ export default function UserBusinessCard() {
         address: "",
         rating: 0,
         reviewCount: 0,
-        xUrl: "",
+        x_url: "",
         instagram: "",
         facebook: "",
       });
@@ -101,7 +101,7 @@ export default function UserBusinessCard() {
       address: formData.address,
       rating: formData.rating,
       review_count: formData.reviewCount,
-      xUrl: formData.xUrl,
+      x_url: formData.x_url,
       instagram: formData.instagram,
       facebook: formData.facebook,
       website_id: websiteId,
@@ -198,7 +198,7 @@ export default function UserBusinessCard() {
                   X
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {formData.xUrl}
+                  {formData.x_url}
                 </p>
               </div>
               <div>
@@ -277,7 +277,7 @@ export default function UserBusinessCard() {
                 </div>
                 <div>
                   <Label>X</Label>
-                  <Input type="text" name="xUrl" value={formData.xUrl ?? ""} onChange={handleChange} />
+                  <Input type="text" name="x_url" value={formData.x_url ?? ""} onChange={handleChange} />
                 </div>
                 <div>
                   <Label>Instagram</Label>

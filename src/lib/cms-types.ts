@@ -154,7 +154,7 @@ export interface BusinessListing {
   rating: number | null;
   review_count: number | null;
   website_id: number | null;
-  xUrl: string | null;
+  x_url: string | null;
   instagram: string | null;
   facebook: string | null;
   other: string | null;

@@ -149,7 +149,7 @@ export type Database = {
           rating: number | null
           review_count: number | null
           website_id: number | null
-          xUrl: string | null
+          x_url: string | null
         }
         Insert: {
           address?: string | null
@@ -167,7 +167,7 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           website_id?: number | null
-          xUrl?: string | null
+          x_url?: string | null
         }
         Update: {
           address?: string | null
@@ -185,7 +185,7 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           website_id?: number | null
-          xUrl?: string | null
+          x_url?: string | null
         }
         Relationships: [
           {
