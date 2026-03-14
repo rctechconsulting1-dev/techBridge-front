@@ -26,14 +26,20 @@ export interface MultipleFileInputRef {
   handleSaveImages: () => Promise<void>;
 }
 
-export default forwardRef<MultipleFileInputRef, {
+type UploadScope = 'asset' | 'page' | 'branding';
+
+interface MultipleFileInputProps {
   imageUploadLocation: { table: string; id: number };
   resetTrigger?: number;
   idFieldName?: string;
-}>(function MultipleFileInputExample({
+  uploadScope?: UploadScope;
+}
+
+export default forwardRef<MultipleFileInputRef, MultipleFileInputProps>(function MultipleFileInputExample({
   imageUploadLocation,
   resetTrigger,
-  idFieldName = 'page_id'
+  idFieldName = 'page_id',
+  uploadScope,
 }, ref) {
   const [formData, setFormData] = useState({
     latitude: '',
@@ -53,7 +59,7 @@ export default forwardRef<MultipleFileInputRef, {
 
   const handleSaveImages = useCallback(async () => {
     if (!imageUploadLocation.id) {
-      console.error('No page ID provided for image upload');
+      console.error('No upload context ID provided for image association');
       return;
     }
 
@@ -249,6 +255,11 @@ export default forwardRef<MultipleFileInputRef, {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (!imageUploadLocation.id) {
+      console.error('Cannot upload image: no selected website/page context.');
+      return;
+    }
+
     // Update uploading state
     setImages(prev => prev.map(img =>
       img.id === imageId ? { ...img, uploading: true, original: file } : img
@@ -263,8 +274,36 @@ export default forwardRef<MultipleFileInputRef, {
       const longitude = formData.longitude ? parseFloat(formData.longitude) : -118.2437; // Default to LA
       const fileWithGeo = await addGeolocationExif(compressed, latitude, longitude);
 
+      // Include upload context so API route can generate deterministic S3 keys.
+      const searchParams = new URLSearchParams();
+      if (uploadScope && imageUploadLocation.id > 0) {
+        searchParams.set('scope', uploadScope);
+      }
+
+      if (idFieldName === 'website_id' && imageUploadLocation.id > 0) {
+        if (!searchParams.has('scope')) {
+          searchParams.set('scope', 'asset');
+        }
+        searchParams.set('websiteId', String(imageUploadLocation.id));
+      } else if (idFieldName === 'page_id' && imageUploadLocation.id > 0) {
+        if (!searchParams.has('scope')) {
+          searchParams.set('scope', 'page');
+        }
+        searchParams.set('pageId', String(imageUploadLocation.id));
+      }
+
+      const endpointUrl = searchParams.toString()
+        ? `/api/s3-upload?${searchParams.toString()}`
+        : '/api/s3-upload';
+
       // Upload to S3
-      const { url } = await uploadToS3(fileWithGeo);
+      const { url } = await uploadToS3(fileWithGeo, {
+        endpoint: {
+          request: {
+            url: endpointUrl,
+          },
+        },
+      });
 
       // Update image data
       setImages(prev => prev.map(img =>
