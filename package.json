@@ -10,7 +10,9 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
-    "lint:fix": "eslint --fix src/"
+    "lint:fix": "eslint --fix src/",
+    "s3:cleanup:dry": "node scripts/cleanup-test-s3.mjs",
+    "s3:cleanup:execute": "node scripts/cleanup-test-s3.mjs --execute --confirm=DELETE_TEST_IMAGES"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.15",

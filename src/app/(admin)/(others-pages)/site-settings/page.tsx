@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "react-toastify";
 import { getApiBaseUrl } from "@/lib/api";
 import { useSidebar } from "@/context/SidebarContext";
+import { useGetAssets, type Asset } from "@/hooks/useImage";
 import type { SiteSettings } from "@/lib/cms-types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -148,6 +149,14 @@ export default function SiteSettingsPage() {
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<
     number | null
   >(null);
+  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
+  const [assetPickerTitle, setAssetPickerTitle] = useState("Select Image");
+  const onPickAssetRef = useRef<((url: string) => void) | null>(null);
+  const { assets: clientAssets, isLoading: assetsLoading } = useGetAssets(
+    websiteId,
+    0,
+    200,
+  );
 
   // ── Load settings ──
   const loadSettings = useCallback(async (wid: number) => {
@@ -560,6 +569,23 @@ export default function SiteSettingsPage() {
     });
   };
 
+  const openAssetPicker = useCallback(
+    (title: string, onPick: (url: string) => void) => {
+      setAssetPickerTitle(title);
+      onPickAssetRef.current = onPick;
+      setAssetPickerOpen(true);
+    },
+    [],
+  );
+
+  const handleSelectAsset = useCallback((url: string) => {
+    if (!url) return;
+    if (onPickAssetRef.current) {
+      onPickAssetRef.current(url);
+    }
+    setAssetPickerOpen(false);
+  }, []);
+
   // ── Guards ──
   if (loading)
     return <div className="p-8 text-gray-400">Loading settings…</div>;
@@ -675,6 +701,17 @@ export default function SiteSettingsPage() {
                   value={form.hero_bg_image_url ?? ""}
                   onChange={(v) => set("hero_bg_image_url", v)}
                 />
+                <button
+                  type="button"
+                  onClick={() =>
+                    openAssetPicker("Select Hero Background", (url) =>
+                      set("hero_bg_image_url", url),
+                    )
+                  }
+                  className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  Select from Client Assets
+                </button>
                 <p className="mt-1 text-xs text-gray-400">
                   Paste a direct image URL. Used as the hero background on your
                   public site.
@@ -720,6 +757,17 @@ export default function SiteSettingsPage() {
                 value={form.logo_url ?? ""}
                 onChange={(v) => set("logo_url", v)}
               />
+              <button
+                type="button"
+                onClick={() =>
+                  openAssetPicker("Select Brand Logo", (url) =>
+                    set("logo_url", url),
+                  )
+                }
+                className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Select from Client Assets
+              </button>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field
@@ -978,6 +1026,17 @@ export default function SiteSettingsPage() {
                     }
                     placeholder="https://example.com/image.jpg"
                   />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAssetPicker("Select Service Image", (url) =>
+                        setServiceField("image_url", url),
+                      )
+                    }
+                    className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Select from Client Assets
+                  </button>
                   <p className="mt-1 text-xs text-gray-400">
                     Paste a direct image URL. Displayed in the services panel on
                     your public site.
@@ -1138,6 +1197,17 @@ export default function SiteSettingsPage() {
                     onChange={(e) => setTeamField("photo_url", e.target.value)}
                     placeholder="https://…"
                   />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAssetPicker("Select Team Photo", (url) =>
+                        setTeamField("photo_url", url),
+                      )
+                    }
+                    className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Select from Client Assets
+                  </button>
                   <p className="mt-1 text-xs text-gray-400">
                     Leave blank for initials avatar.
                   </p>
@@ -1365,6 +1435,17 @@ export default function SiteSettingsPage() {
                     }
                     placeholder="https://example.com/product.jpg"
                   />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAssetPicker("Select Product Image", (url) =>
+                        setProductField("image_url", url),
+                      )
+                    }
+                    className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Select from Client Assets
+                  </button>
                   {productForm.image_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1533,6 +1614,15 @@ export default function SiteSettingsPage() {
           </div>
         </div>
       )}
+
+      <AssetPickerModal
+        open={assetPickerOpen}
+        title={assetPickerTitle}
+        assets={clientAssets ?? []}
+        isLoading={assetsLoading}
+        onClose={() => setAssetPickerOpen(false)}
+        onSelect={handleSelectAsset}
+      />
     </div>
   );
 }
@@ -1601,6 +1691,111 @@ function ColorField({
           className={INPUT}
           placeholder="#000000"
         />
+      </div>
+    </div>
+  );
+}
+
+function AssetPickerModal({
+  open,
+  title,
+  assets,
+  isLoading,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  title: string;
+  assets: Asset[];
+  isLoading: boolean;
+  onClose: () => void;
+  onSelect: (url: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  if (!open) return null;
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = assets.filter((a) => {
+    const image = a.image;
+    if (!image?.url) return false;
+    if (!normalizedQuery) return true;
+    const haystack = [
+      image.url,
+      image.alt_text ?? "",
+      image.caption ?? "",
+      image.title ?? "",
+      image.description ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalizedQuery);
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+            {title}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+          <input
+            type="text"
+            className={INPUT}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by URL, alt text, caption, title..."
+          />
+        </div>
+
+        <div className="overflow-y-auto p-5">
+          {isLoading ? (
+            <p className="text-sm text-gray-400">Loading client assets…</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No assets found for this client. Upload images in Assets first,
+              then come back and select them here.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {filtered.map((asset) => {
+                const image = asset.image;
+                const imageUrl = image?.url;
+                if (!imageUrl) return null;
+                const label = image.alt_text || image.title || image.caption;
+                return (
+                  <li key={asset.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(imageUrl)}
+                      className="group w-full rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:border-[#CD7F32] hover:shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl}
+                        alt={label ?? "Asset preview"}
+                        className="h-28 w-full rounded-md object-cover"
+                      />
+                      <p className="mt-2 line-clamp-2 text-xs text-gray-600 group-hover:text-[#CD7F32] dark:text-gray-300">
+                        {label || "Untitled image"}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
