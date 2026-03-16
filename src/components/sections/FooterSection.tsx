@@ -12,9 +12,20 @@ export default function FooterSection({ website, settings }: Props) {
   const copyright =
     settings?.footer_copyright ??
     `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
-  const navLinks = (settings?.footer_nav_links ?? []).filter(
-    (link) => settings?.ecommerce_enabled || !link.href.includes("/shop"),
+  const configuredFooterLinks = (settings?.footer_nav_links ?? []).filter(
+    (link) =>
+      !!link?.label &&
+      !!link?.href &&
+      link.location !== "header" &&
+      (settings?.ecommerce_enabled || !link.href.includes("/shop")),
   );
+  const legacyFooterLinks = (settings?.footer_nav_links ?? []).filter(
+    (link) =>
+      link.location !== "header" &&
+      (settings?.ecommerce_enabled || !link.href.includes("/shop")),
+  );
+  const navLinks =
+    configuredFooterLinks.length > 0 ? configuredFooterLinks : legacyFooterLinks;
   const primary = settings?.primary_color ?? "#CD7F32";
 
   const socials = [

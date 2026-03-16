@@ -33,6 +33,7 @@ interface MultipleFileInputProps {
   resetTrigger?: number;
   idFieldName?: string;
   uploadScope?: UploadScope;
+  websiteId?: number;
 }
 
 export default forwardRef<MultipleFileInputRef, MultipleFileInputProps>(function MultipleFileInputExample({
@@ -40,6 +41,7 @@ export default forwardRef<MultipleFileInputRef, MultipleFileInputProps>(function
   resetTrigger,
   idFieldName = 'page_id',
   uploadScope,
+  websiteId,
 }, ref) {
   const [formData, setFormData] = useState({
     latitude: '',
@@ -107,6 +109,25 @@ export default forwardRef<MultipleFileInputRef, MultipleFileInputProps>(function
         if (relationshipResponse.error) {
           throw new Error(`Failed to create page-image relationships: ${relationshipResponse.error}`);
         }
+
+        if (idFieldName === 'page_id' && websiteId) {
+          // Also index page-uploaded images into the client Asset Library so they are discoverable in Assets.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const assetPayload = imageResponse.response.map((img: any) => ({
+            website_id: websiteId,
+            image_id: img.id,
+          }));
+
+          const assetResponse = await mutateUpdate({
+            path: '/asset',
+            method: 'POST',
+            payload: assetPayload,
+          });
+
+          if (assetResponse.error) {
+            console.warn('Failed to index uploaded page images into assets:', assetResponse.error);
+          }
+        }
       } else {
         throw new Error('Invalid response format from image creation');
       }
@@ -114,7 +135,7 @@ export default forwardRef<MultipleFileInputRef, MultipleFileInputProps>(function
       console.error('Image save operation failed:', error);
       throw error;
     }
-  }, [images, imageUploadLocation, idFieldName]);
+  }, [images, imageUploadLocation, idFieldName, websiteId]);
 
   useImperativeHandle(ref, () => ({
     handleSaveImages

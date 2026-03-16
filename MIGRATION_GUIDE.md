@@ -4,6 +4,42 @@ This document tracks breaking changes, refactors, and setup steps developers nee
 
 ---
 
+## March 2026 — Site Settings Nav Split (`header_nav_links`)
+
+### What Changed
+
+Site navigation is now modeled with dedicated fields in `site_settings`:
+
+- `header_nav_links` for top navigation
+- `footer_nav_links` for footer navigation
+
+This replaces the interim pattern where both were mixed in `footer_nav_links` using a `location` flag.
+
+### Required Migration
+
+Run the new migration from the backend repository (`~/Code/backend-rc`) against your Postgres database:
+
+```bash
+cd ~/Code/backend-rc
+npm run migrate:up
+```
+
+### After Migration
+
+Update shared DB typings/contracts if your backend pipeline maintains them.
+
+```bash
+# Example: sync generated DB types/contracts from backend-rc into this frontend repo
+```
+
+### Notes
+
+- Existing legacy rows are backfilled automatically from `footer_nav_links.location = 'header'`.
+- Footer links are normalized to `{ label, href }` objects.
+- Frontend still includes fallback handling for one-release compatibility during rollout.
+
+---
+
 ## March 2026 — Codebase Refactor & Branding Cleanup
 
 ### What Changed

@@ -24,7 +24,7 @@ This dashboard enables RC Tech Bridge to manage client digital presence end-to-e
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- Express.js backend API (auth + data access)
+- Express.js backend API + PostgreSQL
 - AWS S3 (asset storage)
 - OpenAI (content generation)
 - Google Business Profile API

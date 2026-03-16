@@ -3,6 +3,7 @@ import { getStoredAuthToken } from '@/lib/auth-context';
 
 type ContentAgentProps = {
   websiteId?: number;
+  mode?: 'standard' | 'service_copy' | 'about_copy' | 'page_nav_copy' | 'site_settings_orchestrator';
   ourUrl?: string;
   city?: string;
   industry?: string;
@@ -10,6 +11,17 @@ type ContentAgentProps = {
   competitor1Url?: string;
   competitor2Url?: string;
   service?: string;
+  pageSlug?: string;
+  pageTitle?: string;
+  pageIntent?: string;
+  pageGoal?: string;
+  targetAudience?: string;
+  primaryCta?: string;
+  mustInclude?: string[];
+  mustAvoid?: string[];
+  servicesOffered?: string[];
+  businessName?: string;
+  aboutContext?: string;
   userChosenIdea?: string;
   content?: string;
   conversationHistory?: Record<string, unknown>[];

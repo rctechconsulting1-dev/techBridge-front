@@ -21,8 +21,24 @@ export default function NavBar({ websiteId, website, settings }: Props) {
   const logoUrl = settings?.logo_url;
   const siteName = website?.name ?? "RC Tech";
   const base = `/sites/${websiteId}`;
+  const anchorAliases: Record<string, string> = {
+    "#why-us": "#services",
+    "#reviews": "#testimonials",
+  };
 
-  const NAV_LINKS = [
+  const resolveHref = (href: string) => {
+    if (!href) return base;
+    if (href.startsWith("http://") || href.startsWith("https://")) return href;
+    if (href.startsWith("/sites/")) return href;
+    if (href.startsWith("#")) {
+      const normalizedAnchor = anchorAliases[href.toLowerCase()] ?? href;
+      return `${base}${normalizedAnchor}`;
+    }
+    if (href === "/") return base;
+    return `${base}${href.startsWith("/") ? href : `/${href}`}`;
+  };
+
+  const fallbackLinks = [
     { label: "Home", href: base },
     { label: "Services", href: `${base}/services` },
     { label: "About", href: `${base}/about` },
@@ -31,6 +47,24 @@ export default function NavBar({ websiteId, website, settings }: Props) {
       : []),
     { label: "Contact", href: `${base}#contact` },
   ];
+
+  const legacyHeaderLinks = (settings?.footer_nav_links ?? [])
+    .filter((link) => !!link?.label && !!link?.href)
+    .filter((link) => link.location === "header")
+    .filter((link) => settings?.ecommerce_enabled || !link.href.includes("/shop"))
+    .map((link) => ({ label: link.label, href: resolveHref(link.href) }));
+
+  const configuredLinks = (settings?.header_nav_links ?? [])
+    .filter((link) => !!link?.label && !!link?.href)
+    .filter((link) => settings?.ecommerce_enabled || !link.href.includes("/shop"))
+    .map((link) => ({ label: link.label, href: resolveHref(link.href) }));
+
+  const NAV_LINKS =
+    configuredLinks.length > 0
+      ? configuredLinks
+      : legacyHeaderLinks.length > 0
+        ? legacyHeaderLinks
+        : fallbackLinks;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
