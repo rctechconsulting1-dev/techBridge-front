@@ -11,7 +11,22 @@ import { useContentAgent } from '@/hooks/useContentAgent';
 interface ContentItem {
   idea: string;
   keywordTargets?: string[];
+  ideaType?: string;
+  intentMatchScore?: number;
+  whyMatch?: string;
+  localMatchScore?: number;
 }
+
+type InferredPageIntent = {
+  pageIntent: string;
+  pageGoal: string;
+  service: string;
+  primaryCta: string;
+  mustInclude: string;
+  mustAvoid: string;
+};
+
+const MIN_IDEA_CONFIDENCE = 65;
 
 interface ContentAgentData {
   content?: string;
@@ -46,6 +61,8 @@ interface PageCreationWizardProps {
   onCancel: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
+  initialPageDraft?: { slug: string; title: string; is_published?: boolean };
+  suggestedSlugs?: string[];
 }
 
 const pageTypeOptions = [
@@ -110,17 +127,97 @@ function parseIdeas(data: ContentAgentData): ContentItem[] {
   }
 }
 
+function splitCsvToList(value: string): string[] {
+  return value
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+function inferIntentFromSlug(slug?: string): InferredPageIntent {
+  const normalized = (slug || '').toLowerCase();
+
+  if (normalized.includes('price') || normalized.includes('cost') || normalized.includes('pricing')) {
+    return {
+      pageIntent: 'pricing',
+      pageGoal: 'Help customers understand pricing ranges and request a quote',
+      service: 'Pricing and Cost Guide',
+      primaryCta: 'Request a quote',
+      mustInclude: 'Typical price ranges, factors that affect cost, what is included, CTA to request quote',
+      mustAvoid: 'Irrelevant blog topics, generic industry history',
+    };
+  }
+
+  if (normalized.includes('faq')) {
+    return {
+      pageIntent: 'faq',
+      pageGoal: 'Answer top objections and reduce friction before contact',
+      service: 'Frequently Asked Questions',
+      primaryCta: 'Contact us for a custom answer',
+      mustInclude: 'Top customer questions, concise answers, trust signals, CTA',
+      mustAvoid: 'Long narrative content that does not answer questions',
+    };
+  }
+
+  if (normalized.includes('why') || normalized.includes('choose')) {
+    return {
+      pageIntent: 'trust',
+      pageGoal: 'Build trust and explain why this business is the right choice',
+      service: 'Why Choose Us',
+      primaryCta: 'Schedule service',
+      mustInclude: 'Differentiators, guarantees, social proof, CTA',
+      mustAvoid: 'Unsubstantiated claims and fluff',
+    };
+  }
+
+  return {
+    pageIntent: 'general',
+    pageGoal: 'Create an informative page aligned with user intent',
+    service: 'Service Overview',
+    primaryCta: 'Contact us',
+    mustInclude: '',
+    mustAvoid: '',
+  };
+}
+
+function scoreIdeaRelevance(idea: ContentItem, context: { pageIntent: string; pageGoal: string; slug: string }): number {
+  const haystack = `${idea.idea} ${idea.ideaType || ''} ${(idea.keywordTargets || []).join(' ')} ${context.pageGoal}`.toLowerCase();
+  const slugTerms = context.slug.split('-').filter(Boolean);
+  let score = 50;
+
+  const intent = context.pageIntent.toLowerCase();
+  if (intent === 'pricing' && /(price|pricing|cost|quote|estimate)/.test(haystack)) score += 25;
+  if (intent === 'faq' && /(faq|question|answer|common)/.test(haystack)) score += 25;
+  if (intent === 'trust' && /(why choose|trust|testimonial|guarantee|proof)/.test(haystack)) score += 25;
+
+  const slugHits = slugTerms.reduce((acc, term) => acc + (haystack.includes(term) ? 1 : 0), 0);
+  score += Math.min(15, slugHits * 7);
+
+  if (/(blog post|news|history of|ultimate guide)/.test(haystack) && intent === 'pricing') score -= 20;
+
+  const aiScore = Number(idea.intentMatchScore || 0);
+  if (aiScore > 0) {
+    score = Math.round((score * 0.45) + (aiScore * 0.55));
+  }
+
+  return Math.max(0, Math.min(100, score));
+}
+
 const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   onCreatePage,
   onCancel,
   isLoading = false,
   enableAIContent = false,
+  initialPageDraft,
+  suggestedSlugs = [],
 }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<PageCreationData>>({
     page_type: 'main-page',
     template_type: 'standard',
     is_main_nav: false,
+    is_published: false,
   });
 
   // State management
@@ -135,6 +232,12 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
     competitor1Url: "",
     competitor2Url: "",
     service: "",
+    pageIntent: "general",
+    pageGoal: "",
+    targetAudience: "",
+    primaryCta: "",
+    mustInclude: "",
+    mustAvoid: "",
   });
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [selectedContent, setSelectedContent] = useState<string>("");
@@ -146,6 +249,33 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
 
   const { trigger, data, error, isLoading: isAILoading } = useContentAgent();
 
+  useEffect(() => {
+    if (!initialPageDraft) return;
+    const inferred = inferIntentFromSlug(initialPageDraft.slug);
+    setFormData((prev) => ({
+      ...prev,
+      title: prev.title || initialPageDraft.title,
+      slug: prev.slug || initialPageDraft.slug,
+      page_type: prev.page_type || "custom",
+      template_type: prev.template_type || "standard",
+      is_published: initialPageDraft.is_published ?? prev.is_published ?? false,
+    }));
+
+    setAiFormData((prev) => ({
+      ...prev,
+      service: prev.service || inferred.service,
+      pageIntent: inferred.pageIntent,
+      pageGoal: prev.pageGoal || inferred.pageGoal,
+      primaryCta: prev.primaryCta || inferred.primaryCta,
+      mustInclude: prev.mustInclude || inferred.mustInclude,
+      mustAvoid: prev.mustAvoid || inferred.mustAvoid,
+    }));
+
+    if (!enableAIContent) {
+      setStep(2);
+    }
+  }, [initialPageDraft, enableAIContent]);
+
   // Effect to handle AI content agent responses
   useEffect(() => {
     if (data && !isAILoading) {
@@ -153,6 +283,16 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       const messageId = Date.now().toString();
       
       if (ideas.length > 0 && data.step === 'ideas_generated') {
+        const slug = String(formData.slug || '').toLowerCase();
+        const rankedIdeas = ideas.map((idea) => ({
+          ...idea,
+          localMatchScore: scoreIdeaRelevance(idea, {
+            pageIntent: aiFormData.pageIntent,
+            pageGoal: aiFormData.pageGoal,
+            slug,
+          }),
+        }));
+
         setChatMessages(prev => [...prev, {
           id: messageId,
           type: 'assistant',
@@ -160,7 +300,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
           data,
           timestamp: new Date(),
           isIdeaSelection: true,
-          ideas
+          ideas: rankedIdeas
         }]);
       } else if (data.step === 'complete_workflow') {
         const content = data.markdownContent || data.content || '';
@@ -223,7 +363,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
         timestamp: new Date()
       }]);
     }
-  }, [data, error, isAILoading]);
+  }, [data, error, isAILoading, aiFormData.pageGoal, aiFormData.pageIntent, formData.slug]);
 
   // AI Content Generation Handlers
   const handleAIFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,18 +382,43 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       timestamp: new Date()
     }]);
     
-    trigger(aiFormData);
+    trigger({
+      mode: 'page_nav_copy',
+      ...aiFormData,
+      pageSlug: formData.slug || '',
+      pageTitle: formData.title || '',
+      mustInclude: splitCsvToList(aiFormData.mustInclude),
+      mustAvoid: splitCsvToList(aiFormData.mustAvoid),
+    });
   };
 
-  const handleChooseIdea = (idea: string) => {
+  const handleChooseIdea = (idea: ContentItem) => {
+    const confidence = Number(idea.localMatchScore ?? idea.intentMatchScore ?? 0);
+    if (confidence < MIN_IDEA_CONFIDENCE) {
+      const shouldContinue = window.confirm(
+        `This idea has a low match confidence (${confidence}%). Continue anyway?`,
+      );
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
     setChatMessages(prev => [...prev, {
       id: Date.now().toString(),
       type: 'user',
-      content: `I choose this idea: "${idea}"\n\nPlease continue with competitor analysis and content development.`,
+      content: `I choose this idea: "${idea.idea}"\n\nPlease continue with competitor analysis and content development.`,
       timestamp: new Date()
     }]);
     
-    trigger({ ...aiFormData, userChosenIdea: idea });
+    trigger({
+      mode: 'page_nav_copy',
+      ...aiFormData,
+      userChosenIdea: idea.idea,
+      pageSlug: formData.slug || '',
+      pageTitle: formData.title || '',
+      mustInclude: splitCsvToList(aiFormData.mustInclude),
+      mustAvoid: splitCsvToList(aiFormData.mustAvoid),
+    });
   };
 
   const handleInputChange = (field: keyof PageCreationData, value: string | boolean | number) => {
@@ -288,8 +453,40 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
     }));
   };
 
+  const handleSuggestedSlugSelect = (slug: string) => {
+    if (!slug) return;
+    const suggestedTitle = slug
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    setFormData((prev) => ({
+      ...prev,
+      slug,
+      title: prev.title || suggestedTitle,
+      page_type: prev.page_type || 'custom',
+      template_type: prev.template_type || 'standard',
+    }));
+    const inferred = inferIntentFromSlug(slug);
+    setAiFormData((prev) => ({
+      ...prev,
+      service: prev.service || inferred.service,
+      pageIntent: inferred.pageIntent,
+      pageGoal: prev.pageGoal || inferred.pageGoal,
+      primaryCta: prev.primaryCta || inferred.primaryCta,
+      mustInclude: prev.mustInclude || inferred.mustInclude,
+      mustAvoid: prev.mustAvoid || inferred.mustAvoid,
+    }));
+  };
+
   const canProceedToStep2 = formData.page_type && formData.template_type;
   const canSubmit = formData.title && formData.slug && canProceedToStep2;
+  const canReviewAndFinalize = Boolean(selectedContent) && !isAILoading;
+  const selectedSuggestedSlug =
+    typeof formData.slug === 'string' && suggestedSlugs.includes(formData.slug)
+      ? formData.slug
+      : '';
 
   const handleSubmit = async () => {
     if (canSubmit && formData.page_type && formData.template_type && formData.title && formData.slug) {
@@ -303,6 +500,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
           slug: formData.slug,
           parent_id: formData.parent_id || null,
           is_main_nav: formData.is_main_nav || false,
+          is_published: formData.is_published || false,
           meta_description: formData.meta_description,
           meta_keywords: formData.meta_keywords,
           content: selectedContent || undefined, // Add AI-generated content if available
@@ -312,18 +510,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
         await onCreatePage(pageData);
       } catch (error) {
         console.error('Error in handleSubmit:', error);
-        // Fallback to original behavior on error
-        await onCreatePage({
-          page_type: formData.page_type!,
-          template_type: formData.template_type!,
-          title: formData.title!,
-          slug: formData.slug!,
-          parent_id: formData.parent_id || null,
-          is_main_nav: formData.is_main_nav || false,
-          meta_description: formData.meta_description,
-          meta_keywords: formData.meta_keywords,
-          content: selectedContent || undefined,
-        });
+        throw error;
       } finally {
         setIsSubmitting(false);
       }
@@ -476,6 +663,73 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                   placeholder="Web Design Services"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Page Intent</Label>
+                  <Input
+                    type="text"
+                    name="pageIntent"
+                    value={aiFormData.pageIntent}
+                    onChange={handleAIFormChange}
+                    placeholder="pricing, faq, trust, comparison"
+                  />
+                </div>
+                <div>
+                  <Label>Primary CTA</Label>
+                  <Input
+                    type="text"
+                    name="primaryCta"
+                    value={aiFormData.primaryCta}
+                    onChange={handleAIFormChange}
+                    placeholder="Request a quote"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Page Goal</Label>
+                <TextArea
+                  value={aiFormData.pageGoal}
+                  onChange={(value) => setAiFormData((prev) => ({ ...prev, pageGoal: value }))}
+                  placeholder="What should this page accomplish for the user?"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <Label>Target Audience</Label>
+                <Input
+                  type="text"
+                  name="targetAudience"
+                  value={aiFormData.targetAudience}
+                  onChange={handleAIFormChange}
+                  placeholder="Homeowners in Los Angeles needing urgent repairs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Must Include Topics (comma separated)</Label>
+                  <Input
+                    type="text"
+                    name="mustInclude"
+                    value={aiFormData.mustInclude}
+                    onChange={handleAIFormChange}
+                    placeholder="price ranges, permit costs, panel upgrades"
+                  />
+                </div>
+                <div>
+                  <Label>Must Avoid Topics (comma separated)</Label>
+                  <Input
+                    type="text"
+                    name="mustAvoid"
+                    value={aiFormData.mustAvoid}
+                    onChange={handleAIFormChange}
+                    placeholder="company history, irrelevant trends"
+                  />
+                </div>
+              </div>
               
               <Button type="submit" disabled={isAILoading}>
                 {isAILoading ? 'Generating Ideas...' : '🤖 Generate Content Ideas'}
@@ -503,14 +757,37 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                               <button
                                 key={idx}
                                 className="w-full text-left p-3 bg-gray-50 dark:bg-gray-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900 hover:border-blue-300 dark:hover:border-blue-600 border border-transparent transition-all duration-200"
-                                onClick={() => handleChooseIdea(idea.idea)}
+                                onClick={() => handleChooseIdea(idea)}
                               >
                                 <div className="font-medium text-blue-600 dark:text-blue-400 mb-1">
                                   💡 Idea #{idx + 1} - Click to Select
                                 </div>
+                                <div className="mb-2 flex flex-wrap gap-2">
+                                  {typeof idea.localMatchScore === 'number' && (
+                                    <span className={`rounded px-2 py-1 text-xs font-semibold ${
+                                      idea.localMatchScore >= 80
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : idea.localMatchScore >= 65
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-rose-100 text-rose-800'
+                                    }`}>
+                                      Match Confidence: {idea.localMatchScore}%
+                                    </span>
+                                  )}
+                                  {idea.ideaType && (
+                                    <span className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                                      Type: {idea.ideaType}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-sm text-gray-700 dark:text-gray-200 font-medium">
                                   {idea.idea}
                                 </div>
+                                {idea.whyMatch && (
+                                  <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                    {idea.whyMatch}
+                                  </div>
+                                )}
                                 {idea.keywordTargets && idea.keywordTargets.length > 0 && (
                                   <div className="mt-2 flex flex-wrap gap-1">
                                     {idea.keywordTargets.slice(0, 3).map((keyword, kidx) => (
@@ -518,6 +795,11 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                                         {keyword}
                                       </span>
                                     ))}
+                                  </div>
+                                )}
+                                {typeof idea.localMatchScore === 'number' && idea.localMatchScore < 65 && (
+                                  <div className="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">
+                                    Low relevance for this page intent. Consider refining Page Goal / Must Include and regenerate.
                                   </div>
                                 )}
                               </button>
@@ -557,15 +839,39 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
             </Button>
             <Button 
               onClick={() => setStep(enableAIContent ? 3 : 2)}
+              disabled={!canReviewAndFinalize}
             >
               {selectedContent ? 'Next: Review' : 'Review & Finalize'}
             </Button>
           </div>
+          {!canReviewAndFinalize && (
+            <p className="text-xs text-gray-500">
+              Complete the AI flow (Generate Content Ideas and pick one idea) to unlock Review &amp; Finalize.
+            </p>
+          )}
         </div>
       )}
 
       {step === (enableAIContent ? 3 : 2) && (
         <div className="space-y-4">
+          {suggestedSlugs.length > 0 && (
+            <div>
+              <Label>Header Nav Target Page (Optional)</Label>
+              <Select
+                options={suggestedSlugs.map((slug) => ({
+                  value: slug,
+                  label: `/${slug}`,
+                }))}
+                defaultValue={selectedSuggestedSlug}
+                onChange={(value) => handleSuggestedSlugSelect(value)}
+                placeholder="Select missing nav page slug"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Pick a missing header-nav page to avoid 404s. This prefills slug and title.
+              </p>
+            </div>
+          )}
+
           <div>
             <Label>Page Title</Label>
             <Input
@@ -605,6 +911,16 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               <Label htmlFor="mainNav">Show in main navigation</Label>
             </div>
           )}
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="publishNow"
+              checked={formData.is_published || false}
+              onChange={(e) => handleInputChange('is_published', e.target.checked)}
+            />
+            <Label htmlFor="publishNow">Publish now (avoid draft)</Label>
+          </div>
 
           <div>
             <Label>Meta Description (SEO)</Label>

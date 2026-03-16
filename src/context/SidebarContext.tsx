@@ -43,6 +43,29 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
   const [selectedClient, setClient] = useState<any>(null);
 
   useEffect(() => {
+    try {
+      const storedClient = localStorage.getItem("selected_client");
+      if (storedClient) {
+        setClient(JSON.parse(storedClient));
+      }
+    } catch {
+      localStorage.removeItem("selected_client");
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (selectedClient) {
+        localStorage.setItem("selected_client", JSON.stringify(selectedClient));
+      } else {
+        localStorage.removeItem("selected_client");
+      }
+    } catch {
+      // Ignore storage errors to avoid breaking UI state updates.
+    }
+  }, [selectedClient]);
+
+  useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);

@@ -42,6 +42,7 @@ export interface SiteSettings {
   // Footer
   footer_tagline: string | null;
   footer_copyright: string | null;
+  header_nav_links: FooterNavLink[] | null;
   footer_nav_links: FooterNavLink[] | null;
   footer_social_facebook: string | null;
   footer_social_instagram: string | null;
@@ -74,6 +75,7 @@ export interface Product {
 export interface FooterNavLink {
   label: string;
   href: string;
+  location?: "header" | "footer";
 }
 
 export interface Service {

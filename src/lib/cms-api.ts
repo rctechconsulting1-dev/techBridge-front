@@ -15,6 +15,8 @@ import type {
   TeamMember,
   FAQItem,
   Product,
+  Page,
+  Image,
   LandingPageData,
 } from "./cms-types";
 import { getToken } from "./cms-auth";
@@ -118,6 +120,74 @@ export async function getProductBySlug(
   slug: string,
 ): Promise<Product | null> {
   return cmsGet<Product>(`/products/slug/${slug}?website_id=${websiteId}`);
+}
+
+export async function getPages(websiteId: number | string): Promise<Page[]> {
+  return (await cmsGet<Page[]>(`/pages?website_id=${websiteId}`)) ?? [];
+}
+
+export async function getPageBySlug(
+  websiteId: number | string,
+  slug: string,
+): Promise<Page | null> {
+  const pages = await getPages(websiteId);
+  const normalized = slug.toLowerCase();
+  return (
+    pages.find((p) => p.slug?.toLowerCase() === normalized && p.is_published) ??
+    null
+  );
+}
+
+type RawPageImage = {
+  id?: number;
+  image_id?: number | null;
+  image?: Image | null;
+  url?: string;
+  alt_text?: string | null;
+  caption?: string | null;
+};
+
+export async function getPageImages(pageId: number): Promise<Image[]> {
+  const rows =
+    (await cmsGet<RawPageImage[]>(`/page-images?page_id=${pageId}`)) ?? [];
+
+  const directImages = rows
+    .map((row) => {
+      if (row.image && row.image.url) {
+        return row.image;
+      }
+
+      if (row.url) {
+        return {
+          id: row.id ?? 0,
+          created_at: "",
+          url: row.url,
+          alt_text: row.alt_text ?? null,
+          caption: row.caption ?? null,
+        } as Image;
+      }
+
+      return null;
+    })
+    .filter((img): img is Image => !!img);
+
+  if (directImages.length > 0) {
+    return directImages;
+  }
+
+  const missingImageIds = rows
+    .map((row) => row.image_id)
+    .filter((id): id is number => typeof id === "number");
+
+  if (missingImageIds.length === 0) {
+    return [];
+  }
+
+  const fetchedImages = await Promise.all(
+    missingImageIds.map((id) => cmsGet<Image>(`/images/${id}`)),
+  );
+
+  return fetchedImages.filter((img): img is Image => !!img?.url);
 }
 
 /** Fetches all landing page data in parallel — use in page.tsx */

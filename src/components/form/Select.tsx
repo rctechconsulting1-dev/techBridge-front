@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface Option {
   value: string | number;
@@ -23,6 +23,10 @@ const Select: React.FC<SelectProps> = ({
   // Manage the selected value
   const [selectedValue, setSelectedValue] = useState<string>(defaultValue);
 
+  useEffect(() => {
+    setSelectedValue(defaultValue || "");
+  }, [defaultValue]);
+
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setSelectedValue(value);
@@ -41,7 +45,7 @@ const Select: React.FC<SelectProps> = ({
     >
       {/* Placeholder option */}
       <option
-        value={undefined}
+        value=""
         className="text-gray-700 dark:bg-gray-900 dark:text-gray-400"
       >
         {placeholder}

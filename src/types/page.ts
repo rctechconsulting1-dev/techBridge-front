@@ -65,6 +65,7 @@ export interface PageCreationData {
   slug: string;
   parent_id?: number | null;
   is_main_nav: boolean;
+  is_published?: boolean;
   meta_description?: string;
   meta_keywords?: string;
   content?: string; // Added for AI-generated content

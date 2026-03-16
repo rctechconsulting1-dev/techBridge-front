@@ -4,6 +4,42 @@ This document tracks breaking changes, refactors, and setup steps developers nee
 
 ---
 
+## March 2026 — Site Settings Nav Split (`header_nav_links`)
+
+### What Changed
+
+Site navigation is now modeled with dedicated fields in `site_settings`:
+
+- `header_nav_links` for top navigation
+- `footer_nav_links` for footer navigation
+
+This replaces the interim pattern where both were mixed in `footer_nav_links` using a `location` flag.
+
+### Required Migration
+
+Run the new migration from the backend repository (`~/Code/backend-rc`) against your Postgres database:
+
+```bash
+cd ~/Code/backend-rc
+npm run migrate:up
+```
+
+### After Migration
+
+Update shared DB typings/contracts if your backend pipeline maintains them.
+
+```bash
+# Example: sync generated DB types/contracts from backend-rc into this frontend repo
+```
+
+### Notes
+
+- Existing legacy rows are backfilled automatically from `footer_nav_links.location = 'header'`.
+- Footer links are normalized to `{ label, href }` objects.
+- Frontend still includes fallback handling for one-release compatibility during rollout.
+
+---
+
 ## March 2026 — Codebase Refactor & Branding Cleanup
 
 ### What Changed
@@ -66,19 +102,19 @@ When setting up a new environment, run the database migration for the page manag
 
 ### Step 1: Run Database Migration
 
-Execute the migration SQL in your Supabase SQL Editor:
-
-```sql
--- Run the contents of supabase/migrations/improve_page_structure.sql
--- in your Supabase dashboard SQL editor
-```
-
-### Step 2: Regenerate Supabase Types
-
-After running the migration, regenerate `database.types.ts`:
+Run migrations from `~/Code/backend-rc` with your backend migration process:
 
 ```bash
-npx supabase gen types typescript --project-id YOUR_PROJECT_ID > database.types.ts
+cd ~/Code/backend-rc
+npm run migrate:up
+```
+
+### Step 2: Sync Generated DB Types (if applicable)
+
+After running the migration, update `database.types.ts` from your backend source of truth:
+
+```bash
+# Copy or regenerate types from backend-rc contract generation
 ```
 
 ### Step 3: Verify the Page Manager
@@ -119,8 +155,6 @@ Create `.env.local` from the table below. All variables are required unless mark
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `NEXT_PUBLIC_API_URL` | Backend API base URL | ✅ |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | ✅ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | ✅ |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID | ✅ |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | ✅ |
 | `GOOGLE_REDIRECT_URI` | Google OAuth redirect URI (must match Google Console) | ✅ |
@@ -175,5 +209,5 @@ x-revalidate-secret: <REVALIDATE_SECRET>
 | Google OAuth redirect mismatch | Ensure `GOOGLE_REDIRECT_URI` matches exactly what's registered in Google Cloud Console |
 | S3 upload fails | Verify all four S3 env vars are set and the bucket has the correct CORS policy |
 | ISR pages not updating | Check `REVALIDATE_SECRET` matches and `POST /api/revalidate` returns 200 |
-| Supabase types out of date | Re-run `npx supabase gen types typescript ...` after any schema migration |
+| DB types out of date | Re-sync `database.types.ts` from backend-rc after any schema migration |
 

@@ -16,7 +16,7 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
   const [creationMode, setCreationMode] = useState(false);
   const [pageCreationData, setPageCreationData] = useState<Partial<PageCreationData>>({});
 
-  const { pages } = useGetPages(websiteId);
+  const { pages, refreshPages } = useGetPages(websiteId);
   const { seoData } = useGetSeo(selectedPage?.id || null);
 
   // Organize pages by hierarchy (using type casting for enhanced fields)
@@ -73,7 +73,7 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
       meta_keywords: data.meta_keywords || null,
       website_id: websiteId,
       content: data.content || content, // Use provided content or default content state
-      is_published: false, // Draft by default
+      is_published: data.is_published ?? false,
       sort_order: 0,
     };
 
@@ -175,6 +175,7 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
     resetPageState,
     startPageCreation,
     createNewPage,
+    refreshPages,
     setPageCreationData,
   };
 };

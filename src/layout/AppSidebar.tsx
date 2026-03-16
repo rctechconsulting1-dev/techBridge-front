@@ -61,7 +61,6 @@ const navItems: NavItem[] = [
     icon: <ListIcon />,
     subItems: [
       { name: "Form Elements", path: "/form-elements", pro: false },
-      { name: "Main Pages", path: "/main-page", pro: false },
     ],
   },
   {
@@ -83,6 +82,7 @@ const navItems: NavItem[] = [
     name: "Pages",
     icon: <PageIcon />,
     subItems: [
+      { name: "Main Pages", path: "/main-page", pro: false },
       { name: "Branding", path: "/branding", pro: false },
       { name: "Site Settings", path: "/site-settings", pro: false },
       { name: "Blank Page", path: "/blank", pro: false },

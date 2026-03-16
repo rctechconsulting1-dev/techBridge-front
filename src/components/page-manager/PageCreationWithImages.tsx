@@ -9,6 +9,9 @@ interface PageCreationWithImagesProps {
   onCancel: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
+  initialPageDraft?: { slug: string; title: string; is_published?: boolean };
+  suggestedSlugs?: string[];
+  websiteId?: number;
 }
 
 const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
@@ -16,6 +19,9 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
   onCancel,
   isLoading = false,
   enableAIContent = false,
+  initialPageDraft,
+  suggestedSlugs,
+  websiteId,
 }) => {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [createdPageId, setCreatedPageId] = useState<number | null>(null);
@@ -41,6 +47,9 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
         // Check other possible response structures
         else if (resultObj.response && typeof resultObj.response === 'object') {
           const response = resultObj.response as Record<string, unknown>;
+          if (typeof response.id === 'number') {
+            pageId = response.id;
+          }
           if (response.page && typeof response.page === 'object') {
             const page = response.page as Record<string, unknown>;
             if (typeof page.id === 'number') {
@@ -62,6 +71,9 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
       if (pageId) {
         setCreatedPageId(pageId);
         setShowImageUpload(true);
+      } else {
+        // If backend response shape is unexpected, do not leave user stuck in wizard.
+        onCancel();
       }
       
       return result;
@@ -69,7 +81,7 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
       console.error('Error creating page:', error);
       throw error;
     }
-  }, [onCreatePage]);
+  }, [onCreatePage, onCancel]);
 
   const handleImageUploadComplete = useCallback(async () => {
     if (imageUploadRef.current && createdPageId) {
@@ -110,6 +122,7 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
           ref={imageUploadRef}
           imageUploadLocation={{ table: '/page_image', id: createdPageId }}
           idFieldName="page_id"
+          websiteId={websiteId}
         />
 
         <div className="flex gap-3 justify-end">
@@ -130,6 +143,8 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
       onCancel={onCancel}
       isLoading={isLoading}
       enableAIContent={enableAIContent}
+      initialPageDraft={initialPageDraft}
+      suggestedSlugs={suggestedSlugs}
     />
   );
 };
