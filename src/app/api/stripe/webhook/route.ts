@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
@@ -39,19 +42,43 @@ export async function POST(request: NextRequest) {
     const session = event.data.object as Stripe.Checkout.Session;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-    if (apiUrl && session.payment_intent) {
+    if (!apiUrl) {
+      console.error(
+        "[stripe/webhook] NEXT_PUBLIC_API_URL is not set; charge not recorded",
+      );
+    } else if (session.payment_intent) {
       try {
-        await fetch(`${apiUrl}/stripe/charges`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            stripe_charge_id: String(session.payment_intent),
-            amount: session.amount_total,
-            currency: session.currency ?? "usd",
-            status: session.payment_status,
-            stripe_customer_id: null,
-          }),
-        });
+        // Resolve the actual Charge id (ch_...) via the PaymentIntent
+        const stripe = getStripe();
+        const paymentIntentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent.id;
+        const paymentIntent =
+          await stripe.paymentIntents.retrieve(paymentIntentId);
+        const chargeId =
+          typeof paymentIntent.latest_charge === "string"
+            ? paymentIntent.latest_charge
+            : paymentIntent.latest_charge?.id;
+
+        if (!chargeId) {
+          console.error(
+            "[stripe/webhook] PaymentIntent has no latest_charge; cannot record charge",
+            { paymentIntentId },
+          );
+        } else {
+          await fetch(`${apiUrl}/stripe/charges`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              stripe_charge_id: chargeId,
+              amount: session.amount_total,
+              currency: session.currency ?? "usd",
+              status: session.payment_status,
+              stripe_customer_id: null,
+            }),
+          });
+        }
       } catch (err) {
         // Log but don't fail — Stripe will retry if we return non-200
         console.error("[stripe/webhook] Failed to record charge:", err);

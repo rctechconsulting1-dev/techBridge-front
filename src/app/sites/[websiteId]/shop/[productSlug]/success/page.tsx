@@ -3,6 +3,7 @@ import Link from "next/link";
 import Stripe from "stripe";
 import { getSiteSettings } from "@/lib/cms-api";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface Props {
@@ -38,6 +39,10 @@ export default async function CheckoutSuccessPage({
   // ── Security: verify this session belongs to the websiteId in the URL ──
   if (session.metadata?.websiteId !== websiteId) notFound();
 
+  // ── Security: verify the productSlug in the URL matches the session metadata ──
+  const sessionProductSlug = session.metadata?.productSlug;
+  if (!sessionProductSlug || sessionProductSlug !== productSlug) notFound();
+
   const settings = await getSiteSettings(websiteId);
   const primary = settings?.primary_color ?? "#000000";
   const shopHref = `/sites/${websiteId}/shop`;
@@ -47,7 +52,7 @@ export default async function CheckoutSuccessPage({
   const amountPaid = session.amount_total
     ? `$${(session.amount_total / 100).toFixed(2)}`
     : null;
-  const productDetailHref = `/sites/${websiteId}/shop/${productSlug}`;
+  const productDetailHref = `/sites/${websiteId}/shop/${sessionProductSlug}`;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
