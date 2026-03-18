@@ -257,7 +257,7 @@ VALUES (1, 'My Product', 'my-product', 'A great product.', 29.99, 10, true);
 
 | Route                  | Method | Description                                                                                                                         |
 | ---------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/stripe/checkout` | POST   | Creates a Stripe Checkout Session. Body: `{ productId, productTitle, price, quantity, websiteId, productSlug }`. Returns `{ url }`. |
+| `/api/stripe/checkout` | POST   | Creates a Stripe Checkout Session. Body: `{ quantity, websiteId, productSlug }`. Returns `{ url }`. |
 | `/api/stripe/webhook`  | POST   | Receives Stripe events. Verifies signature, records `checkout.session.completed` charges to the backend.                            |
 
 ---

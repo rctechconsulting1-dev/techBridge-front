@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import type { Product } from "@/lib/cms-types";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
