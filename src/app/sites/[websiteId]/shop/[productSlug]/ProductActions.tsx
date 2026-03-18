@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import type { Product } from "@/lib/cms-types";
 
 interface Props {
   product: Product;
   primary: string;
+  websiteId: string;
 }
 
 function StarRating({ rating, count }: { rating: number; count: number }) {
@@ -41,16 +42,10 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
   );
 }
 
-export default function ProductActions({ product, primary }: Props) {
+export default function ProductActions({ product, primary, websiteId }: Props) {
   const [quantity, setQuantity] = useState(1);
-  const [added, setAdded] = useState(false);
-  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
-    };
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const price = parseFloat(product.price);
   const compareAt = product.compare_at_price
@@ -58,11 +53,31 @@ export default function ProductActions({ product, primary }: Props) {
     : null;
   const inStock = product.stock_quantity > 0;
 
-  const handleAddToCart = () => {
-    // TODO: hook up to Stripe Checkout / cart context
-    setAdded(true);
-    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
-    addedTimerRef.current = setTimeout(() => setAdded(false), 2500);
+  const handleBuyNow = async () => {
+    if (!inStock || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantity,
+          websiteId,
+          productSlug: product.slug,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create checkout session");
+      const data = (await res.json()) as { url?: string };
+      if (!data.url || !data.url.startsWith("https://checkout.stripe.com/")) {
+        throw new Error("Invalid checkout URL");
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("[stripe/checkout]", err);
+      setError("Could not start checkout. Please try again.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -162,22 +177,27 @@ export default function ProductActions({ product, primary }: Props) {
         </div>
       )}
 
-      {/* Add to Cart */}
-      {/* aria-live region announces state change to screen readers */}
-      <div aria-live="polite" aria-atomic="true" className="sr-only">
-        {added ? "Item added to cart" : ""}
-      </div>
+      {/* Error message */}
+      {error && (
+        <p role="alert" className="text-sm text-red-600">
+          {error}
+        </p>
+      )}
+
+      {/* Buy Now */}
       <button
-        onClick={handleAddToCart}
-        disabled={!inStock}
+        onClick={handleBuyNow}
+        disabled={!inStock || loading}
         className="w-full py-4 text-sm font-semibold tracking-widest text-white uppercase transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
         style={{ backgroundColor: primary }}
-        aria-disabled={!inStock}
+        aria-disabled={!inStock || loading}
+        aria-busy={loading}
       >
-        <span aria-hidden={added}>
-          {inStock ? "Add to Cart" : "Out of Stock"}
-        </span>
-        {added && <span aria-hidden="true"> ✓ Added</span>}
+        {loading
+          ? "Redirecting to checkout…"
+          : inStock
+            ? "Buy Now"
+            : "Out of Stock"}
       </button>
 
       {/* Description */}

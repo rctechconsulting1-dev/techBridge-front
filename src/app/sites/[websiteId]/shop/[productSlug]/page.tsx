@@ -118,7 +118,11 @@ export default async function ProductDetailPage({ params }: Props) {
           </div>
 
           {/* Details — client component handles interactivity */}
-          <ProductActions product={product} primary={primary} />
+          <ProductActions
+            product={product}
+            primary={primary}
+            websiteId={websiteId}
+          />
         </div>
 
         {/* Back link */}
