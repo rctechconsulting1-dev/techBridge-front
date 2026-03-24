@@ -35,9 +35,13 @@ export async function GET(req: NextRequest) {
         if (tokens.access_token) {
             const googleAccountId = await fetchGoogleAccountId(tokens.access_token);
             const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+            const authToken = req.cookies.get('auth_token')?.value;
             await fetch(`${apiUrl}/agency-google-token`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+                },
                 body: JSON.stringify({
                     accessToken: tokens.access_token,
                     refreshToken: tokens.refresh_token ?? null,

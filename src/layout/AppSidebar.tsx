@@ -126,15 +126,31 @@ const AppSidebar = ({}) => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const [websiteId, setWebsiteId] = useState<number | null>(null);
+  const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
 
   useEffect(() => {
     apiClient.getSession().then((user) => {
-      const u = user as { website_id?: number } | null;
+      const u = user as { website_id?: number; enabledModules?: string[] } | null;
       if (u?.website_id) setWebsiteId(u.website_id);
+      if (Array.isArray(u?.enabledModules)) {
+        setEnabledModules(u.enabledModules.map((moduleName) => moduleName.toLowerCase()));
+      }
     });
   }, []);
 
-  const computedNavItems = navItems.map((item) => {
+  const computedNavItems = navItems
+    .filter((item) => {
+      if (item.name !== "Calendar") {
+        return true;
+      }
+
+      if (!enabledModules || enabledModules.length === 0) {
+        return true;
+      }
+
+      return enabledModules.includes("calendar") || enabledModules.includes("appointments");
+    })
+    .map((item) => {
     if (item.name === "Pages") {
       return {
         ...item,

@@ -3,16 +3,29 @@
  */
 
 import { getApiBaseUrl } from "@/lib/api";
+import {
+  clearAuthTokenStorage,
+  decodeJwtPayload,
+  getStoredAuthToken,
+  normalizeAuthSession,
+  persistAuthToken,
+} from "@/lib/auth-context";
 
 const API_URL = getApiBaseUrl();
 
 export interface AuthResponse {
   token: string;
   user: {
-    id: string;
+    id: string | number;
     email: string;
     firstName?: string;
     lastName?: string;
+    role?: string;
+    website_id?: number;
+    activeTenantId?: number;
+    memberships?: Array<Record<string, unknown>>;
+    enabledModules?: string[];
+    enabledFeatures?: string[];
   };
 }
 
@@ -28,15 +41,13 @@ class ApiClient {
   constructor() {
     // Load token from localStorage on initialization
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('auth_token');
+      this.token = getStoredAuthToken();
     }
   }
 
   setToken(token: string) {
     this.token = token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token);
-    }
+    persistAuthToken(token);
   }
 
   getToken(): string | null {
@@ -45,9 +56,7 @@ class ApiClient {
 
   clearToken() {
     this.token = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-    }
+    clearAuthTokenStorage();
   }
 
   private getHeaders(includeAuth = true): Record<string, string> {
@@ -123,6 +132,10 @@ class ApiClient {
   }
 
   async getSession(): Promise<AuthResponse['user'] | null> {
+    if (!this.token && typeof window !== 'undefined') {
+      this.token = getStoredAuthToken();
+    }
+
     if (!this.token) {
       return null;
     }
@@ -139,9 +152,52 @@ class ApiClient {
       }
 
       const data = await this.handleResponse(response);
-      return data?.user || null;
+      const apiUser = data?.user && typeof data.user === 'object'
+        ? (data.user as Record<string, unknown>)
+        : null;
+      const payload = decodeJwtPayload(this.token);
+      const normalized = normalizeAuthSession(apiUser, payload);
+
+      if (!normalized.id || !normalized.email) {
+        return null;
+      }
+
+      return {
+        ...(apiUser ?? {}),
+        id: normalized.id,
+        email: normalized.email,
+        role: normalized.role,
+        website_id: normalized.website_id,
+        activeTenantId: normalized.activeTenantId,
+        memberships: normalized.memberships,
+        enabledModules: normalized.enabledModules,
+        enabledFeatures: normalized.enabledFeatures,
+      } as AuthResponse['user'];
     } catch {
-      return null;
+      if (!this.token) {
+        return null;
+      }
+
+      const payload = decodeJwtPayload(this.token);
+      if (!payload) {
+        return null;
+      }
+
+      const normalized = normalizeAuthSession(null, payload);
+      if (!normalized.id || !normalized.email) {
+        return null;
+      }
+
+      return {
+        id: normalized.id,
+        email: normalized.email,
+        role: normalized.role,
+        website_id: normalized.website_id,
+        activeTenantId: normalized.activeTenantId,
+        memberships: normalized.memberships,
+        enabledModules: normalized.enabledModules,
+        enabledFeatures: normalized.enabledFeatures,
+      } as AuthResponse['user'];
     }
   }
 

@@ -8,6 +8,7 @@ import Link from "next/link";
 import Button from "../../../../../components/ui/button/Button";
 import { useContentAgent } from "../../../../../hooks/useContentAgent";
 import React from "react";
+import { apiClient } from "@/lib/api-client";
 
 // Types for better type safety
 interface ContentItem {
@@ -326,6 +327,7 @@ const ChatInterface = ({
 
 const ChatGPTPage = () => {
     const [formData, setFormData] = useState({
+        websiteId: undefined as number | undefined,
         ourUrl: "",
         city: "",
         industry: "",
@@ -337,6 +339,22 @@ const ChatGPTPage = () => {
 
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const { trigger, data, error, isLoading } = useContentAgent();
+
+    React.useEffect(() => {
+        const hydrateWebsiteContext = async () => {
+            const user = await apiClient.getSession();
+            const websiteId =
+                user && typeof user.website_id === "number"
+                    ? user.website_id
+                    : undefined;
+
+            if (websiteId) {
+                setFormData((prev) => ({ ...prev, websiteId }));
+            }
+        };
+
+        hydrateWebsiteContext();
+    }, []);
 
     // Effect to handle API responses and add them to chat
     React.useEffect(() => {

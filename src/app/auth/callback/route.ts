@@ -32,6 +32,13 @@ export async function GET(request: NextRequest) {
           sameSite: 'lax',
           maxAge: 60 * 60 * 24 * 30, // 30 days
         });
+        res.cookies.set('auth_token_client', data.token, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 5,
+          path: '/',
+        });
       }
       return res;
     } catch (error) {

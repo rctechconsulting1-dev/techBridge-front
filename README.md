@@ -16,7 +16,7 @@ This dashboard enables RC Tech Bridge to manage client digital presence end-to-e
 - **Page Manager** — MDX editor with image uploads, page hierarchy, and SEO metadata management
 - **Asset Manager** — S3 image uploads and asset library per client
 - **Calendar** — FullCalendar integration for scheduling
-- **Authentication** — Supabase-backed sign-in/sign-up with Google OAuth
+- **Authentication** — Backend-managed auth flow with Google OAuth
 
 ### Tech Stack
 
@@ -24,7 +24,7 @@ This dashboard enables RC Tech Bridge to manage client digital presence end-to-e
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- Supabase (auth + database)
+- Express.js backend API (auth + data access)
 - AWS S3 (asset storage)
 - OpenAI (content generation)
 - Google Business Profile API
@@ -68,7 +68,7 @@ src/
 │   ├── (admin)/          # Protected admin routes (auth-guarded)
 │   ├── (full-width-pages)/ # Auth pages and error pages
 │   ├── api/              # API routes (Google OAuth, content agent, S3, revalidation)
-│   ├── auth/             # Supabase auth callback handlers
+│   ├── auth/             # Auth callback handlers
 │   ├── sites/[websiteId]/ # ISR-rendered public client websites
 │   └── page.tsx          # RC Tech Bridge public landing page
 ├── components/
@@ -128,8 +128,6 @@ The dashboard includes a set of reusable UI primitives and template components d
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_URL`                | Backend API base URL                                                                                           |
 | `NEXT_PUBLIC_APP_URL`                | Public base URL of this app (e.g. `http://localhost:3000`) — used to build Stripe success/cancel redirect URLs |
-| `NEXT_PUBLIC_SUPABASE_URL`           | Supabase project URL                                                                                           |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Supabase anon key                                                                                              |
 | `GOOGLE_CLIENT_ID`                   | Google OAuth client ID                                                                                         |
 | `GOOGLE_CLIENT_SECRET`               | Google OAuth client secret                                                                                     |
 | `GOOGLE_REDIRECT_URI`                | Google OAuth redirect URI                                                                                      |
@@ -272,6 +270,11 @@ See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for:
 - Google Business OAuth setup
 - Adding new client sites
 - Troubleshooting common issues
+
+See [MULTI_TENANCY_ARCHITECTURE_DRAFT.md](./MULTI_TENANCY_ARCHITECTURE_DRAFT.md) for:
+- Tenant/domain architecture decisions
+- Per-tenant email and Stripe strategy
+- Migration plan for existing features
 
 ---
 

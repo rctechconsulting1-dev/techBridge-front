@@ -1,6 +1,8 @@
 import useSWRMutation from 'swr/mutation';
+import { getStoredAuthToken } from '@/lib/auth-context';
 
 type ContentAgentProps = {
+  websiteId?: number;
   ourUrl?: string;
   city?: string;
   industry?: string;
@@ -14,9 +16,15 @@ type ContentAgentProps = {
 };
 
 async function fetchContentAgent(url: string, { arg }: { arg: ContentAgentProps }) {
+  const token = getStoredAuthToken();
+
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(arg.websiteId ? { 'X-Website-Id': String(arg.websiteId) } : {}),
+    },
     body: JSON.stringify(arg),
   });
   if (!res.ok) throw new Error('Failed to fetch');

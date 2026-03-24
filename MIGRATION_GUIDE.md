@@ -66,19 +66,21 @@ When setting up a new environment, run the database migration for the page manag
 
 ### Step 1: Run Database Migration
 
-Execute the migration SQL in your Supabase SQL Editor:
-
-```sql
--- Run the contents of supabase/migrations/improve_page_structure.sql
--- in your Supabase dashboard SQL editor
-```
-
-### Step 2: Regenerate Supabase Types
-
-After running the migration, regenerate `database.types.ts`:
+Run migrations in the backend repository (Express API) using the backend migration workflow.
 
 ```bash
-npx supabase gen types typescript --project-id YOUR_PROJECT_ID > database.types.ts
+# From backend repo (example path)
+cd ../backend-rc
+# Run your standard backend migration command
+# npm run migrate
+```
+
+### Step 2: Sync Shared Types
+
+After running backend migrations, sync shared TypeScript database/api types used by this frontend.
+
+```bash
+# Pull latest generated/shared types from backend source of truth
 ```
 
 ### Step 3: Verify the Page Manager
@@ -119,8 +121,6 @@ Create `.env.local` from the table below. All variables are required unless mark
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `NEXT_PUBLIC_API_URL` | Backend API base URL | ✅ |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | ✅ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | ✅ |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID | ✅ |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | ✅ |
 | `GOOGLE_REDIRECT_URI` | Google OAuth redirect URI (must match Google Console) | ✅ |
@@ -175,5 +175,5 @@ x-revalidate-secret: <REVALIDATE_SECRET>
 | Google OAuth redirect mismatch | Ensure `GOOGLE_REDIRECT_URI` matches exactly what's registered in Google Cloud Console |
 | S3 upload fails | Verify all four S3 env vars are set and the bucket has the correct CORS policy |
 | ISR pages not updating | Check `REVALIDATE_SECRET` matches and `POST /api/revalidate` returns 200 |
-| Supabase types out of date | Re-run `npx supabase gen types typescript ...` after any schema migration |
+| Shared types out of date | Re-sync generated types from backend after any schema migration |
 

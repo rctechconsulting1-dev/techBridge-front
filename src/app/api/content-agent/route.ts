@@ -5,6 +5,88 @@ import z from "zod";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const AI_DAILY_LIMIT = Number(process.env.AI_CONTENT_DAILY_LIMIT ?? 60);
+
+type UsageRecord = {
+  day: string;
+  count: number;
+};
+
+const getUsageStore = (): Map<string, UsageRecord> => {
+  const globalWithStore = globalThis as typeof globalThis & {
+    __contentAgentUsageStore?: Map<string, UsageRecord>;
+  };
+
+  if (!globalWithStore.__contentAgentUsageStore) {
+    globalWithStore.__contentAgentUsageStore = new Map<string, UsageRecord>();
+  }
+
+  return globalWithStore.__contentAgentUsageStore;
+};
+
+const decodeJwtPayload = (authorizationHeader: string | null): Record<string, unknown> | null => {
+  if (!authorizationHeader?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authorizationHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return null;
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = Buffer.from(padded, "base64").toString("utf-8");
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const toPositiveInteger = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+const consumeUsage = (key: string, cost: number) => {
+  const store = getUsageStore();
+  const day = todayKey();
+  const current = store.get(key);
+  const active = current && current.day === day ? current : { day, count: 0 };
+
+  if (active.count + cost > AI_DAILY_LIMIT) {
+    return {
+      allowed: false,
+      used: active.count,
+      remaining: Math.max(AI_DAILY_LIMIT - active.count, 0),
+      limit: AI_DAILY_LIMIT,
+    };
+  }
+
+  const updated = { ...active, count: active.count + cost };
+  store.set(key, updated);
+
+  return {
+    allowed: true,
+    used: updated.count,
+    remaining: Math.max(AI_DAILY_LIMIT - updated.count, 0),
+    limit: AI_DAILY_LIMIT,
+  };
+};
+
 function getOpenAI() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -263,7 +345,38 @@ export async function POST(request: Request) {
       }), { status: 500 });
     }
 
-    const { ourUrl, city, industry, keyword, competitor1Url, service, userChosenIdea, content } = await request.json();
+    const requestBody = await request.json();
+    const {
+      ourUrl: _ourUrl,
+      city,
+      industry,
+      keyword,
+      competitor1Url,
+      service: _service,
+      userChosenIdea,
+      content,
+      websiteId: bodyWebsiteId,
+    } = requestBody;
+
+    const headerWebsiteId = request.headers.get("x-website-id");
+    const websiteId = toPositiveInteger(bodyWebsiteId) ?? toPositiveInteger(headerWebsiteId);
+    const tokenPayload = decodeJwtPayload(request.headers.get("authorization"));
+    const userId = tokenPayload?.sub ? String(tokenPayload.sub) : "anonymous";
+    const requestIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const usageKey = `website:${websiteId ?? "unscoped"}|user:${userId}|ip:${requestIp}`;
+
+    const usageCost = userChosenIdea && !content ? 3 : 1;
+    const usage = consumeUsage(usageKey, usageCost);
+    if (!usage.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: "Daily AI usage limit reached for this workspace context.",
+          usage,
+        }),
+        { status: 429 },
+      );
+    }
+
     // Step 1: Generate content ideas (initial request)
     if (!userChosenIdea && !content && city && industry && keyword) {
       const contentIdeas = await generateContentIdeas({ city, industry, keyword });
@@ -271,7 +384,8 @@ export async function POST(request: Request) {
         ...contentIdeas,
         role: "assistant", 
         step: "ideas_generated",
-        message: "Here are 3 content ideas for you to choose from:"
+        message: "Here are 3 content ideas for you to choose from:",
+        usage,
       }), { status: 200 });
     }
 
@@ -306,7 +420,8 @@ export async function POST(request: Request) {
         competitorAnalysis,
         metadata,
         step: "complete_workflow",
-        message: "Content outline, full markdown content, and SEO metadata have been generated. Here's your complete content strategy:"
+        message: "Content outline, full markdown content, and SEO metadata have been generated. Here's your complete content strategy:",
+        usage,
       }), { status: 200 });
     }
 
@@ -317,7 +432,8 @@ export async function POST(request: Request) {
         role: "assistant", 
         content: JSON.stringify(metadata),
         step: "metadata_generated",
-        message: "SEO metadata has been generated for your content."
+        message: "SEO metadata has been generated for your content.",
+        usage,
       }), { status: 200 });
     }
 
