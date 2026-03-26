@@ -19,7 +19,7 @@ import {
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL ?? "RC TechBridge <noreply@rctechbridge.com>";
+  process.env.RESEND_FROM_EMAIL ?? "RD TechBridge <noreply@rdtechbridge.com>";
 
 const APP_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
@@ -64,13 +64,19 @@ const normalizeFromAddress = (
   }
 
   const normalizedName = normalizeEmailValue(fromName);
-  return normalizedName ? `${normalizedName} <${normalizedEmail}>` : normalizedEmail;
+  return normalizedName
+    ? `${normalizedName} <${normalizedEmail}>`
+    : normalizedEmail;
 };
 
 const fetchTenantEmailProfile = async ({
   websiteId,
 }: NotificationSendContext): Promise<TenantEmailProfile | null> => {
-  if (typeof websiteId === "undefined" || websiteId === null || `${websiteId}`.trim() === "") {
+  if (
+    typeof websiteId === "undefined" ||
+    websiteId === null ||
+    `${websiteId}`.trim() === ""
+  ) {
     return null;
   }
 
@@ -114,7 +120,9 @@ export const resolveNotificationSenderForContext = async (
 
   const brandedFrom = normalizeFromAddress(profile.fromName, profile.fromEmail);
   const preferredReplyTo =
-    normalizeEmailValue(profile.replyTo) ?? normalizeEmailValue(profile.fromEmail) ?? undefined;
+    normalizeEmailValue(profile.replyTo) ??
+    normalizeEmailValue(profile.fromEmail) ??
+    undefined;
 
   if (
     brandedFrom &&
@@ -143,10 +151,7 @@ const VERIFY_TOKEN_SECRET =
 const RESET_TOKEN_SECRET =
   process.env.EMAIL_RESET_SECRET ?? "change-me-in-production-reset";
 
-async function hmacSign(
-  secret: string,
-  payload: string,
-): Promise<string> {
+async function hmacSign(secret: string, payload: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -179,7 +184,10 @@ export async function createSignedToken(
   ttlSeconds = 86400,
 ): Promise<string> {
   const payload = Buffer.from(
-    JSON.stringify({ ...data, exp: Math.floor(Date.now() / 1000) + ttlSeconds }),
+    JSON.stringify({
+      ...data,
+      exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+    }),
   ).toString("base64url");
   const sig = await hmacSign(secret, payload);
   return `${payload}.${sig}`;

@@ -6,15 +6,15 @@
       <stop offset="100%" style="stop-color:#8B4513;stop-opacity:1" />
     </linearGradient>
   </defs>
-  
+
   <!-- Background -->
   <rect width="180" height="180" fill="url(#bgGradient)" rx="36"/>
-  
-  <!-- R and C with bridge -->
+
+  <!-- R and D with bridge -->
   <text x="45" y="100" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="white">R</text>
   <rect x="85" y="85" width="20" height="4" fill="#C41E3A"/>
-  <text x="115" y="100" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="white">C</text>
-  
+  <text x="115" y="100" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="white">D</text>
+
   <!-- Tech Bridge text -->
   <text x="90" y="130" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="1px">TECH BRIDGE</text>
 </svg>

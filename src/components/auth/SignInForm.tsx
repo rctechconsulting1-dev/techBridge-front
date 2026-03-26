@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 export default function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextDest = searchParams.get('next') || '/admin';
+  const nextDest = searchParams.get("next") || "/admin";
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +71,8 @@ export default function SignInForm() {
   };
 
   return (
-    <div className="flex flex-col flex-1 lg:w-1/2 w-full">
-      <div className="w-full max-w-md sm:pt-10 mx-auto mb-5">
+    <div className="flex w-full flex-1 flex-col lg:w-1/2">
+      <div className="mx-auto mb-5 w-full max-w-md sm:pt-10">
         <Link
           href="/"
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-[#CD7F32] dark:text-gray-400 dark:hover:text-[#CD7F32]"
@@ -81,27 +81,31 @@ export default function SignInForm() {
           Back to dashboard
         </Link>
       </div>
-      <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
         <div>
           <div className="mb-5 sm:mb-8">
             {/* Brand Logo */}
-            <div className="flex items-center justify-center mb-6">
+            <div className="mb-6 flex items-center justify-center">
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-1">
                   <span className="text-3xl font-bold text-[#CD7F32]">R</span>
-                  <div className="w-8 h-0.5 bg-[#C41E3A] rounded-full"></div>
-                  <span className="text-3xl font-bold text-[#CD7F32]">C</span>
+                  <div className="h-0.5 w-8 rounded-full bg-[#C41E3A]"></div>
+                  <span className="text-3xl font-bold text-[#CD7F32]">D</span>
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[#CD7F32] font-bold text-base tracking-wide">TECH</span>
-                  <span className="text-[#C41E3A] font-bold text-base tracking-wide -mt-1">BRIDGE</span>
+                  <span className="text-base font-bold tracking-wide text-[#CD7F32]">
+                    TECH
+                  </span>
+                  <span className="-mt-1 text-base font-bold tracking-wide text-[#C41E3A]">
+                    BRIDGE
+                  </span>
                 </div>
               </div>
             </div>
-            <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md text-center">
+            <h1 className="text-title-sm sm:text-title-md mb-2 text-center font-semibold text-gray-800 dark:text-white/90">
               Admin Sign In
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400">
               Enter your credentials to access the admin dashboard
             </p>
           </div>
@@ -110,10 +114,10 @@ export default function SignInForm() {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isGoogleLoading}
-                className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-[#CD7F32]/10 hover:text-[#CD7F32] hover:border-[#CD7F32]/20 border border-transparent dark:bg-white/5 dark:text-white/90 dark:hover:bg-[#CD7F32]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-3 rounded-lg border border-transparent bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:border-[#CD7F32]/20 hover:bg-[#CD7F32]/10 hover:text-[#CD7F32] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-white/90 dark:hover:bg-[#CD7F32]/10"
               >
                 {isGoogleLoading ? (
-                  <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent"></div>
                 ) : (
                   <svg
                     width="20"
@@ -142,7 +146,7 @@ export default function SignInForm() {
                 )}
                 {isGoogleLoading ? "Signing in..." : "Sign in with Google"}
               </button>
-              <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-[#CD7F32]/10 hover:text-[#CD7F32] hover:border-[#CD7F32]/20 border border-transparent dark:bg-white/5 dark:text-white/90 dark:hover:bg-[#CD7F32]/10">
+              <button className="inline-flex items-center justify-center gap-3 rounded-lg border border-transparent bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:border-[#CD7F32]/20 hover:bg-[#CD7F32]/10 hover:text-[#CD7F32] dark:bg-white/5 dark:text-white/90 dark:hover:bg-[#CD7F32]/10">
                 <svg
                   width="21"
                   className="fill-current"
@@ -161,14 +165,14 @@ export default function SignInForm() {
                 <div className="w-full border-t border-gray-200 dark:border-gray-800"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="p-2 text-gray-400 bg-white dark:bg-gray-900 sm:px-5 sm:py-2">
+                <span className="bg-white p-2 text-gray-400 sm:px-5 sm:py-2 dark:bg-gray-900">
                   Or
                 </span>
               </div>
             </div>
             <form onSubmit={handleSubmit}>
               {error && (
-                <div className="mb-4 p-3 text-sm text-[#C41E3A] bg-[#C41E3A]/5 border border-[#C41E3A]/20 rounded-lg dark:bg-[#C41E3A]/10 dark:border-[#C41E3A]/30">
+                <div className="mb-4 rounded-lg border border-[#C41E3A]/20 bg-[#C41E3A]/5 p-3 text-sm text-[#C41E3A] dark:border-[#C41E3A]/30 dark:bg-[#C41E3A]/10">
                   {error}
                 </div>
               )}
@@ -177,7 +181,12 @@ export default function SignInForm() {
                   <Label>
                     Email <span className="text-[#C41E3A]">*</span>{" "}
                   </Label>
-                  <Input placeholder="info@gmail.com" type="email" name="email" autoComplete="email" />
+                  <Input
+                    placeholder="info@gmail.com"
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                  />
                 </div>
                 <div>
                   <Label>
@@ -192,7 +201,7 @@ export default function SignInForm() {
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      className="absolute top-1/2 right-4 z-30 -translate-y-1/2 cursor-pointer"
                     >
                       {showPassword ? (
                         <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
@@ -205,22 +214,22 @@ export default function SignInForm() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Checkbox checked={isChecked} onChange={setIsChecked} />
-                    <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
+                    <span className="text-theme-sm block font-normal text-gray-700 dark:text-gray-400">
                       Keep me logged in
                     </span>
                   </div>
                   <Link
                     href="/reset-password"
-                    className="text-sm text-[#CD7F32] hover:text-[#8B4513] transition-colors"
+                    className="text-sm text-[#CD7F32] transition-colors hover:text-[#8B4513]"
                   >
                     Forgot password?
                   </Link>
                 </div>
                 <div>
-                  <Button 
-                    className="w-full bg-[#CD7F32] hover:bg-[#8B4513] disabled:bg-[#CD7F32]/50 border-0 shadow-sm" 
-                    size="sm" 
-                    type="submit" 
+                  <Button
+                    className="w-full border-0 bg-[#CD7F32] shadow-sm hover:bg-[#8B4513] disabled:bg-[#CD7F32]/50"
+                    size="sm"
+                    type="submit"
                     disabled={isLoading}
                   >
                     {isLoading ? "Signing in..." : "Sign in"}
@@ -230,11 +239,11 @@ export default function SignInForm() {
             </form>
 
             <div className="mt-5">
-              <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
+              <p className="text-center text-sm font-normal text-gray-700 sm:text-start dark:text-gray-400">
                 Don&apos;t have an account? {""}
                 <Link
                   href="/signup"
-                  className="text-[#CD7F32] hover:text-[#8B4513] transition-colors font-medium"
+                  className="font-medium text-[#CD7F32] transition-colors hover:text-[#8B4513]"
                 >
                   Sign Up
                 </Link>

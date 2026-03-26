@@ -32,8 +32,8 @@ const HeroSection = () => {
 
             <p className="mb-8 text-xl leading-relaxed text-gray-600">
               Focus on growing your business while we handle all the technical
-              obstacles. RC-ND Tech Bridge provides seamless technology solutions
-              that work behind the scenes.
+              obstacles. RC-ND Tech Bridge provides seamless technology
+              solutions that work behind the scenes.
             </p>
 
             <div className="flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
@@ -105,7 +105,7 @@ const HeroSection = () => {
                       </span>
                       <div className="h-1 w-12 rounded-full bg-[#C41E3A]"></div>
                       <span className="text-3xl font-bold text-[#CD7F32]">
-                        C
+                        D
                       </span>
                     </div>
                   </div>

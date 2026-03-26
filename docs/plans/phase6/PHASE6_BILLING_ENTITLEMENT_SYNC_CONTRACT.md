@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: Draft v1
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 Purpose: define how billing state (plan/add-ons/status) becomes enforceable tenant entitlements in a deterministic and auditable way.
 

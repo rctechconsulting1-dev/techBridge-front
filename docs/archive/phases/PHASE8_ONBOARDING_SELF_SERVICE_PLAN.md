@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: Completed
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 Purpose: operationalize repeatable tenant onboarding and safe client self-service controls.
 
@@ -20,17 +20,17 @@ Purpose: operationalize repeatable tenant onboarding and safe client self-servic
 - Sidebar navigation entry added at `src/layout/AppSidebar.tsx` (`/onboarding`).
 - Business preset model added at `src/lib/onboarding-presets.ts`.
 - Persisted tenant content permission profiles added:
-	- backend migration `backend-rc/migrations/1779500000000_add-tenant-content-permissions.js`
-	- backend route `backend-rc/routes/contentPermissions.js` mounted at `/api/content-permissions`
-	- onboarding UI now loads/saves via API for selected tenant website.
+  - backend migration `backend-rc/migrations/1779500000000_add-tenant-content-permissions.js`
+  - backend route `backend-rc/routes/contentPermissions.js` mounted at `/api/content-permissions`
+  - onboarding UI now loads/saves via API for selected tenant website.
 - Enforcement integrated for content writes:
-	- `backend-rc/routes/pages.js` (`edit_homepage`)
-	- `backend-rc/routes/siteSettings.js` (`edit_branding`)
-	- `backend-rc/routes/services.js` (`edit_services`)
-	- `backend-rc/routes/teamMembers.js` (`edit_team`)
-	- `backend-rc/routes/faq.js` (`edit_faq`)
+  - `backend-rc/routes/pages.js` (`edit_homepage`)
+  - `backend-rc/routes/siteSettings.js` (`edit_branding`)
+  - `backend-rc/routes/services.js` (`edit_services`)
+  - `backend-rc/routes/teamMembers.js` (`edit_team`)
+  - `backend-rc/routes/faq.js` (`edit_faq`)
 - Admin Site Editor UI now applies permission lock states before write actions:
-	- `src/app/(admin)/(others-pages)/site-settings/page.tsx`
+  - `src/app/(admin)/(others-pages)/site-settings/page.tsx`
 - Initial support escalation artifact: `../../operations/PHASE8_SUPPORT_ESCALATION_RUNBOOK.md`.
 - Initial tenant launch artifact: `../../operations/PHASE8_TENANT_LAUNCH_CHECKLIST.md`.
 

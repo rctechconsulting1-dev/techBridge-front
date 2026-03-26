@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: Active v1
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 Use this checklist for every new tenant before go-live.
 

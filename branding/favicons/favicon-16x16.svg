@@ -1,7 +1,7 @@
 <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
   <rect width="16" height="16" fill="#CD7F32" rx="2"/>
-  
-  <!-- RC text -->
-  <text x="8" y="11" font-family="Arial, sans-serif" font-size="6" font-weight="bold" fill="white" text-anchor="middle">RC</text>
+
+  <!-- RD text -->
+  <text x="8" y="11" font-family="Arial, sans-serif" font-size="6" font-weight="bold" fill="white" text-anchor="middle">RD</text>
 </svg>

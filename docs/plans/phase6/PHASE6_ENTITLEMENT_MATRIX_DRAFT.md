@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: Draft v1
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 Purpose: define a first-pass matrix for plans, modules, features, and paid add-ons so API/UI entitlement enforcement can begin.
 
