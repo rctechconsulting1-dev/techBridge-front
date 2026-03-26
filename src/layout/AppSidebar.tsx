@@ -6,6 +6,12 @@ import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { apiClient } from "@/lib/api-client";
 import {
+  createEntitlementSnapshot,
+  hasAnyFeature,
+  hasAnyModule,
+  normalizeEntitlementValues,
+} from "@/lib/entitlements";
+import {
   BoxCubeIcon,
   CalenderIcon,
   ChevronDownIcon,
@@ -26,6 +32,9 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
+  requiredModules?: string[];
+  requiredFeatures?: string[];
+  requiredRoles?: string[];
   subItems?: {
     name: string;
     path: string;
@@ -45,6 +54,7 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Calendar",
     path: "/calendar",
+    requiredModules: ["calendar_appointments"],
   },
   {
     icon: <UserCircleIcon />,
@@ -67,11 +77,44 @@ const navItems: NavItem[] = [
     name: "Google Business",
     icon: <PlugInIcon />,
     path: "/google-business",
+    requiredModules: ["google_business_management"],
   },
   {
     icon: <VideoIcon />,
     name: "Assets",
     path: "/assets",
+  },
+  {
+    icon: <PieChartIcon />,
+    name: "Reliability",
+    path: "/reliability",
+    requiredRoles: ["admin", "platform_admin"],
+  },
+  {
+    icon: <UserCircleIcon />,
+    name: "Tenants",
+    path: "/tenants",
+    requiredRoles: ["admin", "platform_admin"],
+  },
+  {
+    icon: <PlugInIcon />,
+    name: "Billing Ops",
+    path: "/billing",
+    requiredModules: ["checkout_ecommerce"],
+    requiredFeatures: ["commerce.checkout.manage"],
+    requiredRoles: ["admin", "platform_admin"],
+  },
+  {
+    icon: <ListIcon />,
+    name: "Email DLQ",
+    path: "/email-dlq",
+    requiredRoles: ["admin", "platform_admin"],
+  },
+  {
+    icon: <ListIcon />,
+    name: "Onboarding",
+    path: "/onboarding",
+    requiredRoles: ["admin", "platform_admin"],
   },
   {
     name: "Tables",
@@ -82,9 +125,10 @@ const navItems: NavItem[] = [
     name: "Pages",
     icon: <PageIcon />,
     subItems: [
-      { name: "Main Pages", path: "/main-page", pro: false },
+      { name: "Built-in Pages", path: "/built-in-pages", pro: false },
+      { name: "Custom Pages", path: "/main-page", pro: false },
       { name: "Branding", path: "/branding", pro: false },
-      { name: "Site Settings", path: "/site-settings", pro: false },
+      { name: "Global Site Settings", path: "/site-settings", pro: false },
       { name: "Blank Page", path: "/blank", pro: false },
       { name: "404 Error", path: "/error-404", pro: false },
     ],
@@ -127,29 +171,65 @@ const AppSidebar = ({}) => {
   const pathname = usePathname();
   const [websiteId, setWebsiteId] = useState<number | null>(null);
   const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
+  const [enabledFeatures, setEnabledFeatures] = useState<string[] | null>(null);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient.getSession().then((user) => {
-      const u = user as { website_id?: number; enabledModules?: string[] } | null;
+      const u = user as {
+        website_id?: number;
+        enabledModules?: string[];
+        enabledFeatures?: string[];
+        role?: string;
+      } | null;
       if (u?.website_id) setWebsiteId(u.website_id);
       if (Array.isArray(u?.enabledModules)) {
-        setEnabledModules(u.enabledModules.map((moduleName) => moduleName.toLowerCase()));
+        setEnabledModules(normalizeEntitlementValues(u.enabledModules));
+      }
+      if (Array.isArray(u?.enabledFeatures)) {
+        setEnabledFeatures(normalizeEntitlementValues(u.enabledFeatures));
+      }
+      if (u?.role) {
+        setCurrentRole(u.role);
       }
     });
   }, []);
 
+  const entitlementSnapshot = createEntitlementSnapshot(
+    enabledModules,
+    enabledFeatures,
+  );
+
+  const shouldShowNavItem = useCallback(
+    (item: NavItem): boolean => {
+      const hasEntitlementPayload =
+        (enabledModules && enabledModules.length > 0) ||
+        (enabledFeatures && enabledFeatures.length > 0);
+
+      // Keep backward-compatible behavior while backend entitlement payloads are rolling out.
+      if (!hasEntitlementPayload) {
+        if (item.requiredRoles?.length) {
+          return currentRole ? item.requiredRoles.includes(currentRole) : false;
+        }
+        return true;
+      }
+
+      const roleAllowed = item.requiredRoles?.length
+        ? currentRole
+          ? item.requiredRoles.includes(currentRole)
+          : false
+        : true;
+
+      return roleAllowed && (
+        hasAnyModule(entitlementSnapshot, item.requiredModules) &&
+        hasAnyFeature(entitlementSnapshot, item.requiredFeatures)
+      );
+    },
+    [currentRole, enabledModules, enabledFeatures, entitlementSnapshot],
+  );
+
   const computedNavItems = navItems
-    .filter((item) => {
-      if (item.name !== "Calendar") {
-        return true;
-      }
-
-      if (!enabledModules || enabledModules.length === 0) {
-        return true;
-      }
-
-      return enabledModules.includes("calendar") || enabledModules.includes("appointments");
-    })
+    .filter((item) => shouldShowNavItem(item))
     .map((item) => {
     if (item.name === "Pages") {
       return {

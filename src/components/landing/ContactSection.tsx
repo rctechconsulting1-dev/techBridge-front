@@ -2,7 +2,11 @@
 
 import React, { useState } from "react";
 
-const ContactSection = () => {
+type ContactSectionProps = {
+  websiteId?: string | number;
+};
+
+const ContactSection = ({ websiteId }: ContactSectionProps) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -11,6 +15,9 @@ const ContactSection = () => {
     service: "",
     message: ""
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -19,9 +26,74 @@ const ContactSection = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission here
+    setSubmitMessage(null);
+    setSubmitError(null);
+
+    if (!websiteId) {
+      setSubmitError("Booking form is not configured for this page.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/bookings/public/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          websiteId,
+          contactName: formData.name,
+          contactEmail: formData.email,
+          contactPhone: formData.phone || undefined,
+          notes: [
+            formData.company ? `Company: ${formData.company}` : null,
+            formData.service ? `Service: ${formData.service}` : null,
+            formData.message ? `Message: ${formData.message}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          metadata: {
+            source: "landing_contact_section",
+            company: formData.company || undefined,
+            service: formData.service || undefined,
+          },
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        booking?: { id?: string | number };
+      };
+
+      if (!response.ok) {
+        setSubmitError(payload.error || `Request failed (${response.status})`);
+        return;
+      }
+
+      setSubmitMessage(
+        payload.booking?.id
+          ? `Thanks! Your booking request #${payload.booking.id} was received.`
+          : "Thanks! Your booking request was received.",
+      );
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        company: "",
+        service: "",
+        message: "",
+      });
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to submit request.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const contactInfo = [
@@ -196,10 +268,17 @@ const ContactSection = () => {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full bg-gradient-to-r from-[#CD7F32] to-[#C41E3A] text-white py-4 rounded-lg font-semibold hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
               >
-                Send Message
+                {isSubmitting ? "Sending..." : "Send Message"}
               </button>
+              {submitMessage ? (
+                <p className="text-sm text-green-600">{submitMessage}</p>
+              ) : null}
+              {submitError ? (
+                <p className="text-sm text-red-600">{submitError}</p>
+              ) : null}
             </form>
           </div>
 

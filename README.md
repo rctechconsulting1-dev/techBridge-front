@@ -262,7 +262,7 @@ VALUES (1, 'My Product', 'my-product', 'A great product.', 29.99, 10, true);
 
 ## Developer Guide
 
-See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for:
+See [docs/guides/MIGRATION_GUIDE.md](./docs/guides/MIGRATION_GUIDE.md) for:
 
 - Breaking changes and how to update imports after each refactor
 - New environment setup steps
@@ -271,10 +271,12 @@ See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for:
 - Adding new client sites
 - Troubleshooting common issues
 
-See [MULTI_TENANCY_ARCHITECTURE_DRAFT.md](./MULTI_TENANCY_ARCHITECTURE_DRAFT.md) for:
+See [docs/architecture/MULTI_TENANCY_ARCHITECTURE_DRAFT.md](./docs/architecture/MULTI_TENANCY_ARCHITECTURE_DRAFT.md) for:
 - Tenant/domain architecture decisions
 - Per-tenant email and Stripe strategy
 - Migration plan for existing features
+
+See [docs/README.md](./docs/README.md) for the broader documentation map.
 
 ---
 

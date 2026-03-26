@@ -181,7 +181,7 @@ npm run dev
 
 ## Google Business Profile Setup
 
-See [GOOGLE_OAUTH_SETUP.md](./GOOGLE_OAUTH_SETUP.md) for the full OAuth configuration walkthrough.
+See [docs/integrations/google/GOOGLE_OAUTH_SETUP.md](./docs/integrations/google/GOOGLE_OAUTH_SETUP.md) for the full OAuth configuration walkthrough.
 
 Key points:
 - The redirect URI registered in Google Cloud Console must exactly match `GOOGLE_REDIRECT_URI` in your env

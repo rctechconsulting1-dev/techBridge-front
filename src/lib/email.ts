@@ -24,6 +24,115 @@ const FROM_EMAIL =
 const APP_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
 ).replace(/\/$/, "");
+const BACKEND_API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api"
+).replace(/\/$/, "");
+const OPS_INGEST_KEY = process.env.OPS_METRICS_INGEST_KEY || "";
+
+type TenantEmailProfile = {
+  available?: boolean;
+  fromName?: string;
+  fromEmail?: string;
+  replyTo?: string;
+  sendingDomain?: string;
+  emailMode?: string;
+  dkimVerified?: boolean;
+  spfVerified?: boolean;
+};
+
+export type NotificationSendContext = {
+  websiteId?: string | number;
+  tenantId?: string | number;
+};
+
+const normalizeEmailValue = (value: string | undefined): string | null => {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+};
+
+const normalizeFromAddress = (
+  fromName: string | undefined,
+  fromEmail: string | undefined,
+): string | null => {
+  const normalizedEmail = normalizeEmailValue(fromEmail);
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  if (normalizedEmail.includes("<") && normalizedEmail.includes(">")) {
+    return normalizedEmail;
+  }
+
+  const normalizedName = normalizeEmailValue(fromName);
+  return normalizedName ? `${normalizedName} <${normalizedEmail}>` : normalizedEmail;
+};
+
+const fetchTenantEmailProfile = async ({
+  websiteId,
+}: NotificationSendContext): Promise<TenantEmailProfile | null> => {
+  if (typeof websiteId === "undefined" || websiteId === null || `${websiteId}`.trim() === "") {
+    return null;
+  }
+
+  if (!OPS_INGEST_KEY) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `${BACKEND_API_BASE}/email/profile/internal?websiteId=${encodeURIComponent(String(websiteId))}`,
+      {
+        method: "GET",
+        headers: {
+          "x-ops-ingest-key": OPS_INGEST_KEY,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      profile?: TenantEmailProfile;
+    };
+
+    return payload.profile ?? null;
+  } catch {
+    return null;
+  }
+};
+
+export const resolveNotificationSenderForContext = async (
+  context: NotificationSendContext,
+): Promise<{ from: string; replyTo?: string }> => {
+  const profile = await fetchTenantEmailProfile(context);
+  if (!profile || profile.available === false) {
+    return { from: FROM_EMAIL };
+  }
+
+  const brandedFrom = normalizeFromAddress(profile.fromName, profile.fromEmail);
+  const preferredReplyTo =
+    normalizeEmailValue(profile.replyTo) ?? normalizeEmailValue(profile.fromEmail) ?? undefined;
+
+  if (
+    brandedFrom &&
+    normalizeEmailValue(profile.sendingDomain) &&
+    profile.spfVerified === true &&
+    profile.dkimVerified === true
+  ) {
+    return {
+      from: brandedFrom,
+      ...(preferredReplyTo ? { replyTo: preferredReplyTo } : {}),
+    };
+  }
+
+  return {
+    from: FROM_EMAIL,
+    ...(preferredReplyTo ? { replyTo: preferredReplyTo } : {}),
+  };
+};
 
 // ─── HMAC token helpers ───────────────────────────────────────────────────────
 // Provides lightweight signed tokens stored entirely in the URL (no DB needed).
@@ -211,11 +320,15 @@ export async function sendResetPasswordEmail({
 export async function sendNotificationEmail(
   to: string,
   payload: NotificationPayload,
+  context: NotificationSendContext = {},
 ) {
+  const sender = await resolveNotificationSenderForContext(context);
+
   return resend.emails.send({
-    from: FROM_EMAIL,
+    from: sender.from,
     to,
     subject: payload.subject,
     html: buildNotificationHtml(payload),
+    ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
   });
 }

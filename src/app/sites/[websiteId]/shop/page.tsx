@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type React from "react";
-import { getWebsite, getSiteSettings, getProducts } from "@/lib/cms-api";
+import {
+  getBuiltInPageContent,
+  getWebsite,
+  getSiteSettings,
+  getProducts,
+} from "@/lib/cms-api";
+import { getShopPageContent } from "@/lib/builtInPageContent";
 import NavBar from "@/components/sections/NavBar";
 import ShopGridSection from "@/components/sections/ShopGridSection";
 import CTASection from "@/components/sections/CTASection";
@@ -15,17 +21,20 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { websiteId } = await params;
-  const [website, settings] = await Promise.all([
+  const [website, settings, pageContentRecord] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getBuiltInPageContent(websiteId, "shop"),
   ]);
   const siteName = website?.name ?? "Our Company";
   return {
-    title: `Shop | ${siteName}`,
-    description: `Browse products from ${siteName}.`,
+    title: pageContentRecord?.seo?.title ?? `Shop | ${siteName}`,
+    description:
+      pageContentRecord?.seo?.description ?? `Browse products from ${siteName}.`,
     openGraph: {
-      title: `Shop | ${siteName}`,
-      description: `Browse products from ${siteName}.`,
+      title: pageContentRecord?.seo?.title ?? `Shop | ${siteName}`,
+      description:
+        pageContentRecord?.seo?.description ?? `Browse products from ${siteName}.`,
       ...(settings?.logo_url && { images: [settings.logo_url] }),
     },
   };
@@ -33,9 +42,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ShopPage({ params }: Props) {
   const { websiteId } = await params;
-  const [website, settings, products] = await Promise.all([
+  const [website, settings, pageContentRecord, products] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getBuiltInPageContent(websiteId, "shop"),
     getProducts(websiteId),
   ]);
 
@@ -43,6 +53,7 @@ export default async function ShopPage({ params }: Props) {
 
   const primary = settings?.primary_color ?? "#CD7F32";
   const publishedProducts = products.filter((p) => p.is_published);
+  const pageContent = getShopPageContent(pageContentRecord, website);
 
   const cssVars = {
     "--cms-primary": primary,
@@ -70,12 +81,15 @@ export default async function ShopPage({ params }: Props) {
               style={{ backgroundColor: primary }}
             />
             <h1 className="mb-3 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-              Shop
+              {pageContent.heroTitle ?? "Shop"}
             </h1>
-            <p className="text-lg text-gray-500">
-              {publishedProducts.length} product
-              {publishedProducts.length !== 1 ? "s" : ""}
-            </p>
+            <div className="space-y-2 text-lg text-gray-500">
+              {pageContent.heroBody && <p>{pageContent.heroBody}</p>}
+              <p>
+                {publishedProducts.length} product
+                {publishedProducts.length !== 1 ? "s" : ""}
+              </p>
+            </div>
           </div>
         </section>
 
@@ -87,7 +101,14 @@ export default async function ShopPage({ params }: Props) {
           />
         ) : (
           <section className="bg-white py-20 text-center text-gray-400">
-            <p className="text-lg">Products coming soon.</p>
+            <div className="mx-auto max-w-3xl px-4">
+              <p className="text-lg">{pageContent.emptyStateTitle}</p>
+              {pageContent.emptyStateBody && (
+                <p className="mt-3 text-sm text-gray-500">
+                  {pageContent.emptyStateBody}
+                </p>
+              )}
+            </div>
           </section>
         )}
 

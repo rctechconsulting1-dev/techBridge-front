@@ -155,6 +155,22 @@ export const getStoredAuthToken = (): string | null => {
   return null;
 };
 
+export const getActiveTenantId = (): number | undefined => {
+  const storedTenantId = getStoredActiveTenantId();
+  if (storedTenantId) {
+    return storedTenantId;
+  }
+
+  const token = getStoredAuthToken();
+  if (!token) {
+    return undefined;
+  }
+
+  const payload = decodeJwtPayload(token);
+  const normalized = normalizeAuthSession(null, payload);
+  return normalized.activeTenantId;
+};
+
 export const persistAuthToken = (token: string) => {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(TOKEN_KEY, token);

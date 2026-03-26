@@ -1,6 +1,7 @@
 import { Database } from './../../database.types';
 import useSWR, { SWRResponse } from "swr";
 import { getApiBaseUrl } from '@/lib/api';
+import { getStoredAuthToken } from '@/lib/auth-context';
 
 // Define the type for the user table in the Database
 export type UserTable = Database["public"]["Tables"]["user"]["Row"];
@@ -13,9 +14,10 @@ interface UseSearchUserResponse {
 }
 
 export const useSearchUser = (searchValue: string): UseSearchUserResponse => {
+    const token = getStoredAuthToken();
     // Fetch user data based on the search value
     const swrResponse: SWRResponse<UserTable[], Error> = useSWR(
-        searchValue
+        searchValue && token
             ? `${getApiBaseUrl()}/users?email_like=${encodeURIComponent(searchValue)}`
             : null,
         {

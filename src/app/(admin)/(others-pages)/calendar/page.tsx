@@ -1,4 +1,5 @@
 import Calendar from "@/components/calendar/Calendar";
+import EntitlementGate from "@/components/common/EntitlementGate";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Metadata } from "next";
 import React from "react";
@@ -13,7 +14,9 @@ export default function page() {
   return (
     <div>
       <PageBreadcrumb pageTitle="Calendar" />
-      <Calendar />
+      <EntitlementGate requiredModules={["calendar_appointments"]} pageTitle="Calendar">
+        <Calendar />
+      </EntitlementGate>
     </div>
   );
 }

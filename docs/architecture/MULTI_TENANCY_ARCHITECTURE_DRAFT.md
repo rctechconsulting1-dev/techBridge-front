@@ -5,7 +5,7 @@ Owner: RC Tech Bridge
 Status: Draft v1
 
 Execution tracker: see `MULTI_TENANCY_PHASE_CHECKLIST.md`.
-Phase 1 execution runbook: see `PHASE1_LOCAL_TO_RDS_RUNBOOK.md`.
+Phase 1 execution runbook: see `docs/archive/phases/PHASE1_LOCAL_TO_RDS_RUNBOOK.md`.
 
 ## 1) Product Goal
 

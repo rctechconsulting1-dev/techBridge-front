@@ -9,7 +9,7 @@ Use this checklist as the implementation tracker from kickoff to completion.
 
 Goal: freeze architecture decisions before migrations start.
 
-Decision log: see `PHASE0_DECISION_LOG.md`.
+Decision log: see `docs/archive/phases/PHASE0_DECISION_LOG.md`.
 
 - [x] Confirm business type enum values
 - [x] Confirm module/add-on enum values
@@ -31,7 +31,7 @@ Goal: establish tenant identity and hard data boundaries.
 Kickoff artifacts:
 
 - `backend-rc/migrations/1779000000000_phase1_tenant-foundation.js`
-- `PHASE1_LOCAL_TO_RDS_RUNBOOK.md`
+- `docs/archive/phases/PHASE1_LOCAL_TO_RDS_RUNBOOK.md`
 
 - [x] Create `tenants` table
 - [x] Create `tenant_domains` table
@@ -101,41 +101,76 @@ Goal: migrate all current features under strict tenant rules.
 
 Exit criteria:
 
-- [ ] All existing features work with tenant scoping
-- [ ] No severity-1 regression introduced by migration
+- [x] All existing features work with tenant scoping
+- [x] No severity-1 regression introduced by migration
 
 ## Phase 5 - Domains, Email, and Payments
 
 Goal: complete per-client operational capabilities.
 
-- [ ] Domain onboarding workflow (pending -> active)
-- [ ] Domain conflict detection and uniqueness checks
-- [ ] Per-tenant email sender profile setup
-- [ ] SPF/DKIM verification tracking
-- [ ] Lead notification routing per tenant
-- [ ] Stripe Connect onboarding per tenant
-- [ ] Tenant-scoped checkout session creation
-- [ ] Idempotent webhook processing by tenant/account
+- [x] Domain onboarding workflow (pending -> active)
+- [x] Domain conflict detection and uniqueness checks
+- [x] Per-tenant email sender profile setup
+- [x] SPF/DKIM verification tracking
+- [x] Lead notification routing per tenant
+- [x] Stripe Connect onboarding per tenant
+- [x] Tenant-scoped checkout session creation
+- [x] Idempotent webhook processing by tenant/account
 
 Exit criteria:
 
-- [ ] New tenant can go live with domain, email, and payments
-- [ ] Payment and email events are fully tenant-attributed
+- [x] New tenant can go live with domain, email, and payments
+- [x] Payment and email events are fully tenant-attributed
 
 ## Phase 6 - Packaging, Monetization, and Access Phases
 
 Goal: launch plan tiers and add-on controls.
 
-- [ ] Define plan phases (base + expanded phases)
-- [ ] Define add-on catalog and pricing linkage
-- [ ] Enforce entitlement checks in API and UI
-- [ ] Add upgrade/downgrade operational flow
-- [ ] Add usage counters for premium features
+Kickoff artifacts:
+
+- `docs/plans/phase6/PHASE6_ENTITLEMENT_MATRIX_DRAFT.md`
+- `docs/plans/phase6/PHASE6_BILLING_ENTITLEMENT_SYNC_CONTRACT.md`
+- `docs/plans/phase6/PHASE6_PACKAGING_PRICING_LINKAGE_DRAFT.md`
+- `docs/plans/phase6/PHASE6_ENTITLEMENT_ENFORCEMENT_PLAN.md`
+
+Kickoff progress (2026-03-23):
+
+- [x] Phase 6 kickoff started (packaging/entitlements track opened)
+- [x] Entitlement matrix draft (plans x modules x features x add-ons)
+- [x] Billing-to-entitlement sync contract draft (source of truth + reconciliation)
+
+Execution progress (2026-03-24):
+
+- [x] Frontend baseline module-gated navigation shipped (Calendar/Google Business entitlement-aware sidebar filtering)
+- [x] Entitlement enforcement execution plan drafted (backend + frontend rollout path)
+- [x] Frontend route-level entitlement guards added for premium pages (Google Business + Calendar deep-link protection)
+- [x] Frontend AI route guard added (Prompts/Chat GPT gated by custom AI module + feature)
+- [x] Next.js API proxy passthrough hardened (preserve backend 401/402/403/409/429 denial semantics)
+- [x] Backend premium route entitlement checks added in `backend-rc` (Google Business + agency token + Google token routes + eCommerce product routes)
+- [x] Backend entitlement denial payloads standardized with machine-readable codes (module/feature missing or disabled)
+- [x] Backend auth payload enriched with tenant memberships + enabled modules/features for active tenant context
+- [x] Backend Stripe routes gated by eCommerce module/feature entitlement checks
+- [x] Backend entitlement API added (`/api/entitlements/current`, `/api/entitlements/usage/consume`) with tenant membership + feature limit enforcement
+- [x] Frontend AI content-agent now consumes backend entitlement usage (`ai.agent.generate`) before local fallback limiter
+- [x] Backend Stripe plan-change operational endpoints added (`/subscriptions/:id/plan-change-preview`, `/subscriptions/:id/plan-change`) with change-request persistence and immediate/period-end behavior
+- [x] Backend immediate plan-change flow now performs Stripe provider sync when resolvable (`price_` / `prod_`) before local apply
+- [x] Backend scheduled apply worker added for due period-end requests (`npm run subscription-change:apply`)
+- [x] Backend Google Business write actions now consume premium feature usage (`integrations.google_business.sync`) via tenant feature counters
+- [x] Frontend shop management surface now route-gated by eCommerce module + feature entitlement
+- [x] Backend entitlement usage telemetry table + event logging added (`tenant_feature_usage_event`) with reporting endpoint (`GET /api/entitlements/usage/report`)
+- [x] Subscription change scheduling + alerting worker added (`npm run subscription-change:worker`, webhook alert support)
+- [x] Phase 6 core verification script added (`npm run phase6:verify:core`) for usage telemetry and plan-change operational checks
+
+- [x] Define plan phases (base + expanded phases) - draft v1
+- [x] Define add-on catalog and pricing linkage - draft v1
+- [x] Enforce entitlement checks in API and UI
+- [x] Add upgrade/downgrade operational flow
+- [x] Add usage counters for premium features
 
 Exit criteria:
 
-- [ ] Plan and add-on entitlements enforced consistently
-- [ ] Billing and feature access remain in sync
+- [x] Plan and add-on entitlements enforced consistently
+- [x] Billing and feature access remain in sync
 
 ## Phase 7 - Reliability and Observability
 
@@ -143,32 +178,47 @@ Goal: protect critical flows at scale.
 
 Critical flows: login, payments, appointments/calendars, lead emails.
 
-- [ ] Add SLO targets for each critical flow
-- [ ] Add alerting for payment webhook failures
-- [ ] Add alerting for booking creation failures
-- [ ] Add retry queue for outbound email/SMS
-- [ ] Add dead-letter handling and replay tooling
-- [ ] Add tenant-level error and latency dashboards
+Kickoff progress (2026-03-24):
+
+- [x] Phase 7 kickoff started (reliability + observability track opened)
+- [x] Reliability/observability execution plan drafted (`docs/archive/phases/PHASE7_RELIABILITY_OBSERVABILITY_PLAN.md`)
+- [x] Configure subscription change worker runtime env vars in deployment
+	- [x] `SUBSCRIPTION_CHANGE_WORKER_INTERVAL_MS`
+	- [x] `SUBSCRIPTION_CHANGE_ALERT_WEBHOOK_URL`
+- [x] Define and document alert webhook target (Slack/Teams/PagerDuty) for subscription worker failures/skips
+
+- [x] Add SLO targets for each critical flow
+- [x] Add alerting for payment webhook failures
+- [x] Add alerting for booking creation failures
+- [x] Add retry queue for outbound email/SMS
+- [x] Add dead-letter handling and replay tooling
+- [x] Add tenant-level error and latency dashboards
+- [x] Add Phase 7 incident runbook for alert triage and recovery
 
 Exit criteria:
 
-- [ ] On-call can detect and recover from critical failures quickly
-- [ ] Tenant impact is visible in monitoring
+- [x] On-call can detect and recover from critical failures quickly
+- [x] Tenant impact is visible in monitoring
 
 ## Phase 8 - Onboarding and Controlled Self-Service
 
 Goal: operationalize scaling and handoff.
 
-- [ ] Internal tenant onboarding wizard
-- [ ] Business-type preset templates
-- [ ] Controlled client content editing permissions
-- [ ] Runbook for support/escalation per feature module
-- [ ] Launch checklist for each new tenant
+Kickoff progress (2026-03-24):
+
+- [x] Phase 8 kickoff started (onboarding + self-service track opened)
+- [x] Phase 8 execution plan drafted (`docs/archive/phases/PHASE8_ONBOARDING_SELF_SERVICE_PLAN.md`)
+
+- [x] Internal tenant onboarding wizard
+- [x] Business-type preset templates
+- [x] Controlled client content editing permissions
+- [x] Runbook for support/escalation per feature module
+- [x] Launch checklist for each new tenant
 
 Exit criteria:
 
-- [ ] Internal team can onboard clients repeatably
-- [ ] Clients can edit allowed content safely
+- [x] Internal team can onboard clients repeatably
+- [x] Clients can edit allowed content safely
 
 ## Completion Gate (Program Done)
 

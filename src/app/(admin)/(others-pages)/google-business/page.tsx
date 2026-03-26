@@ -1,6 +1,7 @@
 "use client";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import EntitlementGate from "@/components/common/EntitlementGate";
 import { useBusinessByWebsiteId } from "@/hooks/useBusinessByWebsiteId";
 import React, { useEffect, useState } from "react";
 import { useSidebar } from "../../../../context/SidebarContext";
@@ -166,12 +167,14 @@ export default function GoogleBusinessPage() {
         return (
             <div>
                 <PageBreadcrumb pageTitle="Google Business Profile" />
-                <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
-                    <div className="mx-auto w-full max-w-[630px] text-center">
-                        <h3 className="mb-4 font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">No Client Selected</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">Please select a client from the sidebar to manage their Google Business Profile.</p>
+                <EntitlementGate requiredModules={["google_business_management"]} pageTitle="Google Business Profile">
+                    <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
+                        <div className="mx-auto w-full max-w-[630px] text-center">
+                            <h3 className="mb-4 font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">No Client Selected</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">Please select a client from the sidebar to manage their Google Business Profile.</p>
+                        </div>
                     </div>
-                </div>
+                </EntitlementGate>
             </div>
         );
     }
@@ -180,12 +183,14 @@ export default function GoogleBusinessPage() {
         return (
             <div>
                 <PageBreadcrumb pageTitle="Google Business Profile" />
-                <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
-                    <div className="mx-auto w-full max-w-[630px] text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+                <EntitlementGate requiredModules={["google_business_management"]} pageTitle="Google Business Profile">
+                    <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
+                        <div className="mx-auto w-full max-w-[630px] text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+                        </div>
                     </div>
-                </div>
+                </EntitlementGate>
             </div>
         );
     }
@@ -194,12 +199,14 @@ export default function GoogleBusinessPage() {
         return (
             <div>
                 <PageBreadcrumb pageTitle="Google Business Profile" />
-                <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
-                    <div className="mx-auto w-full max-w-[630px] text-center">
-                        <h3 className="mb-4 font-semibold text-red-600 text-theme-xl sm:text-2xl">Error</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">{error.message}</p>
+                <EntitlementGate requiredModules={["google_business_management"]} pageTitle="Google Business Profile">
+                    <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
+                        <div className="mx-auto w-full max-w-[630px] text-center">
+                            <h3 className="mb-4 font-semibold text-red-600 text-theme-xl sm:text-2xl">Error</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">{error.message}</p>
+                        </div>
                     </div>
-                </div>
+                </EntitlementGate>
             </div>
         );
     }
@@ -207,6 +214,7 @@ export default function GoogleBusinessPage() {
     return (
         <div>
             <PageBreadcrumb pageTitle="Google Business Profile" />
+            <EntitlementGate requiredModules={["google_business_management"]} pageTitle="Google Business Profile">
 
             {/* Agency not connected banner */}
             {agencyConnected === false && (
@@ -337,6 +345,7 @@ export default function GoogleBusinessPage() {
                     onCreatePost={handleCreatePost}
                 />
             )}
+            </EntitlementGate>
         </div>
     );
 }

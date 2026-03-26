@@ -10,6 +10,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import { mutateUpdate } from "@/hooks/useMutateUpdate";
 import { useGetAssets } from "@/hooks/useImage";
 import { getApiBaseUrl } from "@/lib/api";
+import { getActiveTenantId } from "@/lib/auth-context";
 
 type BrandField = "logo_url" | "favicon_url";
 type ExtraBrandField = "small_logo_url" | "large_logo_url";
@@ -26,9 +27,11 @@ const defaultSettings: BrandingSettings = {
 
 const getAuthHeaders = () => {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const activeTenantId = getActiveTenantId();
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(activeTenantId ? { "x-tenant-id": String(activeTenantId) } : {}),
   };
 };
 
@@ -67,6 +70,7 @@ export default function BrandingPage() {
     try {
       const response = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
         cache: "no-store",
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {

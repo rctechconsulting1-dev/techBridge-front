@@ -8,6 +8,8 @@
  */
 
 import type {
+  BuiltInPageContentRecord,
+  BuiltInPageKey,
   Website,
   SiteSettings,
   Service,
@@ -81,6 +83,15 @@ export async function getSiteSettings(
   websiteId: number | string,
 ): Promise<SiteSettings | null> {
   return cmsGet<SiteSettings>(`/site-settings/${websiteId}`);
+}
+
+export async function getBuiltInPageContent<K extends BuiltInPageKey>(
+  websiteId: number | string,
+  pageKey: K,
+): Promise<BuiltInPageContentRecord<K> | null> {
+  return cmsGet<BuiltInPageContentRecord<K>>(
+    `/built-in-page-content/${pageKey}?website_id=${websiteId}`,
+  );
 }
 
 export async function getServices(
@@ -194,16 +205,17 @@ export async function getPageImages(pageId: number): Promise<Image[]> {
 export async function getLandingPageData(
   websiteId: number | string,
 ): Promise<LandingPageData> {
-  const [website, settings, services, testimonials, team, faq] =
+  const [website, settings, homePageContent, services, testimonials, team, faq] =
     await Promise.all([
       getWebsite(websiteId),
       getSiteSettings(websiteId),
+      getBuiltInPageContent(websiteId, "home"),
       getServices(websiteId),
       getTestimonials(websiteId),
       getTeamMembers(websiteId),
       getFAQ(websiteId),
     ]);
-  return { website, settings, services, testimonials, team, faq };
+  return { website, settings, homePageContent, services, testimonials, team, faq };
 }
 
 // ─── Protected writes (client-side, admin panel) ────────────────────────────

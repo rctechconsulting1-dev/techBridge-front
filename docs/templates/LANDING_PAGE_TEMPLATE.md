@@ -113,15 +113,17 @@ Protected write routes require `Authorization: Bearer <token>`.
 
 ### site_settings (one row per website)
 
+Note: as of Phase 2 built-in pages, page-specific copy is being moved out of `site_settings` into dedicated built-in page content records. The fields below still exist for legacy compatibility and shared presentation settings, but Home, Services, About, and Shop page copy should be treated as built-in page content rather than long-term page-source-of-truth fields.
+
 | Field                                                                           | Description         |
 | ------------------------------------------------------------------------------- | ------------------- |
 | `logo_url`                                                                      | Logo image URL      |
 | `primary_color` / `secondary_color` / `accent_color`                            | Brand colours (hex) |
 | `contact_email`, `contact_phone`, `address`                                     | Contact info        |
-| `hero_headline`, `hero_subheadline`                                             | Hero text           |
+| `hero_headline`, `hero_subheadline`                                             | Legacy homepage hero fields |
 | `hero_cta_text`, `hero_cta_url`                                                 | CTA button          |
 | `hero_bg_image_url`, `hero_bg_overlay_color`                                    | Hero background     |
-| `cta_headline`, `cta_body`, `cta_button_text`, `cta_button_url`, `cta_bg_color` | CTA section         |
+| `cta_headline`, `cta_body`, `cta_button_text`, `cta_button_url`, `cta_bg_color` | Shared CTA section  |
 | `footer_tagline`, `footer_copyright`, `footer_nav_links` (JSONB)                | Footer              |
 | `footer_social_facebook/instagram/x/linkedin`                                   | Social links        |
 

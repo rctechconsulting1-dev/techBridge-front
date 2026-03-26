@@ -14,6 +14,7 @@ export interface SiteSettings {
   website_id: number;
   created_at: string;
   updated_at: string;
+  launch_mode: "temporary_launch" | "final_domain";
   // Branding
   logo_url: string | null;
   favicon_url: string | null;
@@ -52,6 +53,62 @@ export interface SiteSettings {
   google_maps_url: string | null;
   // E-commerce
   ecommerce_enabled: boolean | null;
+}
+
+export type BuiltInPageKey = "home" | "services" | "about" | "shop";
+
+export interface BuiltInPageSeo {
+  title: string | null;
+  description: string | null;
+}
+
+export interface HomePageContent {
+  heroTitle: string | null;
+  heroBody: string | null;
+  heroPrimaryCtaText: string | null;
+  heroPrimaryCtaUrl: string | null;
+  heroBackgroundImageUrl: string | null;
+  heroBackgroundOverlayColor: string | null;
+}
+
+export interface ServicesPageContent {
+  heroTitle: string | null;
+  heroBody: string | null;
+  emptyStateTitle: string | null;
+  emptyStateBody: string | null;
+}
+
+export interface AboutPageContent {
+  heroTitle: string | null;
+  heroBody: string | null;
+  missionTitle: string | null;
+  missionBody: string | null;
+}
+
+export interface ShopPageContent {
+  heroTitle: string | null;
+  heroBody: string | null;
+  emptyStateTitle: string | null;
+  emptyStateBody: string | null;
+}
+
+export interface BuiltInPageContentByKey {
+  home: HomePageContent;
+  services: ServicesPageContent;
+  about: AboutPageContent;
+  shop: ShopPageContent;
+}
+
+export interface BuiltInPageContentRecord<K extends BuiltInPageKey = BuiltInPageKey> {
+  id: number | null;
+  tenant_id: number | null;
+  website_id: number;
+  page_key: K;
+  content: BuiltInPageContentByKey[K];
+  seo: BuiltInPageSeo;
+  created_at: string | null;
+  updated_at: string | null;
+  source?: "persisted" | "fallback";
 }
 
 export interface Product {
@@ -186,6 +243,7 @@ export interface Image {
 export interface LandingPageData {
   website: Website | null;
   settings: SiteSettings | null;
+  homePageContent: BuiltInPageContentRecord<"home"> | null;
   services: Service[];
   testimonials: Testimonial[];
   team: TeamMember[];

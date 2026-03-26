@@ -2,6 +2,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Database } from "../../database.types";
+import { clearActiveTenantId, setActiveTenantId } from "@/lib/auth-context";
 
 type SidebarContextType = {
   isExpanded: boolean;
@@ -46,7 +47,19 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const storedClient = localStorage.getItem("selected_client");
       if (storedClient) {
-        setClient(JSON.parse(storedClient));
+        const parsedClient = JSON.parse(storedClient);
+        setClient(parsedClient);
+
+        const tenantId =
+          typeof parsedClient?.tenant_id === "number"
+            ? parsedClient.tenant_id
+            : typeof parsedClient?.tenant_id === "string"
+              ? Number(parsedClient.tenant_id)
+              : null;
+
+        if (tenantId && Number.isFinite(tenantId)) {
+          setActiveTenantId(tenantId);
+        }
       }
     } catch {
       localStorage.removeItem("selected_client");
@@ -57,8 +70,20 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       if (selectedClient) {
         localStorage.setItem("selected_client", JSON.stringify(selectedClient));
+
+        const tenantId =
+          typeof selectedClient?.tenant_id === "number"
+            ? selectedClient.tenant_id
+            : typeof selectedClient?.tenant_id === "string"
+              ? Number(selectedClient.tenant_id)
+              : null;
+
+        if (tenantId && Number.isFinite(tenantId)) {
+          setActiveTenantId(tenantId);
+        }
       } else {
         localStorage.removeItem("selected_client");
+        clearActiveTenantId();
       }
     } catch {
       // Ignore storage errors to avoid breaking UI state updates.

@@ -4,11 +4,14 @@
 
 import { getApiBaseUrl } from "@/lib/api";
 import {
+  clearActiveTenantId,
   clearAuthTokenStorage,
   decodeJwtPayload,
+  getActiveTenantId,
   getStoredAuthToken,
   normalizeAuthSession,
   persistAuthToken,
+  setActiveTenantId,
 } from "@/lib/auth-context";
 
 const API_URL = getApiBaseUrl();
@@ -57,15 +60,21 @@ class ApiClient {
   clearToken() {
     this.token = null;
     clearAuthTokenStorage();
+    clearActiveTenantId();
   }
 
   private getHeaders(includeAuth = true): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
+    const activeTenantId = getActiveTenantId();
 
     if (includeAuth && this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    if (activeTenantId) {
+      headers['x-tenant-id'] = String(activeTenantId);
     }
 
     return headers;
@@ -162,6 +171,10 @@ class ApiClient {
         return null;
       }
 
+      if (normalized.activeTenantId) {
+        setActiveTenantId(normalized.activeTenantId);
+      }
+
       return {
         ...(apiUser ?? {}),
         id: normalized.id,
@@ -186,6 +199,10 @@ class ApiClient {
       const normalized = normalizeAuthSession(null, payload);
       if (!normalized.id || !normalized.email) {
         return null;
+      }
+
+      if (normalized.activeTenantId) {
+        setActiveTenantId(normalized.activeTenantId);
       }
 
       return {

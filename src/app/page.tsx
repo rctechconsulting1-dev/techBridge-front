@@ -7,6 +7,8 @@ import PricingSection from "../components/landing/PricingSection";
 import ContactSection from "../components/landing/ContactSection";
 import Footer from "../components/landing/Footer";
 
+const ROOT_LANDING_WEBSITE_ID = process.env.NEXT_PUBLIC_ROOT_LANDING_WEBSITE_ID || "1";
+
 
 export const metadata: Metadata = {
   title: "RC Tech Bridge - Bridging Business & Technology",
@@ -23,7 +25,7 @@ export default function HomePage() {
         <ServicesSection />
         <AboutSection />
         <PricingSection />
-        <ContactSection />
+        <ContactSection websiteId={ROOT_LANDING_WEBSITE_ID} />
       </main>
       <Footer />
     </div>

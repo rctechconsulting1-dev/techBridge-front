@@ -1,13 +1,24 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { getApiBaseUrl } from "@/lib/api";
+import {
+  decodeJwtPayload,
+  getActiveTenantId,
+  getStoredAuthToken,
+  normalizeAuthSession,
+} from "@/lib/auth-context";
 import { useSidebar } from "@/context/SidebarContext";
 import { useGetAssets, type Asset } from "@/hooks/useImage";
 import { useContentAgent } from "@/hooks/useContentAgent";
 import type { SiteSettings, FooterNavLink } from "@/lib/cms-types";
+import EntitlementGate from "@/components/common/EntitlementGate";
+import {
+  normalizePermissionFlags,
+  type PresetPermissionKey,
+} from "@/lib/onboarding-presets";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -41,6 +52,46 @@ interface Product {
   review_count: number;
 }
 
+type StripeConnectStatus = {
+  connected: boolean;
+  accountId: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  onboardingComplete: boolean;
+  error?: string;
+};
+
+type DomainRecord = {
+  id: number | null;
+  domain: string;
+  status: string;
+  isPrimary: boolean;
+  verificationType: string | null;
+  verificationTarget: string | null;
+  failureReason: string | null;
+  updatedAt: string | null;
+};
+
+type EmailDeliveryProfile = {
+  available: boolean;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
+  sendingDomain: string;
+  dkimVerified: boolean;
+  spfVerified: boolean;
+  leadNotificationEmails: string[];
+  verificationNotes: string | null;
+  verificationLastCheckedAt: string | null;
+  updatedAt: string | null;
+  emailMode: "platform_sender" | "tenant_branded";
+  lastTestEmailStatus: "success" | "failed" | null;
+  lastTestEmailTo: string | null;
+  lastTestEmailSender: string | null;
+  lastTestEmailError: string | null;
+  lastTestEmailAt: string | null;
+};
+
 interface TeamMember {
   id: number;
   name: string;
@@ -57,6 +108,8 @@ interface CmsPageLite {
 }
 
 type Tab = "settings" | "services" | "team" | "shop";
+type LaunchMode = "temporary_launch" | "final_domain";
+type EmailMode = "platform_sender" | "tenant_branded";
 type IndustryTemplate =
   | "trades"
   | "services"
@@ -188,11 +241,76 @@ function getToken() {
 
 function authHeaders() {
   const t = getToken();
+  const activeTenantId = getActiveTenantId();
   return {
     "Content-Type": "application/json",
     ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    ...(activeTenantId ? { "x-tenant-id": String(activeTenantId) } : {}),
   };
 }
+
+function hasPlatformAdminOverride() {
+  const token = getStoredAuthToken();
+  if (!token) return false;
+
+  const payload = decodeJwtPayload(token);
+  const session = normalizeAuthSession(null, payload);
+  return session.role === "admin" || session.role === "platform_admin";
+}
+
+const DEFAULT_CONTENT_PERMISSION_FLAGS: Record<PresetPermissionKey, boolean> = {
+  edit_homepage: true,
+  edit_services: true,
+  edit_team: true,
+  edit_faq: true,
+  edit_branding: true,
+  manage_domains: true,
+  manage_integrations: true,
+  manage_billing: true,
+};
+
+const RC_TEMPORARY_HOST_SUFFIXES = [
+  ".rctechbridge.com",
+  ".preview.rctechbridge.com",
+  ".vercel.app",
+];
+
+const isTemporaryWebsiteHost = (domain: string | null | undefined): boolean => {
+  const normalized = domain?.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  return RC_TEMPORARY_HOST_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+};
+
+const isLikelyPlatformSender = (value: string | null | undefined): boolean => {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.includes("rctechbridge") ||
+    normalized.includes("noreply@") ||
+    normalized.includes("mg.")
+  );
+};
+
+const launchModeLabel = (value: LaunchMode): string =>
+  value === "final_domain" ? "Final Domain Launch" : "Temporary Launch";
+
+const emailModeLabel = (value: EmailMode | "not_configured"): string => {
+  if (value === "tenant_branded") {
+    return "Tenant Branded";
+  }
+
+  if (value === "platform_sender") {
+    return "Platform Sender";
+  }
+
+  return "Not Configured";
+};
 
 function pickValue(current: string | null | undefined, next: string, force: boolean) {
   if (force) return next;
@@ -563,6 +681,13 @@ type NavLinkStatus = {
   message: string;
 };
 
+type LaunchChecklistItem = {
+  key: string;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+};
+
 const SAFE_ANCHORS = new Set([
   "#hero",
   "#services",
@@ -636,17 +761,23 @@ function getNavLinkStatus(
 
 export default function SiteSettingsPage() {
   const { selectedClient } = useSidebar();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [websiteId, setWebsiteId] = useState<number | null>(null);
   const toastShown = useRef(false);
   const [tab, setTab] = useState<Tab>("settings");
 
   // Settings state
-  const [form, setForm] = useState<FormData>({});
+  const [form, setForm] = useState<FormData>({ launch_mode: "temporary_launch" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [contentPermissions, setContentPermissions] = useState<
+    Record<PresetPermissionKey, boolean>
+  >(DEFAULT_CONTENT_PERMISSION_FLAGS);
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [permissionsError, setPermissionsError] = useState<string | null>(null);
 
   // Services state
   const [services, setServices] = useState<Service[]>([]);
@@ -693,6 +824,50 @@ export default function SiteSettingsPage() {
   });
   const [productSaving, setProductSaving] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
+  const [stripeConnectStatus, setStripeConnectStatus] =
+    useState<StripeConnectStatus | null>(null);
+  const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
+  const [stripeConnectStarting, setStripeConnectStarting] = useState(false);
+  const [stripeConnectMessage, setStripeConnectMessage] = useState<string | null>(
+    null,
+  );
+  const [domains, setDomains] = useState<DomainRecord[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domainInput, setDomainInput] = useState("");
+  const [domainPrimaryInput, setDomainPrimaryInput] = useState(false);
+  const [domainSubmitting, setDomainSubmitting] = useState(false);
+  const [domainVerifyingId, setDomainVerifyingId] = useState<number | null>(null);
+  const [domainMessage, setDomainMessage] = useState<string | null>(null);
+  const [launchModeSaving, setLaunchModeSaving] = useState(false);
+  const [launchModeMessage, setLaunchModeMessage] = useState<string | null>(null);
+  const [emailProfileLoading, setEmailProfileLoading] = useState(false);
+  const [emailProfileSaving, setEmailProfileSaving] = useState(false);
+  const [emailProfileVerifying, setEmailProfileVerifying] = useState(false);
+  const [emailProfileTesting, setEmailProfileTesting] = useState(false);
+  const [emailProfileMessage, setEmailProfileMessage] = useState<string | null>(
+    null,
+  );
+  const [emailProfile, setEmailProfile] = useState<EmailDeliveryProfile>({
+    available: true,
+    fromName: "",
+    fromEmail: "",
+    replyTo: "",
+    sendingDomain: "",
+    emailMode: "platform_sender",
+    dkimVerified: false,
+    spfVerified: false,
+    leadNotificationEmails: [],
+    verificationNotes: null,
+    verificationLastCheckedAt: null,
+    lastTestEmailStatus: null,
+    lastTestEmailTo: null,
+    lastTestEmailSender: null,
+    lastTestEmailError: null,
+    lastTestEmailAt: null,
+    updatedAt: null,
+  });
+  const [leadRoutingInput, setLeadRoutingInput] = useState("");
+  const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<
     number | null
   >(null);
@@ -751,6 +926,7 @@ export default function SiteSettingsPage() {
     setLoading(true);
     try {
       const res = await fetch(`${getApiBaseUrl()}/site-settings/${wid}`, {
+        headers: authHeaders(),
         cache: "no-store",
       });
       if (res.ok) {
@@ -767,7 +943,17 @@ export default function SiteSettingsPage() {
           void _wid;
           void _c;
           void _u;
-          setForm(normalizeNavFields(editable));
+          setForm(
+            normalizeNavFields({
+              ...editable,
+              launch_mode:
+                editable.launch_mode === "final_domain"
+                  ? "final_domain"
+                  : "temporary_launch",
+            }),
+          );
+        } else {
+          setForm({ launch_mode: "temporary_launch" });
         }
       }
     } finally {
@@ -775,11 +961,63 @@ export default function SiteSettingsPage() {
     }
   }, []);
 
+  const loadContentPermissions = useCallback(async (wid: number) => {
+    setPermissionsLoading(true);
+    setPermissionsError(null);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/content-permissions/${wid}`, {
+        method: "GET",
+        headers: authHeaders(),
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        setPermissionsError(text || `Failed to load permissions (${res.status})`);
+        setContentPermissions(DEFAULT_CONTENT_PERMISSION_FLAGS);
+        return;
+      }
+
+      const data = (await res.json()) as { permissions?: Record<string, unknown> };
+      setContentPermissions(
+        normalizePermissionFlags(
+          data.permissions,
+          DEFAULT_CONTENT_PERMISSION_FLAGS,
+        ),
+      );
+    } catch (error) {
+      setPermissionsError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load permissions profile.",
+      );
+      setContentPermissions(DEFAULT_CONTENT_PERMISSION_FLAGS);
+    } finally {
+      setPermissionsLoading(false);
+    }
+  }, []);
+
+  const canEditSiteSettings =
+    hasPlatformAdminOverride() || contentPermissions.edit_branding;
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (
+      requestedTab === "settings" ||
+      requestedTab === "services" ||
+      requestedTab === "team" ||
+      requestedTab === "shop"
+    ) {
+      setTab(requestedTab);
+    }
+  }, [searchParams]);
+
   // ── Load services ──
   const loadServices = useCallback(async (wid: number) => {
     setServicesLoading(true);
     try {
       const res = await fetch(`${getApiBaseUrl()}/services?website_id=${wid}`, {
+        headers: authHeaders(),
         cache: "no-store",
       });
       if (res.ok) setServices(await res.json());
@@ -794,7 +1032,10 @@ export default function SiteSettingsPage() {
     try {
       const res = await fetch(
         `${getApiBaseUrl()}/team-members?website_id=${wid}`,
-        { cache: "no-store" },
+        {
+          headers: authHeaders(),
+          cache: "no-store",
+        },
       );
       if (res.ok) setTeam(await res.json());
     } finally {
@@ -807,6 +1048,7 @@ export default function SiteSettingsPage() {
     setProductsLoading(true);
     try {
       const res = await fetch(`${getApiBaseUrl()}/products?website_id=${wid}`, {
+        headers: authHeaders(),
         cache: "no-store",
       });
       if (res.ok) setProducts(await res.json());
@@ -815,10 +1057,156 @@ export default function SiteSettingsPage() {
     }
   }, []);
 
+  const loadStripeConnectStatus = useCallback(async (wid: number) => {
+    setStripeConnectLoading(true);
+    try {
+      const res = await fetch(`/api/stripe/connect/status?websiteId=${wid}`, {
+        method: "GET",
+        headers: authHeaders(),
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        setStripeConnectStatus({
+          connected: false,
+          accountId: null,
+          chargesEnabled: false,
+          payoutsEnabled: false,
+          onboardingComplete: false,
+          error: text || `Status request failed (${res.status})`,
+        });
+        return;
+      }
+
+      const status = (await res.json()) as StripeConnectStatus;
+      setStripeConnectStatus(status);
+    } catch (e) {
+      setStripeConnectStatus({
+        connected: false,
+        accountId: null,
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        onboardingComplete: false,
+        error:
+          e instanceof Error ? e.message : "Unable to fetch Stripe status.",
+      });
+    } finally {
+      setStripeConnectLoading(false);
+    }
+  }, []);
+
+  const loadDomains = useCallback(async (wid: number) => {
+    setDomainsLoading(true);
+    try {
+      const res = await fetch(`/api/domains/status?websiteId=${wid}`, {
+        method: "GET",
+        headers: authHeaders(),
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        setDomainMessage(text || `Failed to load domains (${res.status})`);
+        setDomains([]);
+        return;
+      }
+
+      const data = (await res.json()) as { domains?: DomainRecord[] };
+      setDomains(Array.isArray(data.domains) ? data.domains : []);
+    } catch (e) {
+      setDomainMessage(
+        e instanceof Error ? e.message : "Unable to load domain status.",
+      );
+      setDomains([]);
+    } finally {
+      setDomainsLoading(false);
+    }
+  }, []);
+
+  const loadEmailProfile = useCallback(async (wid: number) => {
+    setEmailProfileLoading(true);
+    try {
+      const res = await fetch(`/api/email/profile/status?websiteId=${wid}`, {
+        method: "GET",
+        cache: "no-store",
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        setEmailProfileMessage(text || `Unable to load email profile (${res.status})`);
+        return;
+      }
+
+      const data = (await res.json()) as { profile?: Partial<EmailDeliveryProfile> };
+      if (data.profile) {
+        setEmailProfile((prev) => ({
+          ...prev,
+          available: data.profile?.available !== false,
+          fromName: data.profile?.fromName || "",
+          fromEmail: data.profile?.fromEmail || "",
+          replyTo: data.profile?.replyTo || "",
+          sendingDomain: data.profile?.sendingDomain || "",
+          emailMode:
+            data.profile?.emailMode === "tenant_branded"
+              ? "tenant_branded"
+              : "platform_sender",
+          dkimVerified: Boolean(data.profile?.dkimVerified),
+          spfVerified: Boolean(data.profile?.spfVerified),
+          leadNotificationEmails: data.profile?.leadNotificationEmails || [],
+          verificationNotes: data.profile?.verificationNotes || null,
+          verificationLastCheckedAt: data.profile?.verificationLastCheckedAt || null,
+          lastTestEmailStatus:
+            data.profile?.lastTestEmailStatus === "success" ||
+            data.profile?.lastTestEmailStatus === "failed"
+              ? data.profile.lastTestEmailStatus
+              : null,
+          lastTestEmailTo: data.profile?.lastTestEmailTo || null,
+          lastTestEmailSender: data.profile?.lastTestEmailSender || null,
+          lastTestEmailError: data.profile?.lastTestEmailError || null,
+          lastTestEmailAt: data.profile?.lastTestEmailAt || null,
+          updatedAt: data.profile?.updatedAt || null,
+        }));
+        setLeadRoutingInput((data.profile.leadNotificationEmails || []).join(", "));
+        setEmailTestRecipient((prev) => {
+          if (prev.trim()) {
+            return prev;
+          }
+
+          const fallback =
+            data.profile?.replyTo ||
+            data.profile?.fromEmail ||
+            data.profile?.leadNotificationEmails?.[0] ||
+            "";
+          return fallback;
+        });
+        if (data.profile.available === false) {
+          setEmailProfileMessage(
+            "Email delivery setup is not available in this environment yet. Save and verify actions are disabled.",
+          );
+        }
+      }
+    } catch (e) {
+      setEmailProfileMessage(
+        e instanceof Error ? e.message : "Unable to load email profile.",
+      );
+    } finally {
+      setEmailProfileLoading(false);
+    }
+  }, []);
+
+  const parseLeadRoutingEmails = (value: string): string[] =>
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
   // ── Load published page slugs ──
   const loadPageSlugs = useCallback(async (wid: number) => {
     try {
       const res = await fetch(`${getApiBaseUrl()}/pages?website_id=${wid}`, {
+        headers: authHeaders(),
         cache: "no-store",
       });
       if (!res.ok) return;
@@ -853,6 +1241,10 @@ export default function SiteSettingsPage() {
     loadServices(wid);
     loadTeam(wid);
     loadProducts(wid);
+    loadContentPermissions(wid);
+    loadStripeConnectStatus(wid);
+    loadDomains(wid);
+    loadEmailProfile(wid);
     loadPageSlugs(wid);
   }, [
     selectedClient,
@@ -861,12 +1253,325 @@ export default function SiteSettingsPage() {
     loadServices,
     loadTeam,
     loadProducts,
+    loadContentPermissions,
+    loadStripeConnectStatus,
+    loadDomains,
+    loadEmailProfile,
     loadPageSlugs,
   ]);
+
+  const saveEmailProfile = useCallback(async () => {
+    if (!websiteId) return;
+
+    setEmailProfileSaving(true);
+    setEmailProfileMessage(null);
+
+    try {
+      const leadEmails = parseLeadRoutingEmails(leadRoutingInput);
+      const res = await fetch("/api/email/profile/upsert", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          websiteId,
+          fromName: emailProfile.fromName,
+          fromEmail: emailProfile.fromEmail,
+          replyTo: emailProfile.replyTo,
+          sendingDomain: emailProfile.sendingDomain,
+          emailMode: emailProfile.emailMode,
+          leadNotificationEmails: leadEmails,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        setEmailProfileMessage(text || `Failed to save profile (${res.status})`);
+        return;
+      }
+
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+
+      setEmailProfile((prev) => ({
+        ...prev,
+        leadNotificationEmails: leadEmails,
+      }));
+      setEmailProfileMessage(data.message || "Email sender profile saved.");
+      await loadEmailProfile(websiteId);
+    } catch (e) {
+      setEmailProfileMessage(
+        e instanceof Error ? e.message : "Failed to save email profile.",
+      );
+    } finally {
+      setEmailProfileSaving(false);
+    }
+  }, [emailProfile, leadRoutingInput, loadEmailProfile, websiteId]);
+
+  const saveLaunchMode = useCallback(async () => {
+    if (!websiteId) return;
+    if (!canEditSiteSettings) {
+      setLaunchModeMessage("You do not have permission to update launch mode for this tenant.");
+      return;
+    }
+
+    setLaunchModeSaving(true);
+    setLaunchModeMessage(null);
+
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ launch_mode: form.launch_mode || "temporary_launch" }),
+      });
+
+      if (!res.ok) {
+        const errorBody = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          reasons?: string[];
+        };
+        await loadSettings(websiteId);
+        setLaunchModeMessage(
+          errorBody.reasons?.length
+            ? errorBody.reasons.join(" ")
+            : errorBody.error || `Failed to save launch mode (${res.status})`,
+        );
+        return;
+      }
+
+      const data = (await res.json().catch(() => ({}))) as SiteSettings;
+      setForm((prev) => normalizeNavFields({ ...prev, launch_mode: data.launch_mode }));
+      setLaunchModeMessage(`Launch mode saved as ${launchModeLabel(data.launch_mode)}.`);
+    } catch (error) {
+      setLaunchModeMessage(
+        error instanceof Error ? error.message : "Failed to save launch mode.",
+      );
+    } finally {
+      setLaunchModeSaving(false);
+    }
+  }, [canEditSiteSettings, form.launch_mode, loadSettings, websiteId]);
+
+  const verifyEmailDomain = useCallback(async () => {
+    if (!websiteId) return;
+
+    setEmailProfileVerifying(true);
+    setEmailProfileMessage(null);
+    try {
+      const res = await fetch("/api/email/profile/verify", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          websiteId,
+          sendingDomain: emailProfile.sendingDomain,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        setEmailProfileMessage(text || `SPF/DKIM check failed (${res.status})`);
+        return;
+      }
+
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+
+      setEmailProfileMessage(data.message || "SPF/DKIM verification check executed.");
+      await loadEmailProfile(websiteId);
+    } catch (e) {
+      setEmailProfileMessage(
+        e instanceof Error ? e.message : "Failed to verify sender domain.",
+      );
+    } finally {
+      setEmailProfileVerifying(false);
+    }
+  }, [emailProfile.sendingDomain, loadEmailProfile, websiteId]);
+
+  const sendEmailProfileTest = useCallback(async () => {
+    if (!websiteId) return;
+
+    const recipient = emailTestRecipient.trim().toLowerCase();
+    if (!recipient) {
+      setEmailProfileMessage("Enter a recipient email before sending a test.");
+      return;
+    }
+
+    setEmailProfileTesting(true);
+    setEmailProfileMessage(null);
+    try {
+      const res = await fetch("/api/email/profile/test", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          websiteId,
+          to: recipient,
+        }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sender?: string;
+        message?: string;
+      };
+
+      if (!res.ok) {
+        setEmailProfileMessage(data.error || `Failed to send test email (${res.status})`);
+        await loadEmailProfile(websiteId);
+        return;
+      }
+
+      setEmailProfileMessage(
+        data.sender
+          ? `${data.message || "Test email sent."} Sender used: ${data.sender}`
+          : data.message || "Test email sent.",
+      );
+      await loadEmailProfile(websiteId);
+    } catch (error) {
+      setEmailProfileMessage(
+        error instanceof Error ? error.message : "Failed to send test email.",
+      );
+      await loadEmailProfile(websiteId);
+    } finally {
+      setEmailProfileTesting(false);
+    }
+  }, [emailTestRecipient, loadEmailProfile, websiteId]);
+
+  const normalizeDomain = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/$/, "")
+      .replace(/\.$/, "");
+
+  const onboardDomain = useCallback(async () => {
+    if (!websiteId) return;
+
+    const normalizedDomain = normalizeDomain(domainInput);
+    if (!normalizedDomain || !/^[a-z0-9.-]+$/.test(normalizedDomain)) {
+      setDomainMessage("Enter a valid domain like client-example.com.");
+      return;
+    }
+
+    setDomainSubmitting(true);
+    setDomainMessage(null);
+
+    try {
+      const res = await fetch("/api/domains/onboard", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          websiteId,
+          domain: normalizedDomain,
+          isPrimary: domainPrimaryInput,
+        }),
+      });
+
+      if (res.status === 409) {
+        const text = await res.text();
+        setDomainMessage(text || "Domain is already used by another tenant.");
+        return;
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        setDomainMessage(text || `Onboarding failed (${res.status})`);
+        return;
+      }
+
+      setDomainMessage(
+        "Domain submitted. Add DNS records, then click Verify to activate.",
+      );
+      setDomainInput("");
+      setDomainPrimaryInput(false);
+      await loadDomains(websiteId);
+    } catch (e) {
+      setDomainMessage(
+        e instanceof Error ? e.message : "Failed to submit domain onboarding.",
+      );
+    } finally {
+      setDomainSubmitting(false);
+    }
+  }, [domainInput, domainPrimaryInput, loadDomains, websiteId]);
+
+  const verifyDomain = useCallback(
+    async (domain: DomainRecord) => {
+      if (!websiteId) return;
+
+      setDomainVerifyingId(domain.id ?? -1);
+      setDomainMessage(null);
+      try {
+        const res = await fetch("/api/domains/verify", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            websiteId,
+            domainId: domain.id,
+            domain: domain.domain,
+          }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          setDomainMessage(text || `Verification failed (${res.status})`);
+          return;
+        }
+
+        setDomainMessage(`Verification check complete for ${domain.domain}.`);
+        await loadDomains(websiteId);
+      } catch (e) {
+        setDomainMessage(
+          e instanceof Error ? e.message : "Failed to verify domain.",
+        );
+      } finally {
+        setDomainVerifyingId(null);
+      }
+    },
+    [loadDomains, websiteId],
+  );
+
+  const startStripeConnectOnboarding = useCallback(async () => {
+    if (!websiteId) return;
+    setStripeConnectStarting(true);
+    setStripeConnectMessage(null);
+
+    try {
+      const res = await fetch("/api/stripe/connect/onboard", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ websiteId }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        setStripeConnectMessage(
+          text || `Unable to start Stripe onboarding (${res.status})`,
+        );
+        return;
+      }
+
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) {
+        setStripeConnectMessage("Stripe onboarding URL was not returned.");
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (e) {
+      setStripeConnectMessage(
+        e instanceof Error ? e.message : "Failed to start Stripe onboarding.",
+      );
+    } finally {
+      setStripeConnectStarting(false);
+    }
+  }, [websiteId]);
 
   // ── Settings save ──
   const handleSave = async () => {
     if (!websiteId) return;
+    if (!canEditSiteSettings) {
+      setSettingsError("You do not have permission to edit site settings for this tenant.");
+      return;
+    }
     setSaving(true);
     setSettingsError(null);
     setSaved(false);
@@ -906,11 +1611,19 @@ export default function SiteSettingsPage() {
 
   // ── Services CRUD ──
   const startNewService = () => {
+    if (!contentPermissions.edit_services) {
+      setServiceError("You do not have permission to edit services for this tenant.");
+      return;
+    }
     setServiceForm({ title: "", slug: "", content: "", image_url: "" });
     setServiceEdit("new");
     setServiceError(null);
   };
   const startEditService = (s: Service) => {
+    if (!contentPermissions.edit_services) {
+      setServiceError("You do not have permission to edit services for this tenant.");
+      return;
+    }
     setServiceForm({
       title: s.title,
       slug: s.slug,
@@ -934,6 +1647,10 @@ export default function SiteSettingsPage() {
     }));
 
   const saveService = async () => {
+    if (!contentPermissions.edit_services) {
+      setServiceError("You do not have permission to edit services for this tenant.");
+      return;
+    }
     if (!serviceForm.title.trim()) {
       setServiceError("Title is required.");
       return;
@@ -969,6 +1686,10 @@ export default function SiteSettingsPage() {
   };
 
   const deleteService = async (id: number) => {
+    if (!contentPermissions.edit_services) {
+      setServiceError("You do not have permission to edit services for this tenant.");
+      return;
+    }
     if (!confirm("Delete this service?")) return;
     const res = await fetch(`${getApiBaseUrl()}/services/${id}`, {
       method: "DELETE",
@@ -979,6 +1700,10 @@ export default function SiteSettingsPage() {
 
   // ── Team CRUD ──
   const startNewTeam = () => {
+    if (!contentPermissions.edit_team) {
+      setTeamError("You do not have permission to edit team content for this tenant.");
+      return;
+    }
     setTeamForm({
       name: "",
       title: "",
@@ -991,6 +1716,10 @@ export default function SiteSettingsPage() {
     setTeamError(null);
   };
   const startEditTeam = (m: TeamMember) => {
+    if (!contentPermissions.edit_team) {
+      setTeamError("You do not have permission to edit team content for this tenant.");
+      return;
+    }
     setTeamForm({
       name: m.name,
       title: m.title ?? "",
@@ -1010,6 +1739,10 @@ export default function SiteSettingsPage() {
     setTeamForm((f) => ({ ...f, [key]: val }));
 
   const saveTeam = async () => {
+    if (!contentPermissions.edit_team) {
+      setTeamError("You do not have permission to edit team content for this tenant.");
+      return;
+    }
     if (!teamForm.name.trim()) {
       setTeamError("Name is required.");
       return;
@@ -1058,6 +1791,10 @@ export default function SiteSettingsPage() {
   };
 
   const deleteTeam = async (id: number) => {
+    if (!contentPermissions.edit_team) {
+      setTeamError("You do not have permission to edit team content for this tenant.");
+      return;
+    }
     if (!confirm("Delete this team member?")) return;
     const res = await fetch(`${getApiBaseUrl()}/team-members/${id}`, {
       method: "DELETE",
@@ -1284,69 +2021,8 @@ export default function SiteSettingsPage() {
 
       setForm(mergedForm);
 
-      const settingsRes = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify(mergedForm),
-      });
-      if (!settingsRes.ok) {
-        throw new Error(`Failed to save template settings (${settingsRes.status})`);
-      }
-
-      const existingServiceTitles = new Set(
-        services.map((s) => s.title.trim().toLowerCase()),
-      );
-      for (const service of draft.services.slice(0, 3)) {
-        const serviceTitle = service.title.trim().toLowerCase();
-        if (!templateForceReplace && existingServiceTitles.has(serviceTitle)) {
-          continue;
-        }
-        if (!templateForceReplace && services.length >= 3) {
-          break;
-        }
-        if (!existingServiceTitles.has(serviceTitle)) {
-          const payload = {
-            title: service.title,
-            slug: slugify(service.title),
-            content: service.content,
-            image_url: null,
-            website_id: websiteId,
-          };
-          const serviceRes = await fetch(`${getApiBaseUrl()}/services`, {
-            method: "POST",
-            headers: authHeaders(),
-            body: JSON.stringify(payload),
-          });
-          if (serviceRes.ok) {
-            existingServiceTitles.add(serviceTitle);
-          }
-        }
-      }
-
-      if (team.length === 0) {
-        await fetch(`${getApiBaseUrl()}/team-members`, {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({
-            name: draft.teamMember.name,
-            title: draft.teamMember.title,
-            bio: draft.teamMember.bio,
-            photo_url: null,
-            linkedin_url: null,
-            sort_order: 0,
-            website_id: websiteId,
-          }),
-        });
-      }
-
-      await Promise.all([
-        loadSettings(websiteId),
-        loadServices(websiteId),
-        loadTeam(websiteId),
-      ]);
-
       setTemplateMessage(
-        "Template applied. Home/About/Contact copy was seeded and starter services were created.",
+        "Template content staged in the form. Review it, then click Save Changes to persist site settings.",
       );
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to apply template.";
@@ -1368,11 +2044,6 @@ export default function SiteSettingsPage() {
     templateOfferType,
     templateForceReplace,
     form,
-    services,
-    team.length,
-    loadSettings,
-    loadServices,
-    loadTeam,
   ]);
 
   const applyAIDraftIdea = useCallback(
@@ -1931,7 +2602,6 @@ export default function SiteSettingsPage() {
   if (!websiteId)
     return (
       <div className="p-8 text-gray-500">
-        No website linked to your account. Ask an admin to assign a{" "}
         <code>website_id</code>.
       </div>
     );
@@ -1939,7 +2609,7 @@ export default function SiteSettingsPage() {
   const TABS: { id: Tab; label: string; previewPath: string }[] = [
     {
       id: "settings",
-      label: "Site Settings",
+      label: "Global Settings",
       previewPath: `/sites/${websiteId}`,
     },
     {
@@ -1966,16 +2636,161 @@ export default function SiteSettingsPage() {
   const previewUrl =
     TABS.find((t) => t.id === tab)?.previewPath ?? `/sites/${websiteId}`;
 
+  const primaryDomainRecord =
+    domains.find((domain) => domain.isPrimary) ?? domains[0] ?? null;
+  const detectedWebsiteMode =
+    primaryDomainRecord &&
+    primaryDomainRecord.status === "active" &&
+    !isTemporaryWebsiteHost(primaryDomainRecord.domain)
+      ? "final_domain"
+      : "temporary_launch";
+  const selectedLaunchMode: LaunchMode =
+    form.launch_mode === "final_domain" ? "final_domain" : "temporary_launch";
+  const actualEmailMode =
+    emailProfile.spfVerified &&
+    emailProfile.dkimVerified &&
+    emailProfile.fromEmail.trim() &&
+    emailProfile.sendingDomain.trim() &&
+    !isLikelyPlatformSender(emailProfile.fromEmail)
+      ? "tenant_branded"
+      : emailProfile.fromEmail.trim() || emailProfile.replyTo.trim() || emailProfile.sendingDomain.trim()
+        ? "platform_sender"
+        : "not_configured";
+  const selectedEmailMode: EmailMode =
+    emailProfile.emailMode === "tenant_branded"
+      ? "tenant_branded"
+      : "platform_sender";
+  const lastSuccessfulSenderMatches =
+    !!emailProfile.fromEmail.trim() &&
+    !!emailProfile.lastTestEmailSender &&
+    emailProfile.lastTestEmailSender
+      .toLowerCase()
+      .includes(emailProfile.fromEmail.trim().toLowerCase());
+  const launchChecklist: LaunchChecklistItem[] = [
+    {
+      key: "domain-primary",
+      label: "Primary website domain is configured and active",
+      satisfied: Boolean(primaryDomainRecord?.domain) && primaryDomainRecord?.status === "active",
+      detail: primaryDomainRecord?.domain
+        ? `${primaryDomainRecord.domain} (${primaryDomainRecord.status})`
+        : "No primary tenant domain is configured yet.",
+    },
+    {
+      key: "domain-final",
+      label: "Primary domain is a final client hostname",
+      satisfied:
+        Boolean(primaryDomainRecord?.domain) &&
+        primaryDomainRecord?.status === "active" &&
+        !isTemporaryWebsiteHost(primaryDomainRecord.domain),
+      detail: primaryDomainRecord?.domain
+        ? isTemporaryWebsiteHost(primaryDomainRecord.domain)
+          ? "Current primary domain is still a temporary RC-controlled or preview hostname."
+          : "Primary domain is not flagged as a temporary host."
+        : "Add and verify the final client domain first.",
+    },
+    {
+      key: "email-mode",
+      label: "Desired email mode is tenant branded",
+      satisfied: selectedEmailMode === "tenant_branded",
+      detail:
+        selectedEmailMode === "tenant_branded"
+          ? "Tenant branded email mode is selected."
+          : "Email mode is still set to platform sender.",
+    },
+    {
+      key: "email-verification",
+      label: "Tenant sender fields and SPF/DKIM verification are complete",
+      satisfied:
+        !!emailProfile.fromEmail.trim() &&
+        !!emailProfile.sendingDomain.trim() &&
+        emailProfile.spfVerified &&
+        emailProfile.dkimVerified,
+      detail:
+        !!emailProfile.fromEmail.trim() && !!emailProfile.sendingDomain.trim()
+          ? emailProfile.spfVerified && emailProfile.dkimVerified
+            ? "Sender fields exist and SPF/DKIM are verified."
+            : "Sender fields exist but SPF/DKIM verification is still incomplete."
+          : "From email and sending domain are both required.",
+    },
+    {
+      key: "email-test",
+      label: "A successful live outbound test email has been recorded",
+      satisfied:
+        emailProfile.lastTestEmailStatus === "success" &&
+        !!emailProfile.lastTestEmailAt &&
+        lastSuccessfulSenderMatches,
+      detail:
+        emailProfile.lastTestEmailStatus === "success" && emailProfile.lastTestEmailAt
+          ? lastSuccessfulSenderMatches
+            ? `Successful test recorded ${new Date(emailProfile.lastTestEmailAt).toLocaleString()}.`
+            : "A test succeeded, but the recorded sender does not match the configured tenant sender."
+          : "No successful test email is recorded yet.",
+    },
+  ];
+  const isFinalLaunchReady = launchChecklist.every((item) => item.satisfied);
+  const providerBlockedReasons = [
+    !emailProfile.available
+      ? "Email delivery controls are not available in this environment yet."
+      : null,
+    selectedLaunchMode === "final_domain" && detectedWebsiteMode !== "final_domain"
+      ? "The tenant is still on a temporary or unverified website hostname."
+      : null,
+    selectedEmailMode === "tenant_branded" && actualEmailMode !== "tenant_branded"
+      ? "Tenant-branded sender verification is still incomplete."
+      : null,
+    selectedLaunchMode === "final_domain" &&
+    !(emailProfile.lastTestEmailStatus === "success" && lastSuccessfulSenderMatches)
+      ? "A successful outbound sender test has not been recorded for the configured tenant sender."
+      : null,
+  ].filter(Boolean) as string[];
+  const launchReadinessTone =
+    selectedLaunchMode === "final_domain"
+      ? isFinalLaunchReady
+        ? "ready"
+        : "blocked"
+      : "temporary";
+  const launchReadinessTitle =
+    launchReadinessTone === "ready"
+      ? "Final Launch Ready"
+      : launchReadinessTone === "blocked"
+        ? "Provider Blocked / Not Launch Ready"
+        : "Temporary Launch Active";
+  const launchReadinessSummary =
+    launchReadinessTone === "ready"
+      ? "Domain, sender verification, and outbound test checks are aligned for final launch."
+      : launchReadinessTone === "blocked"
+        ? "Final-domain launch is selected, but external provider or verification work still blocks a real go-live."
+        : "This tenant is intentionally operating in temporary launch mode while provider-dependent final launch work remains deferred.";
+  const launchReadinessClass =
+    launchReadinessTone === "ready"
+      ? "border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-950/20"
+      : launchReadinessTone === "blocked"
+        ? "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20"
+        : "border-sky-200 bg-sky-50 dark:border-sky-900/40 dark:bg-sky-950/20";
+  const launchReadinessTextClass =
+    launchReadinessTone === "ready"
+      ? "text-green-700 dark:text-green-300"
+      : launchReadinessTone === "blocked"
+        ? "text-amber-800 dark:text-amber-300"
+        : "text-sky-800 dark:text-sky-300";
+
+  const isTabLocked = (tabId: Tab) => {
+    if (tabId === "settings") return !canEditSiteSettings;
+    if (tabId === "services") return !contentPermissions.edit_services;
+    if (tabId === "team") return !contentPermissions.edit_team;
+    return false;
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Site Editor
+            Global Site Settings
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Edit content shown on your public site.
+            Edit tenant-wide site configuration, shared content, navigation, and launch settings.
           </p>
         </div>
         <Link
@@ -1993,20 +2808,552 @@ export default function SiteSettingsPage() {
           <button
             key={id}
             onClick={() => setTab(id)}
+            disabled={isTabLocked(id)}
             className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
               tab === id
                 ? "bg-white text-gray-900 shadow dark:bg-gray-700 dark:text-white"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            }`}
+            } ${isTabLocked(id) ? "cursor-not-allowed opacity-50" : ""}`}
           >
             {label}
           </button>
         ))}
       </div>
 
+      {permissionsLoading ? (
+        <p className="text-xs text-gray-500">Loading content permissions...</p>
+      ) : null}
+      {permissionsError ? (
+        <p className="text-xs text-amber-700">
+          Permission profile could not be loaded; using default access.
+        </p>
+      ) : null}
+
       {/* ── Settings tab ── */}
       {tab === "settings" && (
         <>
+          <div className={`${SECTION} ${launchReadinessClass}`}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className={`text-base font-semibold ${launchReadinessTextClass}`}>
+                  {launchReadinessTitle}
+                </p>
+                <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                  {launchReadinessSummary}
+                </p>
+                <p className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                  Saved launch mode: <strong>{launchModeLabel(selectedLaunchMode)}</strong>
+                  {primaryDomainRecord?.domain ? ` | primary domain: ${primaryDomainRecord.domain}` : " | no primary domain yet"}
+                  {` | actual email state: ${emailModeLabel(actualEmailMode)}`}
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/60 bg-white/70 px-3 py-2 text-xs text-gray-700 dark:border-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
+                Pause-state workflow is documented in TENANT_LIVE_TEST_RUNBOOK.md.
+              </div>
+            </div>
+
+            {launchReadinessTone === "blocked" || launchReadinessTone === "temporary" ? (
+              <div className="mt-4 space-y-2">
+                {providerBlockedReasons.length > 0 ? (
+                  providerBlockedReasons.map((reason) => (
+                    <div
+                      key={reason}
+                      className="rounded-lg border border-white/60 bg-white/70 px-3 py-3 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900/30 dark:text-gray-200"
+                    >
+                      {reason}
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-white/60 bg-white/70 px-3 py-3 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
+                    Final launch is not selected. Continue tenant setup, content population, and temporary-host validation without claiming branded final launch readiness.
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <div className={SECTION}>
+            <p className={SECTION_TITLE}>Domains (Phase 5)</p>
+            <p className="mb-4 text-sm text-gray-500">
+              Onboard custom domains for this tenant. Add DNS records, then run
+              verification until status becomes <strong>active</strong>.
+            </p>
+
+            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              <p>
+                Detected website state: <strong>{launchModeLabel(detectedWebsiteMode)}</strong>
+              </p>
+              <p className="mt-1">
+                {detectedWebsiteMode === "final_domain"
+                  ? "A verified custom domain appears to be in place. Continue with branded sender setup only after real domain DNS is stable."
+                  : "No final verified client domain is active yet. For a no-domain tenant, use a stable RC-controlled subdomain instead of a one-off preview URL until the real client domain is ready."}
+              </p>
+            </div>
+
+            <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/40">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Launch control
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    Persist the intended launch mode here. Final domain launch is blocked until all launch gate checks pass.
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+                      <input
+                        type="radio"
+                        name="launch-mode"
+                        checked={selectedLaunchMode === "temporary_launch"}
+                        onChange={() => setForm((prev) => ({ ...prev, launch_mode: "temporary_launch" }))}
+                        className="mr-2"
+                      />
+                      Temporary launch
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Stable RC-controlled hostname plus platform sender.
+                      </p>
+                    </label>
+                    <label className="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+                      <input
+                        type="radio"
+                        name="launch-mode"
+                        checked={selectedLaunchMode === "final_domain"}
+                        onChange={() => setForm((prev) => ({ ...prev, launch_mode: "final_domain" }))}
+                        className="mr-2"
+                      />
+                      Final domain launch
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Real client domain plus verified tenant-branded sender.
+                      </p>
+                    </label>
+                  </div>
+                </div>
+                <div className="flex flex-col items-start gap-2">
+                  <button
+                    type="button"
+                    onClick={saveLaunchMode}
+                    disabled={launchModeSaving || !websiteId || !canEditSiteSettings}
+                    className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {launchModeSaving ? "Saving..." : "Save Launch Mode"}
+                  </button>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isFinalLaunchReady ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                    {isFinalLaunchReady ? "Final launch ready" : "Final launch blocked"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {launchChecklist.map((item) => (
+                  <div
+                    key={item.key}
+                    className={`rounded-lg border px-3 py-3 text-sm ${item.satisfied ? "border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-950/20" : "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20"}`}
+                  >
+                    <p className={`font-medium ${item.satisfied ? "text-green-700 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}>
+                      {item.satisfied ? "Ready" : "Blocked"} - {item.label}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                      {item.detail}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {launchModeMessage ? (
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                  {launchModeMessage}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+              <input
+                className={INPUT}
+                placeholder="clientdomain.com"
+                value={domainInput}
+                onChange={(e) => setDomainInput(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={onboardDomain}
+                disabled={domainSubmitting}
+                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {domainSubmitting ? "Submitting…" : "Add Domain"}
+              </button>
+            </div>
+
+            <label className="mt-3 inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={domainPrimaryInput}
+                onChange={(e) => setDomainPrimaryInput(e.target.checked)}
+              />
+              Set as primary domain for this tenant
+            </label>
+
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Conflict detection is enforced server-side (duplicate domains
+                return conflict errors).
+              </p>
+              <button
+                type="button"
+                onClick={() => websiteId && loadDomains(websiteId)}
+                disabled={domainsLoading}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                {domainsLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {domainsLoading ? (
+                <p className="text-sm text-gray-400">Loading domains…</p>
+              ) : domains.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-gray-200 p-3 text-sm text-gray-500 dark:border-gray-700">
+                  No onboarded domains yet.
+                </p>
+              ) : (
+                domains.map((d) => (
+                  <div
+                    key={`${d.domain}-${d.id ?? "none"}`}
+                    className="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {d.domain}
+                          {d.isPrimary && (
+                            <span className="ml-2 rounded bg-[#CD7F32]/10 px-2 py-0.5 text-xs text-[#CD7F32]">
+                              primary
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          status: {d.status}
+                          {d.verificationType && d.verificationTarget
+                            ? ` | ${d.verificationType}: ${d.verificationTarget}`
+                            : ""}
+                        </p>
+                        {d.failureReason && (
+                          <p className="mt-1 text-xs text-red-500">
+                            {d.failureReason}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => verifyDomain(d)}
+                        disabled={domainVerifyingId === (d.id ?? -1)}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                      >
+                        {domainVerifyingId === (d.id ?? -1)
+                          ? "Verifying…"
+                          : "Verify"}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {domainMessage && (
+              <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                {domainMessage}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-stroke bg-white p-6 shadow-sm dark:border-strokedark dark:bg-boxdark">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-black dark:text-white">
+                  Email Delivery (Phase 5)
+                </h3>
+                <p className="text-sm text-body-color dark:text-bodydark">
+                  Configure per-tenant sender profile, SPF/DKIM status, and lead notification routing.
+                </p>
+                <p className="mt-2 text-xs text-body-color dark:text-bodydark">
+                  Use this before launch when the tenant needs branded outbound email and clear routing for new lead alerts.
+                  The sender fields control how email appears to clients, and the recipient list controls who gets notified when leads arrive.
+                </p>
+                <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-3 text-xs text-body-color dark:border-strokedark dark:bg-meta-4 dark:text-bodydark">
+                  <p>
+                    Saved launch mode: <strong>{launchModeLabel(selectedLaunchMode)}</strong>
+                  </p>
+                  <p className="mt-1">
+                    Detected website state: <strong>{launchModeLabel(detectedWebsiteMode)}</strong>
+                    {primaryDomainRecord?.domain ? ` (${primaryDomainRecord.domain})` : " (no primary domain yet)"}
+                  </p>
+                  <p className="mt-1">
+                    Saved email mode: <strong>{emailModeLabel(selectedEmailMode)}</strong>
+                  </p>
+                  <p className="mt-1">
+                    Actual email state: <strong>{emailModeLabel(actualEmailMode)}</strong>
+                  </p>
+                  <p className="mt-2">
+                    Operational rule: saved tenant email profile values are configuration state. Do not claim branded outbound email is live until a real outbound test confirms the expected sender identity.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => websiteId && loadEmailProfile(websiteId)}
+                  disabled={emailProfileLoading || !websiteId}
+                  className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-black hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-strokedark dark:text-white dark:hover:bg-meta-4"
+                >
+                  {emailProfileLoading ? "Refreshing..." : "Refresh"}
+                </button>
+                <button
+                  type="button"
+                  onClick={verifyEmailDomain}
+                  disabled={
+                    emailProfileVerifying ||
+                    !websiteId ||
+                    !emailProfile.available ||
+                    !emailProfile.sendingDomain.trim()
+                  }
+                  className="rounded-md border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {emailProfileVerifying ? "Checking..." : "Verify SPF/DKIM"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-strokedark dark:bg-meta-4">
+              <p className="text-sm font-medium text-black dark:text-white">
+                Desired email mode
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="rounded-lg border border-stroke bg-white p-3 text-sm dark:border-strokedark dark:bg-boxdark">
+                  <input
+                    type="radio"
+                    name="email-mode"
+                    checked={emailProfile.emailMode === "platform_sender"}
+                    onChange={() =>
+                      setEmailProfile((prev) => ({
+                        ...prev,
+                        emailMode: "platform_sender",
+                      }))
+                    }
+                    className="mr-2"
+                  />
+                  Platform sender
+                  <p className="mt-1 text-xs text-body-color dark:text-bodydark">
+                    Use the shared verified RC sender while the tenant is still in temporary launch mode.
+                  </p>
+                </label>
+                <label className="rounded-lg border border-stroke bg-white p-3 text-sm dark:border-strokedark dark:bg-boxdark">
+                  <input
+                    type="radio"
+                    name="email-mode"
+                    checked={emailProfile.emailMode === "tenant_branded"}
+                    onChange={() =>
+                      setEmailProfile((prev) => ({
+                        ...prev,
+                        emailMode: "tenant_branded",
+                      }))
+                    }
+                    className="mr-2"
+                  />
+                  Tenant branded
+                  <p className="mt-1 text-xs text-body-color dark:text-bodydark">
+                    Use the tenant sender only after sender fields are complete, SPF/DKIM are verified, and the live test succeeds.
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-black dark:text-white">
+                  From Name
+                </span>
+                <input
+                  type="text"
+                  value={emailProfile.fromName}
+                  onChange={(e) =>
+                    setEmailProfile((prev) => ({
+                      ...prev,
+                      fromName: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  placeholder="TechBridge Team"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-black dark:text-white">
+                  From Email
+                </span>
+                <input
+                  type="email"
+                  value={emailProfile.fromEmail}
+                  onChange={(e) =>
+                    setEmailProfile((prev) => ({
+                      ...prev,
+                      fromEmail: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  placeholder="hello@yourdomain.com"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-black dark:text-white">
+                  Reply-To
+                </span>
+                <input
+                  type="email"
+                  value={emailProfile.replyTo}
+                  onChange={(e) =>
+                    setEmailProfile((prev) => ({
+                      ...prev,
+                      replyTo: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  placeholder="support@yourdomain.com"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-black dark:text-white">
+                  Sending Domain
+                </span>
+                <input
+                  type="text"
+                  value={emailProfile.sendingDomain}
+                  onChange={(e) =>
+                    setEmailProfile((prev) => ({
+                      ...prev,
+                      sendingDomain: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  placeholder="mg.yourdomain.com"
+                />
+              </label>
+            </div>
+
+            <label className="mb-4 block">
+              <span className="mb-1 block text-sm font-medium text-black dark:text-white">
+                Lead Notification Recipients
+              </span>
+              <input
+                type="text"
+                value={leadRoutingInput}
+                onChange={(e) => setLeadRoutingInput(e.target.value)}
+                className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                placeholder="sales@yourdomain.com, ops@yourdomain.com"
+              />
+              <span className="mt-1 block text-xs text-body-color dark:text-bodydark">
+                Comma-separated email addresses used for tenant lead routing.
+              </span>
+            </label>
+
+            {emailProfile.verificationNotes ? (
+              <div className="mb-4 rounded-md border border-stroke bg-gray-2 px-3 py-2 text-xs text-body-color dark:border-strokedark dark:bg-meta-4 dark:text-bodydark">
+                {emailProfile.verificationNotes}
+              </div>
+            ) : null}
+
+            {actualEmailMode !== "tenant_branded" ? (
+              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+                {detectedWebsiteMode === "temporary_launch"
+                  ? "This tenant should stay in temporary launch mode until the final client domain exists and the sending subdomain is verified. Use a stable RC-controlled website hostname and a platform-owned verified sender in the meantime."
+                  : "This tenant has not completed branded sender verification yet. Finish SPF/DKIM, confirm the final sender values, and send a real outbound test before calling email live."}
+              </div>
+            ) : null}
+
+            <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-strokedark dark:bg-meta-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                <label className="block flex-1">
+                  <span className="mb-1 block text-sm font-medium text-black dark:text-white">
+                    Test recipient
+                  </span>
+                  <input
+                    type="email"
+                    value={emailTestRecipient}
+                    onChange={(e) => setEmailTestRecipient(e.target.value)}
+                    className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                    placeholder="qa@clientdomain.com"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={sendEmailProfileTest}
+                  disabled={emailProfileTesting || !websiteId || !emailProfile.available}
+                  className="rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {emailProfileTesting ? "Sending Test..." : "Send Test Email"}
+                </button>
+              </div>
+              <div className="mt-3 text-xs text-body-color dark:text-bodydark">
+                Last test status: <strong>{emailProfile.lastTestEmailStatus === "success" ? "Success" : emailProfile.lastTestEmailStatus === "failed" ? "Failed" : "Not run yet"}</strong>
+                {emailProfile.lastTestEmailAt ? ` at ${new Date(emailProfile.lastTestEmailAt).toLocaleString()}` : ""}
+                {emailProfile.lastTestEmailTo ? ` to ${emailProfile.lastTestEmailTo}` : ""}
+                {emailProfile.lastTestEmailSender ? ` using ${emailProfile.lastTestEmailSender}` : ""}
+              </div>
+              {emailProfile.lastTestEmailError ? (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                  Last test error: {emailProfile.lastTestEmailError}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  emailProfile.spfVerified
+                    ? "bg-success/20 text-success"
+                    : "bg-warning/20 text-warning"
+                }`}
+              >
+                SPF {emailProfile.spfVerified ? "Verified" : "Pending"}
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  emailProfile.dkimVerified
+                    ? "bg-success/20 text-success"
+                    : "bg-warning/20 text-warning"
+                }`}
+              >
+                DKIM {emailProfile.dkimVerified ? "Verified" : "Pending"}
+              </span>
+              {emailProfile.updatedAt ? (
+                <span className="text-xs text-body-color dark:text-bodydark">
+                  Last updated {new Date(emailProfile.updatedAt).toLocaleString()}
+                </span>
+              ) : null}
+              {emailProfile.verificationLastCheckedAt ? (
+                <span className="text-xs text-body-color dark:text-bodydark">
+                  Last checked {new Date(emailProfile.verificationLastCheckedAt).toLocaleString()}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={saveEmailProfile}
+                disabled={emailProfileSaving || !websiteId || !emailProfile.available}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {emailProfileSaving ? "Saving..." : "Save Email Profile"}
+              </button>
+              {emailProfileMessage ? (
+                <span className="text-sm text-body-color dark:text-bodydark">
+                  {emailProfileMessage}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
           <div className={SECTION}>
             <p className={SECTION_TITLE}>Template Library (V1)</p>
             <p className="mb-4 text-sm text-gray-500">
@@ -2155,19 +3502,19 @@ export default function SiteSettingsPage() {
               add custom links.
             </p>
             <p className="mb-4 text-xs text-gray-500">
-              For anchor links use <code>#services</code>, <code>#faq</code>, <code>#testimonials</code>, or <code>#contact</code>. For a new page, set href like <code>/why-us</code> and create/publish that slug in Page Manager.
+              For anchor links use <code>#services</code>, <code>#faq</code>, <code>#testimonials</code>, or <code>#contact</code>. For a new page, set href like <code>/why-us</code> and create/publish that slug in <code>Custom Pages</code>.
             </p>
             {missingHeaderLinks.length > 0 && (
               <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 <p className="font-semibold">Potential 404s detected in Header Navigation</p>
                 <p className="mt-1">
-                  {missingHeaderLinks.length} link(s) need page setup or href updates. Use Main Pages to create/publish missing slugs.
+                  {missingHeaderLinks.length} link(s) need page setup or href updates. Use Custom Pages to create/publish missing slugs.
                 </p>
                 <Link
                   href="/main-page"
                   className="mt-2 inline-block font-semibold underline"
                 >
-                  Open Main Pages
+                  Open Custom Pages
                 </Link>
               </div>
             )}
@@ -2356,66 +3703,32 @@ export default function SiteSettingsPage() {
             </button>
           </div>
 
-          {/* Hero */}
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Hero</p>
-            <div className="space-y-4">
-              <Field
-                label="Headline"
-                value={form.hero_headline ?? ""}
-                onChange={(v) => set("hero_headline", v)}
-              />
-              <Field
-                label="Subheadline"
-                value={form.hero_subheadline ?? ""}
-                onChange={(v) => set("hero_subheadline", v)}
-                textarea
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <Field
-                  label="CTA Button Text"
-                  value={form.hero_cta_text ?? ""}
-                  onChange={(v) => set("hero_cta_text", v)}
-                />
-                <Field
-                  label="CTA Button URL"
-                  value={form.hero_cta_url ?? ""}
-                  onChange={(v) => set("hero_cta_url", v)}
-                />
-              </div>
-              <div>
-                <Field
-                  label="Background Image URL (optional)"
-                  value={form.hero_bg_image_url ?? ""}
-                  onChange={(v) => set("hero_bg_image_url", v)}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    openAssetPicker("Select Hero Background", (url) =>
-                      set("hero_bg_image_url", url),
-                    )
-                  }
-                  className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            <p className={SECTION_TITLE}>Home Page Hero</p>
+            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+              <p>
+                Built-in page copy now lives in dedicated page editors. Edit the
+                homepage hero in <strong>Built-in Pages</strong> instead of
+                Global Site Settings.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/built-in-pages/home"
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
-                  Select from Client Assets
-                </button>
-                <p className="mt-1 text-xs text-gray-400">
-                  Paste a direct image URL. Used as the hero background on your
-                  public site.
-                </p>
-                {form.hero_bg_image_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={form.hero_bg_image_url}
-                    alt="Hero background preview"
-                    className="mt-3 h-40 w-full rounded-lg border border-gray-200 object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                )}
+                  Open Home Editor
+                </Link>
+                <Link
+                  href="/branding"
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Open Branding
+                </Link>
               </div>
+              <p className="text-xs text-gray-500">
+                Global Site Settings still owns cross-cutting branding, contact,
+                footer, and shared CTA configuration.
+              </p>
             </div>
           </div>
 
@@ -2630,7 +3943,7 @@ export default function SiteSettingsPage() {
           <div className="flex items-center gap-4 pb-8">
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !canEditSiteSettings}
               className="rounded-lg bg-[#CD7F32] px-6 py-2.5 text-sm font-semibold text-white shadow hover:bg-[#b8702b] disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save Changes"}
@@ -2657,7 +3970,8 @@ export default function SiteSettingsPage() {
             {serviceEdit === null && (
               <button
                 onClick={startNewService}
-                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                disabled={!contentPermissions.edit_services}
+                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 + Add Service
               </button>
@@ -2821,7 +4135,7 @@ export default function SiteSettingsPage() {
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={saveService}
-                  disabled={serviceSaving}
+                  disabled={serviceSaving || !contentPermissions.edit_services}
                   className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {serviceSaving ? "Saving…" : "Save"}
@@ -2880,12 +4194,14 @@ export default function SiteSettingsPage() {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => startEditService(s)}
+                      disabled={!contentPermissions.edit_services}
                       className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deleteService(s.id)}
+                      disabled={!contentPermissions.edit_services}
                       className="rounded-md border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
                     >
                       Delete
@@ -2908,7 +4224,8 @@ export default function SiteSettingsPage() {
             {teamEdit === null && (
               <button
                 onClick={startNewTeam}
-                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                disabled={!contentPermissions.edit_team}
+                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 + Add Member
               </button>
@@ -3038,7 +4355,7 @@ export default function SiteSettingsPage() {
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={saveTeam}
-                  disabled={teamSaving}
+                  disabled={teamSaving || !contentPermissions.edit_team}
                   className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {teamSaving ? "Saving…" : "Save"}
@@ -3098,12 +4415,14 @@ export default function SiteSettingsPage() {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => startEditTeam(m)}
+                      disabled={!contentPermissions.edit_team}
                       className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deleteTeam(m.id)}
+                      disabled={!contentPermissions.edit_team}
                       className="rounded-md border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
                     >
                       Delete
@@ -3118,7 +4437,90 @@ export default function SiteSettingsPage() {
 
       {/* ── Shop tab ── */}
       {tab === "shop" && (
+        <EntitlementGate
+          requiredModules={["checkout_ecommerce"]}
+          requiredFeatures={["commerce.checkout.manage"]}
+          pageTitle="Shop Management"
+        >
         <div className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
+                  Stripe Connect
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Connect this tenant&apos;s Stripe account for live payouts and
+                  tenant-scoped checkout settlement.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => websiteId && loadStripeConnectStatus(websiteId)}
+                  disabled={stripeConnectLoading || !websiteId}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  {stripeConnectLoading ? "Refreshing…" : "Refresh Status"}
+                </button>
+                <button
+                  type="button"
+                  onClick={startStripeConnectOnboarding}
+                  disabled={stripeConnectStarting || !websiteId}
+                  className="rounded-lg bg-[#CD7F32] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {stripeConnectStarting
+                    ? "Redirecting…"
+                    : stripeConnectStatus?.connected
+                      ? "Continue Onboarding"
+                      : "Connect Stripe"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+              <p>
+                Status:{" "}
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  {stripeConnectStatus?.connected
+                    ? "Connected"
+                    : stripeConnectLoading
+                      ? "Checking…"
+                      : "Not connected"}
+                </span>
+              </p>
+              <p>
+                Charges Enabled:{" "}
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  {stripeConnectStatus?.chargesEnabled ? "Yes" : "No"}
+                </span>
+              </p>
+              <p>
+                Payouts Enabled:{" "}
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  {stripeConnectStatus?.payoutsEnabled ? "Yes" : "No"}
+                </span>
+              </p>
+              <p>
+                Onboarding Complete:{" "}
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  {stripeConnectStatus?.onboardingComplete ? "Yes" : "No"}
+                </span>
+              </p>
+            </div>
+
+            {stripeConnectStatus?.accountId && (
+              <p className="mt-3 text-xs text-gray-500">
+                Account ID: {stripeConnectStatus.accountId}
+              </p>
+            )}
+            {(stripeConnectStatus?.error || stripeConnectMessage) && (
+              <p className="mt-3 text-sm text-red-500">
+                {stripeConnectMessage || stripeConnectStatus?.error}
+              </p>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
               Manage products shown on your public <strong>Shop</strong> page.
@@ -3377,6 +4779,7 @@ export default function SiteSettingsPage() {
             </ul>
           )}
         </div>
+        </EntitlementGate>
       )}
 
       {/* ── Delete product confirmation modal ── */}

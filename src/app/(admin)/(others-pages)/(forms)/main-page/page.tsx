@@ -19,6 +19,7 @@ import { usePageManager } from "@/hooks/usePageManager";
 import { PageCreationData } from "@/types/page";
 import PageBreadcrumb from "../../../../../components/common/PageBreadCrumb";
 import { getApiBaseUrl } from "@/lib/api";
+import { getActiveTenantId } from "@/lib/auth-context";
 
 const DEFAULT_MARKDOWN = `
 Enter Content Here,
@@ -26,6 +27,17 @@ Open ChatGPT and ask it to write down the content you want to add here.
 Ex.
 Give me content using SEO best practices. For company [Name] for the service []
 `;
+
+const getAuthHeaders = () => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const activeTenantId = getActiveTenantId();
+
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(activeTenantId ? { "x-tenant-id": String(activeTenantId) } : {}),
+  };
+};
 
 export default function FormMain() {
   // Context
@@ -93,6 +105,7 @@ export default function FormMain() {
     try {
       const res = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
         cache: "no-store",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         setRequiredNavSlugs([]);
@@ -303,7 +316,7 @@ export default function FormMain() {
         </div>
       )}
       
-      <PageBreadcrumb pageTitle="Page Manager" />
+      <PageBreadcrumb pageTitle="Custom Pages" />
       
       {/* View Toggle */}
       <div className="mb-6 flex gap-4">
@@ -321,10 +334,10 @@ export default function FormMain() {
         </Button>
       </div>
 
-      <ComponentCard title="Header Nav Page Coverage">
+      <ComponentCard title="Custom Nav Page Coverage">
         {requiredNavSlugs.length === 0 ? (
           <p className="text-sm text-gray-500">
-            No custom /slug links found in Header Navigation. Add links like /why-us in Site Settings to track required pages here.
+            No custom /slug links found in Header Navigation. Add links like /why-us in Global Site Settings to track required custom pages here.
           </p>
         ) : (
           <div className="space-y-3 text-sm">
@@ -334,17 +347,17 @@ export default function FormMain() {
                 onClick={() => void loadNavRequirements()}
                 className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
               >
-                Refresh From Site Settings
+                Refresh From Global Site Settings
               </button>
               <Link
                 href="/site-settings"
                 className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
               >
-                Open Site Settings
+                Open Global Site Settings
               </Link>
             </div>
             <p className="text-gray-600 dark:text-gray-300">
-              These header links require a published page to avoid 404s.
+              These custom header links require a published page to avoid 404s. Built-in routes like /, /services, /about, and /shop are handled separately.
             </p>
             <div className="flex flex-wrap gap-2">
               {requiredNavSlugs.map((slug) => {
@@ -393,17 +406,42 @@ export default function FormMain() {
                   </select>
                 </div>
                 <Button size="sm" onClick={handleCreateMissingPage}>
-                  Create Selected Page
+                  Create Selected Custom Page
                 </Button>
               </div>
             )}
             {resolvedNavPages.length === requiredNavSlugs.length && requiredNavSlugs.length > 0 && (
               <p className="text-xs text-emerald-700">
-                All custom header links are backed by published pages.
+                All custom header links are backed by published custom pages.
               </p>
             )}
           </div>
         )}
+      </ComponentCard>
+
+      <ComponentCard title="Built-in Versus Custom Pages">
+        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+          <p>
+            Use <strong>Built-in Pages</strong> for the platform-managed routes: <strong>/</strong>, <strong>/services</strong>, <strong>/about</strong>, and <strong>/shop</strong>.
+          </p>
+          <p>
+            Use <strong>Custom Pages</strong> here for extra client-specific slugs such as <strong>/why-us</strong>, <strong>/financing</strong>, or <strong>/service-area</strong>.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link
+              href="/built-in-pages"
+              className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Open Built-in Pages
+            </Link>
+            <Link
+              href="/site-settings"
+              className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Open Global Site Settings
+            </Link>
+          </div>
+        </div>
       </ComponentCard>
 
       {viewMode === 'organizer' ? (

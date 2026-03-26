@@ -2,16 +2,19 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type React from "react";
 import {
+  getBuiltInPageContent,
   getWebsite,
   getSiteSettings,
   getTeamMembers,
   getTestimonials,
   getFAQ,
 } from "@/lib/cms-api";
+import { getAboutPageContent } from "@/lib/builtInPageContent";
 import NavBar from "@/components/sections/NavBar";
 import TeamSection from "@/components/sections/TeamSection";
 import TestimonialsSection from "@/components/sections/TestimonialsSection";
 import FAQSection from "@/components/sections/FAQSection";
+import BookingSection from "@/components/sections/BookingSection";
 import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
 
@@ -23,20 +26,25 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { websiteId } = await params;
-  const [website, settings] = await Promise.all([
+  const [website, settings, pageContentRecord] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getBuiltInPageContent(websiteId, "about"),
   ]);
 
   const siteName = website?.name ?? "Our Company";
+  const pageContent = getAboutPageContent(pageContentRecord, website, settings);
 
   return {
-    title: `About | ${siteName}`,
+    title: pageContentRecord?.seo?.title ?? `About | ${siteName}`,
     description:
-      `Learn more about ${siteName} — our team, values, and mission. ${settings?.footer_tagline ?? ""}`.trim(),
+      pageContentRecord?.seo?.description ??
+      `Learn more about ${siteName} — our team, values, and mission. ${pageContent.heroBody ?? ""}`.trim(),
     openGraph: {
-      title: `About | ${siteName}`,
-      description: `Learn more about ${siteName} — our team, values, and mission.`,
+      title: pageContentRecord?.seo?.title ?? `About | ${siteName}`,
+      description:
+        pageContentRecord?.seo?.description ??
+        `Learn more about ${siteName} — our team, values, and mission.`,
       ...(settings?.logo_url && { images: [settings.logo_url] }),
     },
   };
@@ -44,9 +52,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AboutPage({ params }: Props) {
   const { websiteId } = await params;
-  const [website, settings, team, testimonials, faq] = await Promise.all([
+  const [website, settings, pageContentRecord, team, testimonials, faq] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getBuiltInPageContent(websiteId, "about"),
     getTeamMembers(websiteId),
     getTestimonials(websiteId),
     getFAQ(websiteId),
@@ -55,6 +64,7 @@ export default async function AboutPage({ params }: Props) {
   if (!website) notFound();
 
   const primary = settings?.primary_color ?? "#CD7F32";
+  const pageContent = getAboutPageContent(pageContentRecord, website, settings);
 
   const cssVars = {
     "--cms-primary": primary,
@@ -82,27 +92,26 @@ export default async function AboutPage({ params }: Props) {
               style={{ backgroundColor: primary }}
             />
             <h1 className="mb-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-              About Us
+              {pageContent.heroTitle ?? "About Us"}
             </h1>
             <p className="max-w-2xl text-lg text-gray-600">
-              {settings?.footer_tagline ??
-                `Get to know the people and story behind ${website.name}.`}
+              {pageContent.heroBody}
             </p>
           </div>
         </section>
 
         {/* Mission / company blurb (driven by site settings) */}
-        {settings?.cta_body && (
+        {pageContent.missionBody && (
           <section className="bg-white py-16 lg:py-20">
             <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
               <h2
                 className="mb-6 text-2xl font-bold text-gray-900 sm:text-3xl"
                 style={{ color: primary }}
               >
-                {settings.cta_headline ?? "Our Mission"}
+                {pageContent.missionTitle ?? "Our Mission"}
               </h2>
               <p className="text-lg leading-relaxed text-gray-600">
-                {settings.cta_body}
+                {pageContent.missionBody}
               </p>
             </div>
           </section>
@@ -124,6 +133,9 @@ export default async function AboutPage({ params }: Props) {
 
         {/* FAQ */}
         <FAQSection faq={faq} settings={settings} />
+
+        {/* Booking */}
+        <BookingSection websiteId={websiteId} settings={settings} />
 
         {/* CTA */}
         <CTASection settings={settings} />

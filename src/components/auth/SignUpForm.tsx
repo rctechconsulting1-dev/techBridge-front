@@ -25,7 +25,7 @@ export default function SignUpForm() {
       const lastName = formData.get('lastName') as string;
 
       const authData = await apiClient.signUp(email, password, firstName, lastName);
-      const userId = authData?.user?.id;
+      const userId = authData?.user?.id != null ? String(authData.user.id) : undefined;
 
       // Fire welcome + verification emails (non-blocking — don't block the signup flow)
       apiClient.sendWelcomeEmail(email, firstName ?? undefined).catch((e) =>

@@ -21,7 +21,7 @@ export default function CTASection({ settings }: Props) {
 
   return (
     <section
-      id="contact"
+      id="cta"
       className="scroll-mt-20 py-24"
       style={{ backgroundColor: bgColor }}
     >

@@ -12,6 +12,8 @@ import {
 } from "@fullcalendar/core";
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
+import { apiClient } from "@/lib/api-client";
+import { getActiveTenantId } from "@/lib/auth-context";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -28,6 +30,17 @@ const Calendar: React.FC = () => {
   const [eventEndDate, setEventEndDate] = useState("");
   const [eventLevel, setEventLevel] = useState("");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [bookingWebsiteId, setBookingWebsiteId] = useState<number | null>(null);
+  const [bookingData, setBookingData] = useState({
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    startAt: "",
+    notes: "",
+  });
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
@@ -61,6 +74,21 @@ const Calendar: React.FC = () => {
         extendedProps: { calendar: "Primary" },
       },
     ]);
+  }, []);
+
+  useEffect(() => {
+    apiClient
+      .getSession()
+      .then((session) => {
+        const websiteId =
+          session?.website_id && Number.isInteger(Number(session.website_id))
+            ? Number(session.website_id)
+            : null;
+        setBookingWebsiteId(websiteId);
+      })
+      .catch(() => {
+        setBookingWebsiteId(null);
+      });
   }, []);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
@@ -120,6 +148,81 @@ const Calendar: React.FC = () => {
     setSelectedEvent(null);
   };
 
+  const handleBookingChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setBookingData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const resetBookingForm = () => {
+    setBookingData({
+      contactName: "",
+      contactEmail: "",
+      contactPhone: "",
+      startAt: "",
+      notes: "",
+    });
+  };
+
+  const handleBookingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBookingSubmitting(true);
+    setBookingMessage(null);
+    setBookingError(null);
+
+    try {
+      const token = apiClient.getToken();
+      const activeTenantId = getActiveTenantId();
+      const response = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeTenantId ? { "x-tenant-id": String(activeTenantId) } : {}),
+        },
+        body: JSON.stringify({
+          websiteId: bookingWebsiteId,
+          contactName: bookingData.contactName,
+          contactEmail: bookingData.contactEmail,
+          contactPhone: bookingData.contactPhone || undefined,
+          startAt: bookingData.startAt || undefined,
+          notes: bookingData.notes || undefined,
+          metadata: {
+            source: "admin_calendar_booking_form",
+          },
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+        booking?: { id?: number | string };
+      };
+
+      if (!response.ok) {
+        setBookingError(payload.error || `Booking request failed (${response.status})`);
+        return;
+      }
+
+      setBookingMessage(
+        payload.booking?.id
+          ? `Booking request #${payload.booking.id} created successfully.`
+          : "Booking request created successfully.",
+      );
+      resetBookingForm();
+    } catch (error) {
+      setBookingError(
+        error instanceof Error ? error.message : "Unable to submit booking request.",
+      );
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
   return (
     <div className="rounded-2xl border  border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="custom-calendar">
@@ -145,6 +248,84 @@ const Calendar: React.FC = () => {
           }}
         />
       </div>
+
+      <div className="border-t border-gray-200 px-6 py-6 dark:border-gray-800">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Create Booking Request
+        </h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Submit a tenant-scoped booking request and track failures via Phase 7 reliability alerts.
+        </p>
+
+        <form onSubmit={handleBookingSubmit} className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <input
+            type="text"
+            name="contactName"
+            value={bookingData.contactName}
+            onChange={handleBookingChange}
+            required
+            placeholder="Contact Name"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+          />
+          <input
+            type="email"
+            name="contactEmail"
+            value={bookingData.contactEmail}
+            onChange={handleBookingChange}
+            required
+            placeholder="Contact Email"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+          />
+          <input
+            type="tel"
+            name="contactPhone"
+            value={bookingData.contactPhone}
+            onChange={handleBookingChange}
+            placeholder="Contact Phone"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+          />
+          <input
+            type="datetime-local"
+            name="startAt"
+            value={bookingData.startAt}
+            onChange={handleBookingChange}
+            className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+          />
+          <textarea
+            name="notes"
+            value={bookingData.notes}
+            onChange={handleBookingChange}
+            placeholder="Booking notes"
+            rows={3}
+            className="md:col-span-2 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+          />
+          <div className="md:col-span-2 flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={bookingSubmitting}
+              className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+            >
+              {bookingSubmitting ? "Submitting..." : "Create Booking"}
+            </button>
+            {bookingWebsiteId ? (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Website scope: {bookingWebsiteId}
+              </span>
+            ) : (
+              <span className="text-xs text-amber-600 dark:text-amber-400">
+                Website scope unavailable; request may be rejected.
+              </span>
+            )}
+          </div>
+          {bookingMessage ? (
+            <p className="md:col-span-2 text-sm text-green-600">{bookingMessage}</p>
+          ) : null}
+          {bookingError ? (
+            <p className="md:col-span-2 text-sm text-red-600">{bookingError}</p>
+          ) : null}
+        </form>
+      </div>
+
       <Modal
         isOpen={isOpen}
         onClose={closeModal}

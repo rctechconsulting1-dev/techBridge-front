@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import ComponentCard from "../../../../../components/common/ComponentCard";
+import EntitlementGate from "../../../../../components/common/EntitlementGate";
 import PageBreadcrumb from "../../../../../components/common/PageBreadCrumb";
 import Input from "../../../../../components/form/input/InputField";
 import Label from "../../../../../components/form/Label";
@@ -599,6 +600,11 @@ What would you like to explore?`,
     return (
         <div>
             <PageBreadcrumb pageTitle="Prompts" />
+            <EntitlementGate
+                requiredModules={["custom_ai_agent"]}
+                requiredFeatures={["ai.agent.generate"]}
+                pageTitle="AI Content Prompts"
+            >
             <ComponentCard title="Ask ChatGPT">
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     <form className="space-y-6 gap-2 grid grid-cols-1 xl:grid-cols-2" onSubmit={handleSubmit}>
@@ -805,6 +811,7 @@ What would you like to explore?`,
                     </div>
                 </div>
             </ComponentCard>
+            </EntitlementGate>
 
         </div>
 

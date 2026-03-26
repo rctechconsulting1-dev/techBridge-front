@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const AI_DAILY_LIMIT = Number(process.env.AI_CONTENT_DAILY_LIMIT ?? 60);
+const BACKEND_API_BASE =
+  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
 
 type UsageRecord = {
   day: string;
@@ -86,6 +88,48 @@ const consumeUsage = (key: string, cost: number) => {
     remaining: Math.max(AI_DAILY_LIMIT - updated.count, 0),
     limit: AI_DAILY_LIMIT,
   };
+};
+
+const consumeBackendEntitlementUsage = async ({
+  authorizationHeader,
+  featureKey,
+  amount,
+  limitPerWindow,
+}: {
+  authorizationHeader: string | null;
+  featureKey: string;
+  amount: number;
+  limitPerWindow: number;
+}) => {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_API_BASE}/entitlements/usage/consume`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorizationHeader,
+      },
+      body: JSON.stringify({
+        featureKey,
+        amount,
+        limitPerWindow,
+        window: "daily",
+      }),
+      cache: "no-store",
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload,
+    };
+  } catch {
+    return null;
+  }
 };
 
 const AI_MODEL = process.env.OPENAI_MODEL_CONTENT_AGENT || "gpt-4o-mini";
@@ -937,11 +981,36 @@ export async function POST(request: Request) {
     const headerWebsiteId = request.headers.get("x-website-id");
     const websiteId =
       toPositiveInteger(body.websiteId) ?? toPositiveInteger(headerWebsiteId);
-    const tokenPayload = decodeJwtPayload(request.headers.get("authorization"));
+    const authorizationHeader = request.headers.get("authorization");
+    const tokenPayload = decodeJwtPayload(authorizationHeader);
     const userId = tokenPayload?.sub ? String(tokenPayload.sub) : "anonymous";
     const usageKey = `website:${websiteId ?? "unscoped"}|user:${userId}|ip:${ipKey}`;
 
     const usageCost = body.userChosenIdea && !body.content ? 3 : 1;
+    const entitlementUsage = await consumeBackendEntitlementUsage({
+      authorizationHeader,
+      featureKey: "ai.agent.generate",
+      amount: usageCost,
+      limitPerWindow: AI_DAILY_LIMIT,
+    });
+
+    if (entitlementUsage && !entitlementUsage.ok) {
+      const payload = entitlementUsage.payload as { code?: string; error?: string };
+      if (entitlementUsage.status === 403 || entitlementUsage.status === 429) {
+        return new Response(
+          JSON.stringify({
+            error:
+              entitlementUsage.status === 403
+                ? "AI feature access is not enabled for this tenant."
+                : "Daily AI usage limit reached for this tenant.",
+            code: payload?.code,
+            details: payload,
+          }),
+          { status: entitlementUsage.status },
+        );
+      }
+    }
+
     const usage = consumeUsage(usageKey, usageCost);
     if (!usage.allowed) {
       return new Response(

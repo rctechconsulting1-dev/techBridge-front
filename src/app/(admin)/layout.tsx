@@ -32,14 +32,7 @@ export default function AdminLayout({
         }
         setSession(user)
         setActiveUser(user || null)
-        if (user?.id) {
-          const fetched = await fetcher(`/users/${user.id}`, 'GET');
-          const dbUser = Array.isArray(fetched) ? fetched[0] : fetched;
-          if (dbUser) {
-            setActiveUser(dbUser);
-            setSelectedClient(dbUser);
-          }
-        }
+        setSelectedClient(user || null)
       } catch (error) {
         console.error('Failed to fetch session:', error)
         router.push('/signin')
