@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { isAllowedRemoteImageUrl } from "@/lib/image-hosts";
 
 interface Props {
   src: string | null | undefined;
@@ -9,17 +10,6 @@ interface Props {
   fill?: boolean;
   priority?: boolean;
   placeholder?: string;
-}
-
-const WHITELISTED_HOSTNAME = "techconsulting-rc.s3.us-west-1.amazonaws.com";
-
-/** Returns true if next/image can optimise this URL (hostname is whitelisted in next.config.ts) */
-function isWhitelisted(src: string): boolean {
-  try {
-    return new URL(src).hostname === WHITELISTED_HOSTNAME;
-  } catch {
-    return false; // relative path — let Next.js handle it normally
-  }
 }
 
 export default function EditableImage({
@@ -39,7 +29,7 @@ export default function EditableImage({
   const unoptimized =
     typeof resolvedSrc === "string" &&
     resolvedSrc.startsWith("http") &&
-    !isWhitelisted(resolvedSrc);
+    !isAllowedRemoteImageUrl(resolvedSrc);
 
   if (fill) {
     return (

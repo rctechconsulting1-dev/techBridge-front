@@ -9,11 +9,12 @@ import { GoogleBusinessProfileView } from "../../../../components/google-busines
 import { CreatePostModal } from "../../../../components/google-business/CreatePostModal";
 import { createGoogleBusinessPost, formatPostForAPI } from "../../../../utils/googleApi";
 import type { Post } from "@/types/google-business";
+import { getApiBaseUrl } from "@/lib/api";
 
 interface OAuthStatus { type: 'success' | 'error'; message: string; }
 interface GmbLocation { locationId: string; name: string; title: string; address: string; accountId: string; }
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+const API_URL = getApiBaseUrl();
 
 export default function GoogleBusinessPage() {
     const { selectedClient } = useSidebar();

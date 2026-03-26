@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import type { Product } from "@/lib/cms-types";
+import { getApiBaseUrl, getRequiredAppBaseUrl } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,9 +13,7 @@ function getStripe(): Stripe {
 }
 
 function getAppUrl(): string {
-  const url = process.env.NEXT_PUBLIC_APP_URL;
-  if (!url) throw new Error("NEXT_PUBLIC_APP_URL is not set");
-  return url.replace(/\/$/, "");
+  return getRequiredAppBaseUrl();
 }
 
 type StripeTenantContext = {
@@ -26,7 +25,7 @@ async function fetchStripeTenantContext(
   websiteId: string,
   authHeader: string | null,
 ): Promise<StripeTenantContext | null> {
-  const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api").replace(/\/$/, "");
+  const apiUrl = getApiBaseUrl();
 
   // Try a couple of endpoint shapes to remain compatible with backend rollout.
   const candidates = [
@@ -79,7 +78,7 @@ async function fetchProduct(
   websiteId: string,
   productSlug: string,
 ): Promise<Product | null> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api";
+  const apiUrl = getApiBaseUrl();
   try {
     const res = await fetch(
       `${apiUrl}/products/slug/${encodeURIComponent(productSlug)}?website_id=${encodeURIComponent(websiteId)}`,

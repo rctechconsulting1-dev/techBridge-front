@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sendNotificationEmail } from "@/lib/email";
 import { notifyOpsAlert } from "@/lib/ops-alerts";
 import { recordFlowMetric } from "@/lib/opsMetrics";
+import { getApiBaseUrl } from "@/lib/api";
 
 const schema = z.object({
   to: z.union([z.string().email(), z.array(z.string().email()).min(1)]).optional(),
@@ -48,8 +49,7 @@ const RETRY_BASE_MS = Math.max(
   Number(process.env.EMAIL_NOTIFY_RETRY_BASE_MS || 500),
 );
 const MAX_DLQ_ITEMS = Math.max(10, Number(process.env.EMAIL_DLQ_MAX_ITEMS || 200));
-const BACKEND_API_BASE =
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const BACKEND_API_BASE = getApiBaseUrl();
 const OPS_INGEST_KEY = process.env.OPS_METRICS_INGEST_KEY || "";
 
 const normalizeRecipients = (value: string | string[] | undefined): string[] => {

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { getRemoteImagePatterns } from "./src/lib/image-hosts";
 
 // Minimal, stable Next.js 15 config. Avoids custom chunking that can break
 // client-reference manifests and route transitions. See docs:
@@ -30,20 +31,7 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "techconsulting-rc.s3.us-west-1.amazonaws.com",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "images.pexels.com",
-        port: "",
-        pathname: "/**",
-      },
-    ],
+    remotePatterns: getRemoteImagePatterns(),
   },
   webpack(config) {
     // High-priority SVGR loader for all SVG imports

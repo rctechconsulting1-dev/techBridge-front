@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchFirstSuccessfulCandidate } from "@/lib/proxy-candidates";
+import { getApiBaseUrl, getAppBaseUrl } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const getBackendApiBase = () =>
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const getBackendApiBase = () => getApiBaseUrl();
 
-const getAppUrl = () =>
-  (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+const getAppUrl = () => getAppBaseUrl();
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");

@@ -12,6 +12,7 @@ import NavBar from "@/components/sections/NavBar";
 import ShopGridSection from "@/components/sections/ShopGridSection";
 import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
 
@@ -27,6 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     getBuiltInPageContent(websiteId, "shop"),
   ]);
   const siteName = website?.name ?? "Our Company";
+  const canonicalMetadata = await getPublicCanonicalMetadata("/shop");
   return {
     title: pageContentRecord?.seo?.title ?? `Shop | ${siteName}`,
     description:
@@ -36,7 +38,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description:
         pageContentRecord?.seo?.description ?? `Browse products from ${siteName}.`,
       ...(settings?.logo_url && { images: [settings.logo_url] }),
+      ...canonicalMetadata.openGraph,
     },
+    alternates: canonicalMetadata.alternates,
   };
 }
 

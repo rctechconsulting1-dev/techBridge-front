@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notifyOpsAlert } from "@/lib/ops-alerts";
 import { triggerLeadNotification } from "@/lib/lead-notifications";
+import { getApiBaseUrl } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const getBackendApiBase = () =>
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const getBackendApiBase = () => getApiBaseUrl();
 
 export async function POST(req: NextRequest) {
   const startedAt = Date.now();

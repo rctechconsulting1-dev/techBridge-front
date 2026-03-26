@@ -21,11 +21,42 @@ import type {
   Image,
   LandingPageData,
 } from "./cms-types";
+import { getApiBaseUrl } from "./api";
 import { getToken } from "./cms-auth";
+import {
+  getWebsiteCacheTag,
+  getWebsiteResourceCacheTag,
+  SITE_REVALIDATE_SECONDS,
+} from "./public-cache";
+import { getPublicSiteApiBase, isPlatformHost } from "./public-site-routing";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api";
+const BASE_URL = getApiBaseUrl();
 
-const REVALIDATE = 60; // seconds
+async function getServerTenantForwardHeaders(): Promise<Record<string, string>> {
+  if (typeof window !== "undefined") {
+    return {};
+  }
+
+  try {
+    const { headers } = await import("next/headers");
+    const headerStore = await headers();
+    const host =
+      headerStore.get("x-forwarded-host") ||
+      headerStore.get("host") ||
+      null;
+
+    if (!host || isPlatformHost(host)) {
+      return {};
+    }
+
+    return {
+      "x-tenant-domain": host,
+      "x-forwarded-proto": headerStore.get("x-forwarded-proto") || "https",
+    };
+  } catch {
+    return {};
+  }
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -36,9 +67,51 @@ function authHeaders(): Record<string, string> {
 
 async function cmsGet<T>(path: string, serverSide = true): Promise<T | null> {
   try {
+    const tenantHeaders = serverSide ? await getServerTenantForwardHeaders() : {};
     const opts: RequestInit = serverSide
-      ? { next: { revalidate: REVALIDATE } }
-      : { cache: "no-store" };
+      ? {
+          next: { revalidate: SITE_REVALIDATE_SECONDS },
+          headers: tenantHeaders,
+        }
+      : { cache: "no-store", headers: tenantHeaders };
+    const res = await fetch(`${BASE_URL}${path}`, opts);
+    if (!res.ok) return null;
+    return res.json() as Promise<T>;
+  } catch {
+    return null;
+  }
+}
+
+function websiteTags(
+  websiteId: number | string,
+  resource: string,
+  extra: string[] = [],
+): string[] {
+  return [
+    getWebsiteCacheTag(websiteId),
+    getWebsiteResourceCacheTag(websiteId, resource),
+    ...extra,
+  ];
+}
+
+async function cmsGetForWebsite<T>(
+  websiteId: number | string,
+  resource: string,
+  path: string,
+  serverSide = true,
+  extraTags: string[] = [],
+): Promise<T | null> {
+  try {
+    const tenantHeaders = serverSide ? await getServerTenantForwardHeaders() : {};
+    const opts: RequestInit = serverSide
+      ? {
+          next: {
+            revalidate: SITE_REVALIDATE_SECONDS,
+            tags: websiteTags(websiteId, resource, extraTags),
+          },
+          headers: tenantHeaders,
+        }
+      : { cache: "no-store", headers: tenantHeaders };
     const res = await fetch(`${BASE_URL}${path}`, opts);
     if (!res.ok) return null;
     return res.json() as Promise<T>;
@@ -76,20 +149,26 @@ function clearTokenOnClient() {
 export async function getWebsite(
   websiteId: number | string,
 ): Promise<Website | null> {
-  return cmsGet<Website>(`/websites/${websiteId}`);
+  return cmsGetForWebsite<Website>(websiteId, "website", `/websites/${websiteId}`);
 }
 
 export async function getSiteSettings(
   websiteId: number | string,
 ): Promise<SiteSettings | null> {
-  return cmsGet<SiteSettings>(`/site-settings/${websiteId}`);
+  return cmsGetForWebsite<SiteSettings>(
+    websiteId,
+    "site-settings",
+    `/site-settings/${websiteId}`,
+  );
 }
 
 export async function getBuiltInPageContent<K extends BuiltInPageKey>(
   websiteId: number | string,
   pageKey: K,
 ): Promise<BuiltInPageContentRecord<K> | null> {
-  return cmsGet<BuiltInPageContentRecord<K>>(
+  return cmsGetForWebsite<BuiltInPageContentRecord<K>>(
+    websiteId,
+    `built-in-page:${pageKey}`,
     `/built-in-page-content/${pageKey}?website_id=${websiteId}`,
   );
 }
@@ -97,14 +176,24 @@ export async function getBuiltInPageContent<K extends BuiltInPageKey>(
 export async function getServices(
   websiteId: number | string,
 ): Promise<Service[]> {
-  return (await cmsGet<Service[]>(`/services?website_id=${websiteId}`)) ?? [];
+  return (
+    (await cmsGetForWebsite<Service[]>(
+      websiteId,
+      "services",
+      `/services?website_id=${websiteId}`,
+    )) ?? []
+  );
 }
 
 export async function getTestimonials(
   websiteId: number | string,
 ): Promise<Testimonial[]> {
   return (
-    (await cmsGet<Testimonial[]>(`/testimonials?website_id=${websiteId}`)) ?? []
+    (await cmsGetForWebsite<Testimonial[]>(
+      websiteId,
+      "testimonials",
+      `/testimonials?website_id=${websiteId}`,
+    )) ?? []
   );
 }
 
@@ -112,35 +201,87 @@ export async function getTeamMembers(
   websiteId: number | string,
 ): Promise<TeamMember[]> {
   return (
-    (await cmsGet<TeamMember[]>(`/team-members?website_id=${websiteId}`)) ?? []
+    (await cmsGetForWebsite<TeamMember[]>(
+      websiteId,
+      "team-members",
+      `/team-members?website_id=${websiteId}`,
+    )) ?? []
   );
 }
 
 export async function getFAQ(websiteId: number | string): Promise<FAQItem[]> {
-  return (await cmsGet<FAQItem[]>(`/faq?website_id=${websiteId}`)) ?? [];
+  return (
+    (await cmsGetForWebsite<FAQItem[]>(
+      websiteId,
+      "faq",
+      `/faq?website_id=${websiteId}`,
+    )) ?? []
+  );
 }
 
 export async function getProducts(
   websiteId: number | string,
 ): Promise<Product[]> {
-  return (await cmsGet<Product[]>(`/products?website_id=${websiteId}`)) ?? [];
+  return (
+    (await cmsGetForWebsite<Product[]>(
+      websiteId,
+      "products",
+      `/products?website_id=${websiteId}`,
+    )) ?? []
+  );
 }
 
 export async function getProductBySlug(
   websiteId: number | string,
   slug: string,
 ): Promise<Product | null> {
-  return cmsGet<Product>(`/products/slug/${slug}?website_id=${websiteId}`);
+  return cmsGetForWebsite<Product>(
+    websiteId,
+    "products",
+    `/products/slug/${encodeURIComponent(slug)}?website_id=${websiteId}`,
+    true,
+    [getWebsiteResourceCacheTag(websiteId, `product:${slug.toLowerCase()}`)],
+  );
 }
 
 export async function getPages(websiteId: number | string): Promise<Page[]> {
-  return (await cmsGet<Page[]>(`/pages?website_id=${websiteId}`)) ?? [];
+  return (
+    (await cmsGetForWebsite<Page[]>(
+      websiteId,
+      "pages",
+      `/pages?website_id=${websiteId}`,
+    )) ?? []
+  );
 }
 
 export async function getPageBySlug(
   websiteId: number | string,
   slug: string,
 ): Promise<Page | null> {
+  const publicDirect = await cmsGetForWebsite<{ page?: Page }>(
+    websiteId,
+    "pages",
+    `/public/site/pages/${encodeURIComponent(slug)}?website_id=${websiteId}`,
+    true,
+    [getWebsiteResourceCacheTag(websiteId, `page:${slug.toLowerCase()}`)],
+  );
+
+  if (publicDirect?.page) {
+    return publicDirect.page;
+  }
+
+  const direct = await cmsGetForWebsite<Page>(
+    websiteId,
+    "pages",
+    `/pages/slug/${encodeURIComponent(slug)}?website_id=${websiteId}`,
+    true,
+    [getWebsiteResourceCacheTag(websiteId, `page:${slug.toLowerCase()}`)],
+  );
+
+  if (direct) {
+    return direct.is_published ? direct : null;
+  }
+
   const pages = await getPages(websiteId);
   const normalized = slug.toLowerCase();
   return (

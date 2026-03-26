@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from "@/lib/api";
+
 export type ReliabilityEvent = {
   at: string;
   source: string;
@@ -25,8 +27,7 @@ type MetricsStore = {
 
 const MAX_EVENTS = 1500;
 const MAX_FLOW_METRICS = 5000;
-const BACKEND_API_BASE =
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const BACKEND_API_BASE = getApiBaseUrl();
 const OPS_INGEST_KEY = process.env.OPS_METRICS_INGEST_KEY || "";
 
 const getStore = (): MetricsStore => {

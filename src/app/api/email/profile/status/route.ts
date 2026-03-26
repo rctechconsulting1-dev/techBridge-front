@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchFirstSuccessfulCandidate } from "@/lib/proxy-candidates";
+import { getApiBaseUrl } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type RawEmailProfile = Record<string, unknown>;
 
-const getBackendApiBase = () =>
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const getBackendApiBase = () => getApiBaseUrl();
 
 const asString = (value: unknown): string | null =>
   typeof value === "string" && value.trim() !== "" ? value : null;

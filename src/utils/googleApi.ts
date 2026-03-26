@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Post } from "@/types/google-business";
+import { getApiBaseUrl } from "@/lib/api";
 
-const _GOOGLE_API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-).replace(/\/$/, "");
+const _GOOGLE_API_URL = getApiBaseUrl();
 
 export async function createGoogleBusinessPost(
   locationId: string,
