@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest } from "next/server";
 import { getApiBaseUrl } from "@/lib/api";
@@ -113,15 +114,31 @@ const getWebsitePaths = async (websiteId: string): Promise<string[]> => {
  *     { "websiteId": "1" }   // optional — omit to revalidate all sites
  */
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get("x-revalidation-secret");
   const expected = process.env.CMS_REVALIDATION_SECRET;
+  if (!expected) {
+    return Response.json({ error: "Revalidation not configured" }, { status: 500 });
+  }
 
-  if (!expected || secret !== expected) {
+  const rawBody = await request.text();
+  const signature = request.headers.get("x-revalidation-signature") ?? "";
+
+  // HMAC verification (preferred)
+  const computedHmac =
+    "sha256=" + createHmac("sha256", expected).update(rawBody).digest("hex");
+  const sigBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(computedHmac);
+  const hmacValid =
+    sigBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(sigBuffer, expectedBuffer);
+
+  // Fallback: legacy plain-secret header for backward compat
+  const legacySecret = request.headers.get("x-revalidation-secret");
+  if (!hmacValid && legacySecret !== expected) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = JSON.parse(rawBody || "{}");
     const websiteId = body?.websiteId as string | undefined;
 
     if (websiteId) {

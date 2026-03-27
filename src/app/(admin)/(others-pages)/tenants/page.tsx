@@ -33,6 +33,13 @@ const MODULE_OPTIONS = [
   { value: "custom_ai_agent", label: "Custom AI Agent" },
 ];
 
+const PLAN_OPTIONS = [
+  { value: "starter", label: "Starter ($99/mo)" },
+  { value: "professional", label: "Professional ($299/mo)" },
+  { value: "business", label: "Business ($599/mo)" },
+  { value: "enterprise", label: "Enterprise (Custom)" },
+];
+
 type FormState = {
   tenantName: string;
   tenantSlug: string;
@@ -44,6 +51,7 @@ type FormState = {
   ownerEmail: string;
   ownerPassword: string;
   ownerPhone: string;
+  planKey: string;
 };
 
 type ProvisionResponse = {
@@ -75,6 +83,10 @@ type TenantListItem = {
   default_currency: string;
   timezone: string;
   created_at: string;
+  seat_limit: number | null;
+  seat_used: number;
+  plan_key: string | null;
+  billing_grace_expires_at: string | null;
   website_id: number | null;
   website_domain: string | null;
   primary_domain: string | null;
@@ -116,6 +128,7 @@ const initialState: FormState = {
   ownerEmail: "",
   ownerPassword: "",
   ownerPhone: "",
+  planKey: "starter",
 };
 
 export default function TenantsPage() {
@@ -594,6 +607,21 @@ export default function TenantsPage() {
                 />
               </div>
               <div>
+                <Label htmlFor="planKey">Plan</Label>
+                <select
+                  id="planKey"
+                  value={form.planKey}
+                  onChange={(event) => handleChange("planKey", event.target.value)}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                >
+                  {PLAN_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <Label htmlFor="timezone">Timezone</Label>
                 <Input
                   id="timezone"
@@ -799,7 +827,9 @@ export default function TenantsPage() {
                   <tr className="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     <th className="px-4 py-3">Tenant</th>
                     <th className="px-4 py-3">Owner</th>
+                    <th className="px-4 py-3">Plan</th>
                     <th className="px-4 py-3">Domain</th>
+                    <th className="px-4 py-3">Seats</th>
                     <th className="px-4 py-3">Modules</th>
                     <th className="px-4 py-3">Invite Status</th>
                     <th className="px-4 py-3">Actions</th>
@@ -820,10 +850,25 @@ export default function TenantsPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">{tenant.owner_email ?? "No owner email"}</p>
                       </td>
                       <td className="px-4 py-4 align-top">
+                        <span className="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium capitalize text-gray-700 dark:text-gray-300">
+                          {tenant.plan_key ?? "none"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 align-top">
                         <p className="text-gray-900 dark:text-white">{tenant.primary_domain ?? tenant.website_domain ?? "No domain"}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {tenant.primary_domain_status ?? "domain not configured"}
                         </p>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {tenant.seat_used}{tenant.seat_limit != null ? ` / ${tenant.seat_limit}` : ""}
+                        </p>
+                        {tenant.seat_limit != null && tenant.seat_used >= tenant.seat_limit ? (
+                          <span className="text-xs font-medium text-red-600 dark:text-red-400">At limit</span>
+                        ) : tenant.seat_limit == null ? (
+                          <span className="text-xs text-gray-400">Unlimited</span>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 align-top">
                         <p className="text-xs text-gray-600 dark:text-gray-300">
