@@ -235,6 +235,22 @@ const AppHeader = ({}: { session?: unknown }) => {
             isApplicationMenuOpen ? "flex" : "hidden"
           } shadow-theme-md w-full items-center justify-between gap-4 px-5 py-4 lg:flex lg:justify-end lg:px-0 lg:shadow-none`}
         >
+          {/* Active client indicator */}
+          {currentUser?.role === "admin" && selectedClient && (
+            <div className="border-brand-200 bg-brand-50 dark:border-brand-800 dark:bg-brand-900/20 hidden shrink-0 items-center gap-2 rounded-lg border px-3 py-1.5 lg:flex">
+              <span className="text-brand-500 dark:text-brand-400 text-xs font-medium whitespace-nowrap">
+                Viewing:
+              </span>
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm leading-none font-semibold text-gray-800 dark:text-white/90">
+                  {selectedClient.name ?? "—"}
+                </span>
+                <span className="mt-0.5 text-xs leading-none text-gray-400 dark:text-gray-500">
+                  {selectedClient.email ?? ""}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="2xsm:gap-3 flex items-center gap-2">
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
@@ -247,22 +263,6 @@ const AppHeader = ({}: { session?: unknown }) => {
           <UserDropdown />
         </div>
       </div>
-      {/* ── Active client indicator – centered in header ── */}
-      {currentUser?.role === "admin" && selectedClient && (
-        <div className="border-brand-200 bg-brand-50 dark:border-brand-800 dark:bg-brand-900/20 pointer-events-none absolute top-1/2 left-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-lg border px-3 py-1.5 lg:flex">
-          <span className="text-brand-500 dark:text-brand-400 text-xs font-medium whitespace-nowrap">
-            Viewing:
-          </span>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm leading-none font-semibold text-gray-800 dark:text-white/90">
-              {selectedClient.name ?? "—"}
-            </span>
-            <span className="mt-0.5 text-xs leading-none text-gray-400 dark:text-gray-500">
-              {selectedClient.email ?? ""}
-            </span>
-          </div>
-        </div>
-      )}
     </header>
   );
 };
