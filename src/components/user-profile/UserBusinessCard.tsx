@@ -12,12 +12,13 @@ import { mutate } from "swr";
 import { getApiBaseUrl } from "@/lib/api";
 import { toast } from "react-toastify";
 
-
 export default function UserBusinessCard() {
   // Context
   const { selectedClient, setSelectedClient } = useSidebar();
   // SWR
-  const { business } = useBusinessByWebsiteId(selectedClient?.website_id ?? null);
+  const { business } = useBusinessByWebsiteId(
+    selectedClient?.website_id ?? null,
+  );
   // Modal state
   const { isOpen, openModal, closeModal } = useModal();
 
@@ -44,7 +45,7 @@ export default function UserBusinessCard() {
       });
     } else {
       setFormData({
-        name: "",
+        name: selectedClient?.name ?? "",
         address: "",
         rating: 0,
         reviewCount: 0,
@@ -53,7 +54,7 @@ export default function UserBusinessCard() {
         facebook: "",
       });
     }
-  }, [business]);
+  }, [business, selectedClient?.name]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -63,39 +64,16 @@ export default function UserBusinessCard() {
     }));
   };
   const handleSave = async () => {
-    let websiteId = selectedClient?.website_id ?? null;
+    const websiteId = selectedClient?.website_id ?? null;
 
-    // Step 1: If no website yet, create one and link it to the user
     if (!websiteId) {
-      const websiteResult = await mutateUpdate({
-        path: "/website",
-        method: "POST",
-        payload: { name: formData.name },
-        additionalHeaders: { Prefer: "return=representation" },
-      });
-      if (websiteResult.error) {
-        toast.error("Failed to create website. Please try again.");
-        return;
-      }
-      const websiteResponse = websiteResult.response as { id: number } | { id: number }[];
-      websiteId = Array.isArray(websiteResponse) ? websiteResponse[0]?.id : websiteResponse?.id;
-      if (!websiteId) {
-        toast.error("Website creation did not return an id.");
-        return;
-      }
-
-      // Link website to user
-      await mutateUpdate({
-        path: `/user?id=eq.${selectedClient?.id}`,
-        method: "PATCH",
-        payload: { website_id: websiteId },
-      });
-
-      // Update context so future saves know the website_id
-      setSelectedClient({ ...selectedClient, website_id: websiteId });
+      toast.error(
+        "No website found for this account. Please ask your administrator to complete account setup.",
+      );
+      return;
     }
 
-    // Step 2: Build the business listing payload
+    // Build the business listing payload
     const listingPayload = {
       business_name: formData.name,
       address: formData.address,
@@ -124,7 +102,7 @@ export default function UserBusinessCard() {
     } else {
       // Create first listing
       const result = await mutateUpdate({
-        path: "/business_listing",
+        path: "/business-listings",
         method: "POST",
         mutateKey,
         payload: listingPayload,
@@ -141,10 +119,10 @@ export default function UserBusinessCard() {
   };
   return (
     <>
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+      <div className="rounded-2xl border border-gray-200 p-5 lg:p-6 dark:border-gray-800">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
+            <h4 className="text-lg font-semibold text-gray-800 lg:mb-6 dark:text-white/90">
               Business Information
             </h4>
 
@@ -222,7 +200,7 @@ export default function UserBusinessCard() {
 
           <button
             onClick={openModal}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto"
+            className="shadow-theme-xs flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 lg:inline-flex lg:w-auto dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
           >
             <svg
               className="fill-current"
@@ -243,53 +221,88 @@ export default function UserBusinessCard() {
           </button>
         </div>
       </div>
-      <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
-        <div className="relative w-full p-4 overflow-y-auto bg-white no-scrollbar rounded-3xl dark:bg-gray-900 lg:p-11">
+      <Modal isOpen={isOpen} onClose={closeModal} className="m-4 max-w-[700px]">
+        <div className="no-scrollbar relative w-full overflow-y-auto rounded-3xl bg-white p-4 lg:p-11 dark:bg-gray-900">
           <div className="px-2 pr-14">
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
               Edit Address
             </h4>
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
+            <p className="mb-6 text-sm text-gray-500 lg:mb-7 dark:text-gray-400">
               Update your details to keep your profile up-to-date.
             </p>
           </div>
           <form className="flex flex-col">
-            <div className="px-2 overflow-y-auto custom-scrollbar">
+            <div className="custom-scrollbar overflow-y-auto px-2">
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                 <div>
                   <Label>Business Name</Label>
-                  <Input type="text" name="name" value={formData.name ?? ""} onChange={handleChange} />
+                  <Input
+                    type="text"
+                    name="name"
+                    value={formData.name ?? ""}
+                    onChange={handleChange}
+                  />
                 </div>
 
                 <div>
                   <Label>Address</Label>
-                  <Input type="text" name="address" value={formData.address ?? ""} onChange={handleChange} />
+                  <Input
+                    type="text"
+                    name="address"
+                    value={formData.address ?? ""}
+                    onChange={handleChange}
+                  />
                 </div>
 
                 <div>
                   <Label>Rating</Label>
-                  <Input type="text" name="rating" value={formData.rating ?? ""} onChange={handleChange} />
+                  <Input
+                    type="text"
+                    name="rating"
+                    value={formData.rating ?? ""}
+                    onChange={handleChange}
+                  />
                 </div>
 
                 <div>
                   <Label>Amount of Reviews</Label>
-                  <Input type="text" name="reviewCount" value={formData.reviewCount ?? ""} onChange={handleChange} />
+                  <Input
+                    type="text"
+                    name="reviewCount"
+                    value={formData.reviewCount ?? ""}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div>
                   <Label>X</Label>
-                  <Input type="text" name="x_url" value={formData.x_url ?? ""} onChange={handleChange} />
+                  <Input
+                    type="text"
+                    name="x_url"
+                    value={formData.x_url ?? ""}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div>
                   <Label>Instagram</Label>
-                  <Input type="text" name="instagram" value={formData.instagram ?? ""} onChange={handleChange} />
+                  <Input
+                    type="text"
+                    name="instagram"
+                    value={formData.instagram ?? ""}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div>
                   <Label>Facebook</Label>
-                  <Input type="text" name="facebook" value={formData.facebook ?? ""} onChange={handleChange} />
+                  <Input
+                    type="text"
+                    name="facebook"
+                    value={formData.facebook ?? ""}
+                    onChange={handleChange}
+                  />
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+            <div className="mt-6 flex items-center gap-3 px-2 lg:justify-end">
               <Button size="sm" variant="outline" onClick={closeModal}>
                 Close
               </Button>
