@@ -17,7 +17,7 @@ import {
 } from "@/lib/email-templates";
 import { getApiBaseUrl, getAppBaseUrl } from "@/lib/api";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResend = () => new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL ?? "RD TechBridge <noreply@rdtechbridge.com>";
@@ -264,7 +264,7 @@ export async function sendWelcomeEmail({
   to,
   firstName,
 }: SendWelcomeEmailOptions) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Welcome to RC TechBridge!",
@@ -289,7 +289,7 @@ export async function sendVerifyEmail({
   const verifyToken = token ?? (await createVerificationToken(to, userId));
   const verifyUrl = `${APP_URL}/auth/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Verify your email – RC TechBridge",
@@ -314,7 +314,7 @@ export async function sendResetPasswordEmail({
   const resetToken = token ?? (await createPasswordResetToken(to, userId));
   const resetUrl = `${APP_URL}/reset-password/confirm?token=${encodeURIComponent(resetToken)}`;
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Reset your password – RC TechBridge",
@@ -329,7 +329,7 @@ export async function sendNotificationEmail(
 ) {
   const sender = await resolveNotificationSenderForContext(context);
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: sender.from,
     to,
     subject: payload.subject,
