@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { getActiveTenantId } from "@/lib/auth-context";
 
 type AccessStatus = {
   allowed: boolean;
@@ -20,14 +21,15 @@ const SEVERITY_STYLES: Record<string, string> = {
     "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200",
   error:
     "border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950/40 dark:text-red-200",
-  info:
-    "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-200",
+  info: "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-200",
 };
 
 function getSeverity(code: string): string {
   if (code === "TENANT_SUSPENDED" || code === "TENANT_INACTIVE") return "error";
-  if (code === "BILLING_GRACE_EXPIRED" || code === "BILLING_UNPAID") return "error";
-  if (code.startsWith("BILLING_GRACE_ACTIVE") || code === "BILLING_PAST_DUE") return "warning";
+  if (code === "BILLING_GRACE_EXPIRED" || code === "BILLING_UNPAID")
+    return "error";
+  if (code.startsWith("BILLING_GRACE_ACTIVE") || code === "BILLING_PAST_DUE")
+    return "warning";
   if (code === "CANCELED_PERIOD_ACTIVE") return "warning";
   if (code === "BILLING_CANCELED") return "error";
   return "info";
@@ -37,7 +39,11 @@ function formatDate(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function getMessage(access: AccessStatus): string | null {
@@ -82,6 +88,7 @@ export default function BillingStatusBanner() {
     let cancelled = false;
 
     const load = async () => {
+      if (!getActiveTenantId()) return;
       try {
         const data = await apiClient.get<{
           accessStatus?: AccessStatus;
@@ -111,7 +118,9 @@ export default function BillingStatusBanner() {
   const styles = SEVERITY_STYLES[severity] || SEVERITY_STYLES.info;
 
   return (
-    <div className={`mx-4 mb-4 rounded-lg border px-4 py-3 text-sm font-medium ${styles}`}>
+    <div
+      className={`mx-4 mb-4 rounded-lg border px-4 py-3 text-sm font-medium ${styles}`}
+    >
       {message}
     </div>
   );
