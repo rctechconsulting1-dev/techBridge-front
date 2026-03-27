@@ -15,18 +15,15 @@ import {
   buildNotificationHtml,
   type NotificationPayload,
 } from "@/lib/email-templates";
+import { getApiBaseUrl, getAppBaseUrl } from "@/lib/api";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL ?? "RD TechBridge <noreply@rdtechbridge.com>";
 
-const APP_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
-const BACKEND_API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api"
-).replace(/\/$/, "");
+const APP_URL = getAppBaseUrl();
+const BACKEND_API_BASE = getApiBaseUrl();
 const OPS_INGEST_KEY = process.env.OPS_METRICS_INGEST_KEY || "";
 
 type TenantEmailProfile = {

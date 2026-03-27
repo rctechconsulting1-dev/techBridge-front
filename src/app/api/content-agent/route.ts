@@ -1,14 +1,14 @@
 import OpenAI from "openai";
 import z from "zod";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
+import { getApiBaseUrl } from "@/lib/api";
 
 // Ensure this route is always dynamic and runs on Node.js runtime
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const AI_DAILY_LIMIT = Number(process.env.AI_CONTENT_DAILY_LIMIT ?? 60);
-const BACKEND_API_BASE =
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const BACKEND_API_BASE = getApiBaseUrl();
 
 type UsageRecord = {
   day: string;

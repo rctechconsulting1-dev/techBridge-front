@@ -12,6 +12,7 @@ import FAQSection from "@/components/sections/FAQSection";
 import BookingSection from "@/components/sections/BookingSection";
 import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 // Revalidate every 60 seconds (ISR). Admin panel can also trigger immediate
 // revalidation via POST /api/revalidate with the CMS_REVALIDATION_SECRET header.
@@ -36,6 +37,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     data.website?.tagline ??
     "";
 
+  const canonicalMetadata = await getPublicCanonicalMetadata("/");
+
   return {
     title: data.homePageContent?.seo?.title ?? siteName,
     description,
@@ -43,7 +46,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: data.homePageContent?.seo?.title ?? siteName,
       description,
       ...(data.settings?.logo_url && { images: [data.settings.logo_url] }),
+      ...canonicalMetadata.openGraph,
     },
+    alternates: canonicalMetadata.alternates,
   };
 }
 

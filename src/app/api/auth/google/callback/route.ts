@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleOAuthManager } from '@/lib/google-oauth';
+import { getApiBaseUrl, getAppBaseUrl } from '@/lib/api';
 
 async function fetchGoogleAccountId(accessToken: string): Promise<string | null> {
     try {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const code = searchParams.get('code');
     const oauthError = searchParams.get('error');
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const baseUrl = getAppBaseUrl();
     const redirectBase = `${baseUrl}/google-business`;
 
     if (oauthError) {
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
         const tokens = await GoogleOAuthManager.exchangeCodeForTokens(code);
         if (tokens.access_token) {
             const googleAccountId = await fetchGoogleAccountId(tokens.access_token);
-            const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+            const apiUrl = getApiBaseUrl();
             const authToken = req.cookies.get('auth_token')?.value;
             await fetch(`${apiUrl}/agency-google-token`, {
                 method: 'POST',

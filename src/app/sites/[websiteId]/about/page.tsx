@@ -17,6 +17,7 @@ import FAQSection from "@/components/sections/FAQSection";
 import BookingSection from "@/components/sections/BookingSection";
 import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
 
@@ -35,6 +36,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const siteName = website?.name ?? "Our Company";
   const pageContent = getAboutPageContent(pageContentRecord, website, settings);
 
+  const canonicalMetadata = await getPublicCanonicalMetadata("/about");
+
   return {
     title: pageContentRecord?.seo?.title ?? `About | ${siteName}`,
     description:
@@ -46,7 +49,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         pageContentRecord?.seo?.description ??
         `Learn more about ${siteName} — our team, values, and mission.`,
       ...(settings?.logo_url && { images: [settings.logo_url] }),
+      ...canonicalMetadata.openGraph,
     },
+    alternates: canonicalMetadata.alternates,
   };
 }
 

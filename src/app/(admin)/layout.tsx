@@ -4,6 +4,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
+import BillingStatusBanner from "@/components/common/BillingStatusBanner";
 import React, { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import Button from "../../components/ui/button/Button";
@@ -66,6 +67,8 @@ export default function AdminLayout({
           >
             {/* Header */}
             <AppHeader session={session} />
+            {/* Billing Status Banner */}
+            <BillingStatusBanner />
             {/* Page Content */}
             <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
           </div>

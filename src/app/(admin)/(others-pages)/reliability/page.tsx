@@ -36,6 +36,27 @@ type Snapshot = {
   events: ReliabilityEvent[];
 };
 
+type QueueStatus = {
+  queue: {
+    depth: number;
+    byStatus: Record<string, number>;
+  };
+  dlq: {
+    size: number;
+  };
+  recentFailed: Array<{
+    id: number;
+    jobType: string;
+    status: string;
+    attempts: number;
+    maxAttempts: number;
+    lastError: string | null;
+    tenantId: number | null;
+    websiteId: number | null;
+    updatedAt: string;
+  }>;
+};
+
 const DEFAULT_WINDOW = 60;
 
 export default function ReliabilityPage() {
@@ -43,28 +64,29 @@ export default function ReliabilityPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
 
-  const loadSnapshot = async (windowValue: number) => {
+  const loadData = async (windowValue: number) => {
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(
-        `/api/ops/reliability?windowMinutes=${windowValue}&eventLimit=50`,
-        {
-          cache: "no-store",
-        },
-      );
+      const [reliabilityRes, queueRes] = await Promise.all([
+        fetch(`/api/ops/reliability?windowMinutes=${windowValue}&eventLimit=50`, { cache: "no-store" }),
+        fetch("/api/ops/queue-status", { cache: "no-store" }),
+      ]);
 
-      if (!res.ok) {
-        const text = await res.text();
-        setError(text || `Failed to load reliability snapshot (${res.status})`);
+      if (!reliabilityRes.ok) {
+        const text = await reliabilityRes.text();
+        setError(text || `Failed to load reliability snapshot (${reliabilityRes.status})`);
         setSnapshot(null);
-        return;
+      } else {
+        setSnapshot((await reliabilityRes.json()) as Snapshot);
       }
 
-      const data = (await res.json()) as Snapshot;
-      setSnapshot(data);
+      if (queueRes.ok) {
+        setQueueStatus((await queueRes.json()) as QueueStatus);
+      }
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -78,7 +100,7 @@ export default function ReliabilityPage() {
   };
 
   useEffect(() => {
-    loadSnapshot(windowMinutes);
+    loadData(windowMinutes);
   }, [windowMinutes]);
 
   const totalSuccess = useMemo(() => {
@@ -111,7 +133,7 @@ export default function ReliabilityPage() {
             </select>
             <button
               type="button"
-              onClick={() => loadSnapshot(windowMinutes)}
+              onClick={() => loadData(windowMinutes)}
               disabled={loading}
               className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
             >
@@ -154,6 +176,77 @@ export default function ReliabilityPage() {
             <p className="text-2xl font-semibold text-green-600">{totalSuccess}</p>
           </ComponentCard>
         </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <ComponentCard title="Job Queue Depth">
+            <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {queueStatus?.queue.depth ?? 0}
+            </p>
+            {queueStatus?.queue.byStatus && Object.keys(queueStatus.queue.byStatus).length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {Object.entries(queueStatus.queue.byStatus).map(([status, count]) => (
+                  <span
+                    key={status}
+                    className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300"
+                  >
+                    {status}: {count}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </ComponentCard>
+          <ComponentCard title="Email DLQ Size">
+            <p className={`text-2xl font-semibold ${(queueStatus?.dlq.size ?? 0) > 0 ? "text-amber-600" : "text-green-600"}`}>
+              {queueStatus?.dlq.size ?? 0}
+            </p>
+          </ComponentCard>
+          <ComponentCard title="Failed Jobs">
+            <p className={`text-2xl font-semibold ${(queueStatus?.recentFailed.length ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+              {queueStatus?.recentFailed.length ?? 0}
+            </p>
+          </ComponentCard>
+        </div>
+
+        {queueStatus?.recentFailed && queueStatus.recentFailed.length > 0 ? (
+          <ComponentCard title="Recent Failed / Retrying Jobs">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="px-2 py-2">ID</th>
+                    <th className="px-2 py-2">Type</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="px-2 py-2">Attempts</th>
+                    <th className="px-2 py-2">Last Error</th>
+                    <th className="px-2 py-2">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {queueStatus.recentFailed.map((job) => (
+                    <tr key={job.id} className="border-b border-gray-100 dark:border-gray-800">
+                      <td className="px-2 py-2">{job.id}</td>
+                      <td className="px-2 py-2 font-medium">{job.jobType}</td>
+                      <td className="px-2 py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          job.status === "failed"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        }`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2">{job.attempts}/{job.maxAttempts}</td>
+                      <td className="max-w-xs truncate px-2 py-2 text-xs text-gray-500 dark:text-gray-400">
+                        {job.lastError ?? "—"}
+                      </td>
+                      <td className="px-2 py-2 text-xs">{new Date(job.updatedAt).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ComponentCard>
+        ) : null}
 
         <ComponentCard title="Flow Health">
           {snapshot?.flows?.length ? (

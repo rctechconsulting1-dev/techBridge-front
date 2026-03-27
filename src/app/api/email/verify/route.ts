@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sendVerifyEmail, verifyVerificationToken } from "@/lib/email";
+import { getAppBaseUrl } from "@/lib/api";
 
 // ─── POST /api/email/verify  →  send verification email ──────────────────────
 
@@ -54,9 +55,7 @@ export async function POST(req: NextRequest) {
 // ─── GET /api/email/verify?token=...  →  confirm the token ───────────────────
 // The link in the email points here. On success, redirect to the app.
 
-const APP_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+const APP_URL = getAppBaseUrl();
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token") ?? "";

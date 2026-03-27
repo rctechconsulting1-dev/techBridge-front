@@ -5,6 +5,7 @@ import EditableImage from "@/components/ui/EditableImage";
 import { getWebsite, getSiteSettings, getProductBySlug } from "@/lib/cms-api";
 import NavBar from "@/components/sections/NavBar";
 import FooterSection from "@/components/sections/FooterSection";
+import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 import ProductActions from "./ProductActions";
 
 export const revalidate = 60;
@@ -20,12 +21,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     getProductBySlug(websiteId, productSlug),
   ]);
   if (!website || !product) return {};
+  const canonicalMetadata = await getPublicCanonicalMetadata(`/shop/${productSlug}`);
   return {
     title: `${product.title} | ${website.name}`,
     description: product.description ?? undefined,
-    openGraph: product.image_url
-      ? { images: [{ url: product.image_url }] }
-      : undefined,
+    openGraph: {
+      ...(product.image_url ? { images: [{ url: product.image_url }] } : {}),
+      ...canonicalMetadata.openGraph,
+    },
+    alternates: canonicalMetadata.alternates,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   resolveNotificationSenderForContext,
   sendNotificationEmail,
 } from "@/lib/email";
+import { getApiBaseUrl } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +15,7 @@ const schema = z.object({
   to: z.string().email(),
 });
 
-const getBackendApiBase = () =>
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const getBackendApiBase = () => getApiBaseUrl();
 
 const extractErrorMessage = (value: unknown): string => {
   if (typeof value === "string" && value.trim()) {

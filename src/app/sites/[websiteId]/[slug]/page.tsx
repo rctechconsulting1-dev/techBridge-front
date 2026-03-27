@@ -12,6 +12,7 @@ import NavBar from "@/components/sections/NavBar";
 import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
 import MarkdownContent from "@/components/common/MarkdownContent";
+import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
 
@@ -37,6 +38,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const siteName = website?.name ?? "Our Company";
   const pageTitle = page?.title ?? toReadableTitle(slug);
 
+  const canonicalMetadata = await getPublicCanonicalMetadata(`/${slug}`);
+
   return {
     title: `${pageTitle} | ${siteName}`,
     description:
@@ -44,7 +47,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `${pageTitle} | ${siteName}`,
       description: page?.meta_description ?? `Learn more about ${pageTitle}.`,
+      ...canonicalMetadata.openGraph,
     },
+    alternates: canonicalMetadata.alternates,
   };
 }
 

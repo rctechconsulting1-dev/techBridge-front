@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendNotificationEmail } from "@/lib/email";
 import { recordFlowMetric } from "@/lib/opsMetrics";
+import { getApiBaseUrl } from "@/lib/api";
 
 type DeadLetterRecord = {
   id: string;
@@ -22,8 +23,7 @@ type DeadLetterRecord = {
 };
 
 const DLQ_ADMIN_KEY = process.env.EMAIL_DLQ_ADMIN_KEY || "";
-const BACKEND_API_BASE =
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const BACKEND_API_BASE = getApiBaseUrl();
 const OPS_INGEST_KEY = process.env.OPS_METRICS_INGEST_KEY || "";
 
 const getDlqStore = (): DeadLetterRecord[] => {
