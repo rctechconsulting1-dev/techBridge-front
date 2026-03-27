@@ -1,7 +1,7 @@
 # Multi-Tenancy Architecture Draft
 
 Date: 2026-03-23
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 Status: Draft v1
 
 Execution tracker: see `MULTI_TENANCY_PHASE_CHECKLIST.md`.

@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: Active v1
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 ## 1) Escalation Levels
 
@@ -13,13 +13,13 @@ Owner: RC Tech Bridge
 
 ## 2) Module Ownership Matrix
 
-| Module | L1 Owner | Escalation Path | Target Response |
-| --- | --- | --- | --- |
-| Site Content (pages/services/faq) | Tenant Editor or Manager | L2 -> L3 | 1 business day |
-| Booking Intake / Calendar | Tenant Manager | L2 -> L4 | 4 business hours |
-| Payments / Stripe | Support Agent | L4 -> L3 | 1 hour |
-| Google Business | Support Agent | L3 -> L4 | 1 business day |
-| Domains and DNS | Support Agent | L3 | 4 business hours |
+| Module                            | L1 Owner                 | Escalation Path | Target Response  |
+| --------------------------------- | ------------------------ | --------------- | ---------------- |
+| Site Content (pages/services/faq) | Tenant Editor or Manager | L2 -> L3        | 1 business day   |
+| Booking Intake / Calendar         | Tenant Manager           | L2 -> L4        | 4 business hours |
+| Payments / Stripe                 | Support Agent            | L4 -> L3        | 1 hour           |
+| Google Business                   | Support Agent            | L3 -> L4        | 1 business day   |
+| Domains and DNS                   | Support Agent            | L3              | 4 business hours |
 
 ## 3) Escalation Trigger Conditions
 

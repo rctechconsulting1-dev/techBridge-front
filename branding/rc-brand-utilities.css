@@ -1,4 +1,4 @@
-/* RC Tech Bridge Brand Utilities */
+/* RD Tech Bridge Brand Utilities */
 
 /* Brand Colors as CSS Custom Properties */
 :root {
@@ -8,7 +8,7 @@
   --rc-light-bronze: #DEB887;
   --rc-deep-red: #8B0000;
   --rc-white: #FFFFFF;
-  
+
   /* RGB values for alpha transparency */
   --rc-bronze-rgb: 205, 127, 50;
   --rc-red-rgb: 196, 30, 58;

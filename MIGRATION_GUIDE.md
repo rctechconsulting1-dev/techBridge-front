@@ -1,6 +1,6 @@
 # Migration Guide
 
-This document tracks breaking changes, refactors, and setup steps developers need to follow when pulling updates to the RC Tech Bridge admin dashboard.
+This document tracks breaking changes, refactors, and setup steps developers need to follow when pulling updates to the RD Tech Bridge admin dashboard.
 
 ---
 
@@ -44,7 +44,7 @@ Update shared DB typings/contracts if your backend pipeline maintains them.
 
 ### What Changed
 
-This refactor removed TailAdmin template artifacts and dead code, consolidated types, and updated all metadata branding from TailAdmin to RC Tech Bridge.
+This refactor removed TailAdmin template artifacts and dead code, consolidated types, and updated all metadata branding from TailAdmin to RD Tech Bridge.
 
 ### Breaking Changes
 
@@ -53,6 +53,7 @@ This refactor removed TailAdmin template artifacts and dead code, consolidated t
 The standalone `googleBusiness.ts` type file has been removed. The `Post` interface it contained is now exported from `src/types/google-business.ts`.
 
 **Update any imports:**
+
 ```ts
 // Before
 import type { Post } from "@/types/googleBusiness";
@@ -78,6 +79,7 @@ import { useBusinessByWebsiteId } from "@/hooks/useBusinessByWebsiteId";
 #### 3. `src/lib/google-token-manager.ts` — Deleted
 
 `GoogleTokenManager` was removed. Google token operations go through the API routes:
+
 - `POST /api/auth/google/connect` — initiate OAuth
 - `GET /api/auth/google/callback` — exchange code for tokens
 - `POST /api/auth/google/refresh` — refresh access token
@@ -85,6 +87,7 @@ import { useBusinessByWebsiteId } from "@/hooks/useBusinessByWebsiteId";
 #### 4. `src/utils/googleApi.ts` — Reduced
 
 Only two functions remain:
+
 - `createGoogleBusinessPost(locationId, postData, clientId?)` — posts via backend proxy
 - `formatPostForAPI(post: Post)` — formats a `Post` object for the GMB API
 
@@ -126,15 +129,15 @@ After running backend migrations, sync shared TypeScript database/api types used
 
 ### Supported Page Types
 
-| Type | Description |
-|------|-------------|
-| Main Navigation | Home, About, Contact, Services |
-| Service Pages | Individual service detail pages |
-| Blog Posts | Content marketing articles |
-| Gallery Pages | Photo showcases and portfolios |
-| Landing Pages | Campaign-specific pages |
-| Legal Pages | Privacy Policy, Terms of Service |
-| Custom | Any other type |
+| Type            | Description                      |
+| --------------- | -------------------------------- |
+| Main Navigation | Home, About, Contact, Services   |
+| Service Pages   | Individual service detail pages  |
+| Blog Posts      | Content marketing articles       |
+| Gallery Pages   | Photo showcases and portfolios   |
+| Landing Pages   | Campaign-specific pages          |
+| Legal Pages     | Privacy Policy, Terms of Service |
+| Custom          | Any other type                   |
 
 ---
 
@@ -154,18 +157,18 @@ npm install
 
 Create `.env.local` from the table below. All variables are required unless marked optional.
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_API_URL` | Backend API base URL | ✅ |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | ✅ |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | ✅ |
-| `GOOGLE_REDIRECT_URI` | Google OAuth redirect URI (must match Google Console) | ✅ |
-| `OPENAI_API_KEY` | OpenAI API key for content agent | ✅ |
-| `REVALIDATE_SECRET` | Secret header value for ISR revalidation webhook | ✅ |
-| `S3_UPLOAD_KEY` | AWS S3 access key | ✅ |
-| `S3_UPLOAD_SECRET` | AWS S3 secret key | ✅ |
-| `S3_UPLOAD_BUCKET` | AWS S3 bucket name | ✅ |
-| `S3_UPLOAD_REGION` | AWS S3 region | ✅ |
+| Variable               | Description                                           | Required |
+| ---------------------- | ----------------------------------------------------- | -------- |
+| `NEXT_PUBLIC_API_URL`  | Backend API base URL                                  | ✅       |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID                                | ✅       |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                            | ✅       |
+| `GOOGLE_REDIRECT_URI`  | Google OAuth redirect URI (must match Google Console) | ✅       |
+| `OPENAI_API_KEY`       | OpenAI API key for content agent                      | ✅       |
+| `REVALIDATE_SECRET`    | Secret header value for ISR revalidation webhook      | ✅       |
+| `S3_UPLOAD_KEY`        | AWS S3 access key                                     | ✅       |
+| `S3_UPLOAD_SECRET`     | AWS S3 secret key                                     | ✅       |
+| `S3_UPLOAD_BUCKET`     | AWS S3 bucket name                                    | ✅       |
+| `S3_UPLOAD_REGION`     | AWS S3 region                                         | ✅       |
 
 ### 3. Run database migration
 
@@ -184,6 +187,7 @@ npm run dev
 See [docs/integrations/google/GOOGLE_OAUTH_SETUP.md](./docs/integrations/google/GOOGLE_OAUTH_SETUP.md) for the full OAuth configuration walkthrough.
 
 Key points:
+
 - The redirect URI registered in Google Cloud Console must exactly match `GOOGLE_REDIRECT_URI` in your env
 - The OAuth flow is initiated from the admin dashboard at `/google-business`
 - Tokens are stored and refreshed via the backend — never stored client-side
@@ -204,12 +208,11 @@ x-revalidate-secret: <REVALIDATE_SECRET>
 
 ## Troubleshooting
 
-| Issue | Resolution |
-|-------|------------|
-| TypeScript error on `Post` import | Update import to `@/types/google-business` |
-| `useGetBusinessByWebsiteId` not found | Switch to `useBusinessByWebsiteId` from `@/hooks/useBusinessByWebsiteId` |
-| Google OAuth redirect mismatch | Ensure `GOOGLE_REDIRECT_URI` matches exactly what's registered in Google Cloud Console |
-| S3 upload fails | Verify all four S3 env vars are set and the bucket has the correct CORS policy |
-| ISR pages not updating | Check `REVALIDATE_SECRET` matches and `POST /api/revalidate` returns 200 |
-| Shared types out of date | Re-sync generated types from backend after any schema migration |
-
+| Issue                                 | Resolution                                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| TypeScript error on `Post` import     | Update import to `@/types/google-business`                                             |
+| `useGetBusinessByWebsiteId` not found | Switch to `useBusinessByWebsiteId` from `@/hooks/useBusinessByWebsiteId`               |
+| Google OAuth redirect mismatch        | Ensure `GOOGLE_REDIRECT_URI` matches exactly what's registered in Google Cloud Console |
+| S3 upload fails                       | Verify all four S3 env vars are set and the bucket has the correct CORS policy         |
+| ISR pages not updating                | Check `REVALIDATE_SECRET` matches and `POST /api/revalidate` returns 200               |
+| Shared types out of date              | Re-sync generated types from backend after any schema migration                        |

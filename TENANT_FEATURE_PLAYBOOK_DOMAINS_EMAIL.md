@@ -17,7 +17,7 @@ These tasks are managed from `Global Site Settings` for the selected tenant webs
 This SOP assumes:
 
 1. The tenant website domain is bought from Vercel or imported into Vercel-managed DNS.
-2. RC Tech Bridge uses one shared Resend account.
+2. RD Tech Bridge uses one shared Resend account.
 3. Each tenant gets its own verified Resend sending subdomain, usually `mg.clientdomain.com`.
 4. You do not create a separate Resend account or separate Resend login per tenant.
 
@@ -66,13 +66,13 @@ If the client does not have a final domain yet, use a temporary launch mode inst
 Website rule:
 
 1. Use a stable RC-controlled subdomain on the main Vercel project.
-2. Example: `tenant-slug.rctechbridge.com`
+2. Example: `tenant-slug.rdtechbridge.com`
 3. Do not use a one-off `vercel.app` preview URL as the tenant's durable public hostname.
 
 Email rule:
 
 1. Use a platform-owned verified sender domain temporarily.
-2. Example: `hello@mg.rctechbridge-mail.com`
+2. Example: `hello@mg.rdtechbridge-mail.com`
 3. If the client has a real inbox already, use that as reply-to where appropriate.
 4. Do not configure a fake future branded sender before the real client domain exists and is verified.
 
@@ -191,7 +191,7 @@ Expected result:
 
 ## Step 6 - Create The Resend Sending Subdomain
 
-In the shared RC Tech Bridge Resend account:
+In the shared RD Tech Bridge Resend account:
 
 1. Add a new sending domain for the tenant.
 2. Use a subdomain, not the root domain.

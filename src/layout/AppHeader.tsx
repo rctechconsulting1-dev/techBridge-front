@@ -8,7 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
 import { UserTable } from "../hooks/useSearchUser";
-import { useUser } from "../hooks/useUser";
+import { Tenant } from "../hooks/useTenants";
 
 const AppHeader = ({}: { session?: unknown }) => {
   // Context
@@ -25,16 +25,6 @@ const AppHeader = ({}: { session?: unknown }) => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [isSearchDropdownOpen, setSearchDropdownOpen] = useState(false);
-  const [userId, setUserId] = useState<number | null>(null);
-
-  //SWR Hooks
-  const { user } = useUser(userId);
-
-  useEffect(() => {
-    if (user) {
-      setSelectedClient(user);
-    }
-  }, [user, setSelectedClient]);
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -67,7 +57,18 @@ const AppHeader = ({}: { session?: unknown }) => {
   const onHandleSearchChosen = (user: UserTable) => {
     setSelectedClient(user);
     setSearchValue(user.email ?? "");
-    setUserId(user.id);
+    setSearchDropdownOpen(false);
+    inputRef.current?.blur();
+  };
+
+  const onHandleTenantChosen = (tenant: Tenant) => {
+    setSelectedClient({
+      name: tenant.name,
+      email: tenant.owner_email,
+      tenant_id: tenant.id,
+      website_id: tenant.website_id,
+    });
+    setSearchValue(tenant.name);
     setSearchDropdownOpen(false);
     inputRef.current?.blur();
   };
@@ -165,7 +166,8 @@ const AppHeader = ({}: { session?: unknown }) => {
             </svg>
           </button>
 
-          {currentUser?.role === "admin" && (
+          {(currentUser?.role === "admin" ||
+            currentUser?.role === "platform_admin") && (
             <div className="hidden lg:block">
               <form onSubmit={(e) => e.preventDefault()}>
                 <div className="relative">
@@ -192,13 +194,12 @@ const AppHeader = ({}: { session?: unknown }) => {
                     onFocus={onHandleSearchFocus}
                     ref={inputRef}
                     type="text"
-                    placeholder="Search or type command..."
+                    placeholder="Search user by email..."
                     className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pr-14 pl-12 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden xl:w-[430px] dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30"
                   />
                   <button
                     type="button"
                     onClick={() => {
-                      setUserId(null);
                       setSearchValue("");
                       setSelectedClient(null);
                     }}
@@ -212,6 +213,17 @@ const AppHeader = ({}: { session?: unknown }) => {
                     onClose={onCloseSearchDropdown}
                     inputRef={inputRef}
                     onHandleSearchChosen={onHandleSearchChosen}
+                    onHandleTenantChosen={onHandleTenantChosen}
+                    isAdmin={
+                      currentUser?.role === "admin" ||
+                      currentUser?.role === "platform_admin"
+                    }
+                    fetchAll={
+                      searchValue.trim() === "" &&
+                      (currentUser?.role === "admin" ||
+                        currentUser?.role === "platform_admin") &&
+                      isSearchDropdownOpen
+                    }
                   />
                 </div>
               </form>
@@ -223,6 +235,22 @@ const AppHeader = ({}: { session?: unknown }) => {
             isApplicationMenuOpen ? "flex" : "hidden"
           } shadow-theme-md w-full items-center justify-between gap-4 px-5 py-4 lg:flex lg:justify-end lg:px-0 lg:shadow-none`}
         >
+          {/* Active client indicator */}
+          {currentUser?.role === "admin" && selectedClient && (
+            <div className="border-brand-200 bg-brand-50 dark:border-brand-800 dark:bg-brand-900/20 hidden shrink-0 items-center gap-2 rounded-lg border px-3 py-1.5 lg:flex">
+              <span className="text-brand-500 dark:text-brand-400 text-xs font-medium whitespace-nowrap">
+                Viewing:
+              </span>
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm leading-none font-semibold text-gray-800 dark:text-white/90">
+                  {selectedClient.name ?? "—"}
+                </span>
+                <span className="mt-0.5 text-xs leading-none text-gray-400 dark:text-gray-500">
+                  {selectedClient.email ?? ""}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="2xsm:gap-3 flex items-center gap-2">
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
@@ -235,22 +263,6 @@ const AppHeader = ({}: { session?: unknown }) => {
           <UserDropdown />
         </div>
       </div>
-      {/* ── Active client indicator – centered in header ── */}
-      {currentUser?.role === "admin" && selectedClient && (
-        <div className="border-brand-200 bg-brand-50 dark:border-brand-800 dark:bg-brand-900/20 pointer-events-none absolute top-1/2 left-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-lg border px-3 py-1.5 lg:flex">
-          <span className="text-brand-500 dark:text-brand-400 text-xs font-medium whitespace-nowrap">
-            Viewing:
-          </span>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm leading-none font-semibold text-gray-800 dark:text-white/90">
-              {selectedClient.name ?? "—"}
-            </span>
-            <span className="mt-0.5 text-xs leading-none text-gray-400 dark:text-gray-500">
-              {selectedClient.email ?? ""}
-            </span>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: Draft v1
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 Purpose: convert Phase 6 packaging direction into implementation-ready plan definitions and a Stripe pricing linkage contract that backend and UI can enforce.
 

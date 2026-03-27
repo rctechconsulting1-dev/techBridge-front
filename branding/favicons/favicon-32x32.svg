@@ -1,11 +1,11 @@
 <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
   <rect width="32" height="32" fill="#CD7F32" rx="4"/>
-  
-  <!-- R and C -->
+
+  <!-- R and D -->
   <text x="8" y="20" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">R</text>
-  <text x="18" y="20" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">C</text>
-  
+  <text x="18" y="20" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">D</text>
+
   <!-- Small bridge line -->
   <rect x="14" y="14" width="4" height="1" fill="#C41E3A"/>
 </svg>

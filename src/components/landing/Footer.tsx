@@ -83,7 +83,7 @@ const Footer = () => {
                 <div className="flex items-center space-x-1">
                   <span className="text-2xl font-bold text-[#DEB887]">R</span>
                   <div className="h-0.5 w-6 rounded-full bg-[#C41E3A]"></div>
-                  <span className="text-2xl font-bold text-[#DEB887]">C</span>
+                  <span className="text-2xl font-bold text-[#DEB887]">D</span>
                 </div>
                 <div className="flex flex-col leading-tight">
                   <span className="text-sm font-bold tracking-wide text-[#DEB887]">
@@ -215,7 +215,7 @@ const Footer = () => {
         <div className="border-t border-[#CD7F32] py-6">
           <div className="flex flex-col items-center justify-between md:flex-row">
             <div className="mb-4 text-sm text-[#DEB887] md:mb-0">
-              © {currentYear} RC Tech Bridge. All rights reserved.
+              © {currentYear} RD Tech Bridge. All rights reserved.
             </div>
 
             <div className="flex space-x-6 text-sm">
