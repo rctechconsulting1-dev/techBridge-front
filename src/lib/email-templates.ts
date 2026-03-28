@@ -196,3 +196,35 @@ export function buildNotificationHtml({
     ${cta ? primaryButton(cta.href, cta.label) : ""}`,
   );
 }
+
+// ─── Billing invite ───────────────────────────────────────────────────────────
+
+export interface BillingInviteTemplateOptions {
+  firstName?: string;
+  planName: string;
+  priceFormatted: string;
+  checkoutUrl: string;
+}
+
+export function buildBillingInviteHtml({
+  firstName,
+  planName,
+  priceFormatted,
+  checkoutUrl,
+}: BillingInviteTemplateOptions): string {
+  const greeting = firstName ? `Hi ${firstName},` : "Hi,";
+  return layout(
+    `Subscribe to ${planName} – RC TechBridge`,
+    `<h1 style="margin:0 0 16px;font-size:24px;color:#111827;font-weight:700;">${greeting}</h1>
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 8px;">
+      Your account has been set up and you&rsquo;ve been assigned the <strong>${planName}</strong> plan.
+    </p>
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px;">
+      To activate your subscription at <strong>${priceFormatted}/month</strong>, click the button below to complete your payment setup through our secure payment partner, Stripe.
+    </p>
+    ${primaryButton(checkoutUrl, "Activate My Subscription")}
+    <p style="font-size:13px;color:#9ca3af;margin:0;">
+      This link is unique to your account. If you have any questions, reply to this email or contact our support team.
+    </p>`,
+  );
+}

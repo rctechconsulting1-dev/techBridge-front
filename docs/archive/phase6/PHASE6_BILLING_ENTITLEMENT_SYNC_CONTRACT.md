@@ -8,9 +8,17 @@ Purpose: define how billing state (plan/add-ons/status) becomes enforceable tena
 
 ## 1) Scope
 
-- Billing platform: Stripe Connect platform + tenant connected accounts.
+- Billing platform: Stripe Billing on the RC Tech Bridge platform account.
 - Backend system of record: `backend-rc` (Express + PostgreSQL).
 - Entitlement persistence: tenant module/feature tables and entitlement snapshot fields.
+
+Out of scope for this contract:
+
+- tenant ecommerce payments
+- appointment deposits and later balance collection
+- refunds and disputes on connected accounts
+
+Those payment flows should run through separate Stripe Connect payment processing and must not directly define SaaS entitlements.
 
 ## 2) Source of Truth and Precedence
 
@@ -75,7 +83,7 @@ Internal events:
 For each event:
 
 1. Verify Stripe signature.
-2. Resolve tenant via connected account + metadata mapping.
+2. Resolve tenant via `stripe_customer_id`, `stripe_subscription_id`, and metadata mapping.
 3. Store raw event in idempotency/event log (`event_id` unique).
 4. Build normalized billing state.
 5. Compute effective entitlements from mapping config.
@@ -138,6 +146,8 @@ Required backend endpoints/services (names illustrative):
 - `POST /internal/tenants/:tenantId/entitlements/override`
 
 Implementation note: endpoint names can differ, but behavior and idempotency guarantees should match this contract.
+
+Related but separate payment-processing endpoints for connected-account commerce and bookings should live outside this entitlement contract.
 
 ## 10) Minimal Data Model Additions (Draft)
 

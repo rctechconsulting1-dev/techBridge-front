@@ -133,19 +133,31 @@ Operational notes:
 - New tenant onboarding must include DNS verification checklist (SPF, DKIM, return-path if needed).
 - If a client cannot verify domain, fall back to platform sender domain with tenant-specific reply-to.
 
-## 7) Stripe Architecture (Per Client)
+## 7) Stripe Architecture (Platform Billing + Tenant Merchant Payments)
 
-Requirement: each client has different Stripe payments.
+Requirement: tenants must both pay RC Tech Bridge for software and receive payments from their own customers for commerce and service flows.
 
-Recommended default: Stripe Connect (one platform, many connected accounts).
+Recommended default:
 
-Why:
+- Use Stripe Billing on the RC Tech Bridge platform account for tenant SaaS subscriptions and recurring add-ons.
+- Use Stripe Connect for tenant customer-facing payments such as ecommerce checkout and appointment deposits.
 
-- Keeps one codebase and one payments integration.
-- Supports clients owning their own Stripe accounts.
-- Supports platform fees for add-ons/services.
+Why this split is required:
 
-Tenant payment fields:
+- Keeps SaaS revenue separate from tenant merchant revenue.
+- Supports clean entitlement synchronization from one billing source of truth.
+- Supports tenant-owned payout, refund, and dispute workflows.
+- Scales better operationally than trying to force all payment domains into one connected-account model.
+
+Platform billing fields per tenant:
+
+- `stripe_customer_id`
+- `stripe_subscription_id`
+- `plan_phase_key`
+- `subscription_status`
+- `grace_until`
+
+Tenant merchant payment fields per tenant:
 
 - `stripe_connected_account_id`
 - `charges_enabled`
@@ -153,18 +165,9 @@ Tenant payment fields:
 - `onboarding_completed_at`
 - `default_currency`
 
-Checkout flow pattern:
+Billing and merchant payment events should be processed as separate worker paths even if they share one ingress route.
 
-1. Resolve tenant.
-2. Create Checkout Session on tenant connected account.
-3. Record tenant + account IDs in metadata.
-4. Process webhooks idempotently and tenant-scoped.
-
-Webhook pattern:
-
-- One webhook endpoint can receive events across connected accounts.
-- Verify signature and map event to tenant via account ID and metadata.
-- Use idempotency/event table to prevent double-processing.
+Reference: see `docs/architecture/STRIPE_BILLING_AND_PAYMENTS_ARCHITECTURE.md` for the full scalable schema, endpoint plan, and webhook matrix.
 
 ## 8) Vercel Domains for Every Client
 
@@ -217,7 +220,8 @@ Feature map:
 
 ## Phase 2: Payments + Emails + Domains
 
-- Integrate Stripe Connect per tenant.
+- Integrate Stripe Billing for tenant subscriptions and recurring add-ons.
+- Integrate Stripe Connect per tenant for merchant payments.
 - Add per-tenant email profiles and lead routing.
 - Implement domain onboarding workflow and verification status.
 
@@ -264,7 +268,7 @@ Move tenant to dedicated deployment only if one or more apply:
 1. Confirm enum values for `business_type` and `module_key`.
 2. Confirm role capability matrix by role.
 3. Decide first 3 paid add-ons for launch packaging.
-4. Decide email provider and Stripe Connect account type.
+4. Decide email provider plus Stripe Billing and Stripe Connect operating model.
 5. Define domain onboarding SOP for operations.
 
 ## 15) What To Tackle First (Execution Order)
@@ -302,5 +306,5 @@ After first slice is stable, do in this order:
 1. Google Business module
 2. S3 asset manager
 3. Calendar/appointments module
-4. Payments (Stripe Connect)
+4. Payments (Stripe Billing + Stripe Connect)
 5. Email + SMS lead notifications

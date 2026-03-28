@@ -13,6 +13,7 @@ import {
   buildVerifyHtml,
   buildResetPasswordHtml,
   buildNotificationHtml,
+  buildBillingInviteHtml,
   type NotificationPayload,
 } from "@/lib/email-templates";
 import { getApiBaseUrl, getAppBaseUrl } from "@/lib/api";
@@ -327,5 +328,28 @@ export async function sendNotificationEmail(
     subject: payload.subject,
     html: buildNotificationHtml(payload),
     ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
+  });
+}
+
+export interface SendBillingInviteEmailOptions {
+  to: string;
+  firstName?: string;
+  planName: string;
+  priceFormatted: string;
+  checkoutUrl: string;
+}
+
+export async function sendBillingInviteEmail({
+  to,
+  firstName,
+  planName,
+  priceFormatted,
+  checkoutUrl,
+}: SendBillingInviteEmailOptions) {
+  return resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `Activate your ${planName} subscription – RC TechBridge`,
+    html: buildBillingInviteHtml({ firstName, planName, priceFormatted, checkoutUrl }),
   });
 }
