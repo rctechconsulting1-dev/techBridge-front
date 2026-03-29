@@ -1,21 +1,21 @@
-/* RC Tech Bridge Brand Colors and Styles */
+/* RD Tech Bridge Brand Colors and Styles */
 
 :root {
   /* Primary Brand Colors */
   --bronze-primary: #CD7F32;
   --red-primary: #C41E3A;
   --white-primary: #FFFFFF;
-  
+
   /* Secondary Colors */
   --bronze-dark: #8B4513;
   --bronze-light: #DEB887;
   --red-dark: #8B0000;
   --off-white: #F8F8FF;
-  
+
   /* Typography */
   --font-primary: 'Montserrat', 'Arial', sans-serif;
   --font-secondary: 'Open Sans', 'Arial', sans-serif;
-  
+
   /* Shadows */
   --shadow-light: 0 2px 4px rgba(139, 69, 19, 0.1);
   --shadow-medium: 0 4px 8px rgba(139, 69, 19, 0.15);
@@ -192,7 +192,7 @@
   .logo-primary {
     height: 48px;
   }
-  
+
   .logo-icon {
     height: 32px;
     width: 32px;

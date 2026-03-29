@@ -173,8 +173,8 @@ Preferred temporary pattern:
 
 1. give the tenant a stable RC-controlled subdomain on the main Vercel project
 2. examples:
-   1. `tenant-slug.rctechbridge.com`
-   2. `tenant-slug.preview.rctechbridge.com`
+   1. `tenant-slug.rdtechbridge.com`
+   2. `tenant-slug.preview.rdtechbridge.com`
 
 Avoid using:
 
@@ -206,7 +206,7 @@ Until the client has a real domain, do not pretend the tenant has branded outbou
 Use one of these temporary strategies:
 
 1. platform-owned verified sender domain
-   1. example: `hello@mg.rctechbridge-mail.com`
+   1. example: `hello@mg.rdtechbridge-mail.com`
 2. platform-owned operational sender plus tenant-specific reply-to if a real inbox exists
 
 Do not use:

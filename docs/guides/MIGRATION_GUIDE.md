@@ -184,7 +184,7 @@ npm run dev
 
 ## Google Business Profile Setup
 
-See [docs/integrations/google/GOOGLE_OAUTH_SETUP.md](./docs/integrations/google/GOOGLE_OAUTH_SETUP.md) for the full OAuth configuration walkthrough.
+See [../integrations/google/GOOGLE_OAUTH_SETUP.md](../integrations/google/GOOGLE_OAUTH_SETUP.md) for the full OAuth configuration walkthrough.
 
 Key points:
 

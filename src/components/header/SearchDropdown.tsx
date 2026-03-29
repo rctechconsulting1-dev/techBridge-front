@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import { useDebounce } from "../../hooks/useDebounce";
 import { useSearchUser } from "../../hooks/useSearchUser";
-
+import { useTenants, Tenant } from "../../hooks/useTenants";
 
 interface SearchResult {
   id: string;
@@ -19,6 +20,9 @@ interface SearchDropdownProps {
   inputRef: React.RefObject<HTMLInputElement | null>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onHandleSearchChosen: (user: any) => void;
+  onHandleTenantChosen: (tenant: Tenant) => void;
+  fetchAll?: boolean;
+  isAdmin?: boolean;
 }
 
 const SearchDropdown: React.FC<SearchDropdownProps> = ({
@@ -27,16 +31,32 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
   onClose,
   inputRef,
   onHandleSearchChosen,
+  onHandleTenantChosen,
+  fetchAll = false,
+  isAdmin = false,
 }) => {
-  // Context 
+  // Context
   const dropdownRef = useRef<HTMLDivElement>(null);
-   
-  const [filteredResults, setFilteredResults] = useState<SearchResult[]>([]);
+
+  const [filteredResults, _setFilteredResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
+  // Debounced search value – avoids firing an API request on every keystroke
+  const debouncedSearchValue = useDebounce(searchValue, 300);
 
   // Hooks
-  const { data } = useSearchUser(searchValue);
+  const { data } = useSearchUser(debouncedSearchValue, fetchAll);
+  const { data: tenants } = useTenants(isAdmin);
+
+  const filteredTenants = tenants?.filter((t) => {
+    if (!searchValue.trim()) return true;
+    const q = searchValue.toLowerCase();
+    return (
+      t.name?.toLowerCase().includes(q) ||
+      t.slug?.toLowerCase().includes(q) ||
+      t.owner_email?.toLowerCase().includes(q)
+    );
+  });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -46,7 +66,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
         case "ArrowDown":
           event.preventDefault();
           setSelectedIndex((prev) =>
-            prev < filteredResults.length - 1 ? prev + 1 : prev
+            prev < filteredResults.length - 1 ? prev + 1 : prev,
           );
           break;
         case "ArrowUp":
@@ -95,50 +115,89 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
 
   if (!isOpen) return null;
 
-  const showResults = searchValue.trim().length > 0;
-  
+  const showResults = fetchAll || searchValue.trim().length > 0;
+  const showTenants = isAdmin && (filteredTenants?.length ?? 0) > 0;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCtaClick = (user: any) => {
     onHandleSearchChosen(user);
     onClose();
-  }
+  };
+
+  const handleTenantClick = (tenant: Tenant) => {
+    onHandleTenantChosen(tenant);
+    onClose();
+  };
+
   return (
     <div
       ref={dropdownRef}
-      className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto dark:bg-gray-900 dark:border-gray-700"
+      className="absolute top-full right-0 left-0 z-50 mt-2 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
     >
+      {showTenants && (
+        <div className="p-2">
+          <div className="px-3 py-2 text-xs font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
+            Clients
+          </div>
+          {filteredTenants?.map((tenant) => (
+            <div
+              key={tenant.id}
+              onClick={() => handleTenantClick(tenant)}
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <div className="bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold">
+                {tenant.name?.charAt(0).toUpperCase() ?? "T"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{tenant.name}</div>
+                <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {tenant.owner_email ?? tenant.slug}
+                </div>
+              </div>
+              {tenant.status && (
+                <span
+                  className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    tenant.status === "active"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  }`}
+                >
+                  {tenant.status}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {showTenants && showResults && (data?.length ?? 0) > 0 && (
+        <div className="mx-2 border-t border-gray-100 dark:border-gray-800" />
+      )}
       {showResults && (data?.length ?? 0) > 0 && (
         <div className="p-2">
-          <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">
-            Search Results
+          <div className="px-3 py-2 text-xs font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
+            Users
           </div>
           {data?.map((result, index) => (
             <div
               key={result.id}
               onClick={() => handleCtaClick(result)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+              className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
                 index === selectedIndex
                   ? "bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300"
                   : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
               }`}
             >
-              {/* <div className="flex-shrink-0 text-gray-400 dark:text-gray-500">
-                {result.icon}
-              </div> */}
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{result.name}</div>
-                <div className="text-sm text-gray-500 truncate dark:text-gray-400">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{result.name}</div>
+                <div className="truncate text-sm text-gray-500 dark:text-gray-400">
                   {result.email}
                 </div>
               </div>
-              {/* <div className="text-xs text-gray-400 dark:text-gray-500">
-                {result.category}
-              </div> */}
             </div>
           ))}
         </div>
       )}
-{/* 
+      {/*
       {showQuickActions && (
         <div className="p-2">
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">

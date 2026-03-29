@@ -1,6 +1,6 @@
-# RC Tech Bridge — Admin Dashboard
+# RD Tech Bridge — Admin Dashboard
 
-A custom admin dashboard built for RC Tech Bridge, powering multi-tenant client website management, Google Business Profile integration, and AI-assisted content generation.
+A custom admin dashboard built for RD Tech Bridge, powering multi-tenant client website management, Google Business Profile integration, and AI-assisted content generation.
 
 Built on **Next.js 15**, **React 19**, **TypeScript**, and **Tailwind CSS v4**.
 
@@ -8,7 +8,7 @@ Built on **Next.js 15**, **React 19**, **TypeScript**, and **Tailwind CSS v4**.
 
 ## Overview
 
-This dashboard enables RC Tech Bridge to manage client digital presence end-to-end:
+This dashboard enables RD Tech Bridge to manage client digital presence end-to-end:
 
 - **Multi-tenant CMS** — Create and publish dynamic websites for each client via ISR-powered `sites/[websiteId]` routes
 - **Google Business Profile** — Connect, post, view reviews, and track performance for client GMB listings
@@ -70,7 +70,7 @@ src/
 │   ├── api/              # API routes (Google OAuth, content agent, S3, revalidation)
 │   ├── auth/             # Auth callback handlers
 │   ├── sites/[websiteId]/ # ISR-rendered public client websites
-│   └── page.tsx          # RC Tech Bridge public landing page
+│   └── page.tsx          # RD Tech Bridge public landing page
 ├── components/
 │   ├── google-business/  # GMB connect, posts, reviews, performance
 │   ├── landing/          # Public marketing page sections
@@ -253,10 +253,10 @@ VALUES (1, 'My Product', 'my-product', 'A great product.', 29.99, 10, true);
 
 ### API routes
 
-| Route                  | Method | Description                                                                                                                         |
-| ---------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/stripe/checkout` | POST   | Creates a Stripe Checkout Session. Body: `{ quantity, websiteId, productSlug }`. Returns `{ url }`. |
-| `/api/stripe/webhook`  | POST   | Receives Stripe events. Verifies signature, records `checkout.session.completed` charges to the backend.                            |
+| Route                  | Method | Description                                                                                              |
+| ---------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| `/api/stripe/checkout` | POST   | Creates a Stripe Checkout Session. Body: `{ quantity, websiteId, productSlug }`. Returns `{ url }`.      |
+| `/api/stripe/webhook`  | POST   | Receives Stripe events. Verifies signature, records `checkout.session.completed` charges to the backend. |
 
 ---
 
@@ -272,6 +272,7 @@ See [docs/guides/MIGRATION_GUIDE.md](./docs/guides/MIGRATION_GUIDE.md) for:
 - Troubleshooting common issues
 
 See [docs/architecture/MULTI_TENANCY_ARCHITECTURE_DRAFT.md](./docs/architecture/MULTI_TENANCY_ARCHITECTURE_DRAFT.md) for:
+
 - Tenant/domain architecture decisions
 - Per-tenant email and Stripe strategy
 - Migration plan for existing features

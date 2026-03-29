@@ -18,10 +18,10 @@ import {
 } from "@/lib/email-templates";
 import { getApiBaseUrl, getAppBaseUrl } from "@/lib/api";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResend = () => new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL ?? "RC TechBridge <noreply@rctechbridge.com>";
+  process.env.RESEND_FROM_EMAIL ?? "RD TechBridge <noreply@rdtechbridge.com>";
 
 const APP_URL = getAppBaseUrl();
 const BACKEND_API_BASE = getApiBaseUrl();
@@ -62,13 +62,19 @@ const normalizeFromAddress = (
   }
 
   const normalizedName = normalizeEmailValue(fromName);
-  return normalizedName ? `${normalizedName} <${normalizedEmail}>` : normalizedEmail;
+  return normalizedName
+    ? `${normalizedName} <${normalizedEmail}>`
+    : normalizedEmail;
 };
 
 const fetchTenantEmailProfile = async ({
   websiteId,
 }: NotificationSendContext): Promise<TenantEmailProfile | null> => {
-  if (typeof websiteId === "undefined" || websiteId === null || `${websiteId}`.trim() === "") {
+  if (
+    typeof websiteId === "undefined" ||
+    websiteId === null ||
+    `${websiteId}`.trim() === ""
+  ) {
     return null;
   }
 
@@ -112,7 +118,9 @@ export const resolveNotificationSenderForContext = async (
 
   const brandedFrom = normalizeFromAddress(profile.fromName, profile.fromEmail);
   const preferredReplyTo =
-    normalizeEmailValue(profile.replyTo) ?? normalizeEmailValue(profile.fromEmail) ?? undefined;
+    normalizeEmailValue(profile.replyTo) ??
+    normalizeEmailValue(profile.fromEmail) ??
+    undefined;
 
   if (
     brandedFrom &&
@@ -141,10 +149,7 @@ const VERIFY_TOKEN_SECRET =
 const RESET_TOKEN_SECRET =
   process.env.EMAIL_RESET_SECRET ?? "change-me-in-production-reset";
 
-async function hmacSign(
-  secret: string,
-  payload: string,
-): Promise<string> {
+async function hmacSign(secret: string, payload: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -177,7 +182,10 @@ export async function createSignedToken(
   ttlSeconds = 86400,
 ): Promise<string> {
   const payload = Buffer.from(
-    JSON.stringify({ ...data, exp: Math.floor(Date.now() / 1000) + ttlSeconds }),
+    JSON.stringify({
+      ...data,
+      exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+    }),
   ).toString("base64url");
   const sig = await hmacSign(secret, payload);
   return `${payload}.${sig}`;
@@ -257,7 +265,7 @@ export async function sendWelcomeEmail({
   to,
   firstName,
 }: SendWelcomeEmailOptions) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Welcome to RC TechBridge!",
@@ -282,7 +290,7 @@ export async function sendVerifyEmail({
   const verifyToken = token ?? (await createVerificationToken(to, userId));
   const verifyUrl = `${APP_URL}/auth/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Verify your email – RC TechBridge",
@@ -307,7 +315,7 @@ export async function sendResetPasswordEmail({
   const resetToken = token ?? (await createPasswordResetToken(to, userId));
   const resetUrl = `${APP_URL}/reset-password/confirm?token=${encodeURIComponent(resetToken)}`;
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Reset your password – RC TechBridge",
@@ -322,7 +330,7 @@ export async function sendNotificationEmail(
 ) {
   const sender = await resolveNotificationSenderForContext(context);
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: sender.from,
     to,
     subject: payload.subject,

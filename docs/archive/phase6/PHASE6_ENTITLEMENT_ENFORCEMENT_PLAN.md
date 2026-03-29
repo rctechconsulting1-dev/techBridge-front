@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: In progress
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 Purpose: define the implementation sequence for enforcing plan/add-on entitlements consistently across backend APIs and frontend UX.
 

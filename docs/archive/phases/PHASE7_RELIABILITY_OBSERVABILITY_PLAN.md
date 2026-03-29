@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Status: Completed
-Owner: RC Tech Bridge
+Owner: RD Tech Bridge
 
 Purpose: define actionable reliability work for critical flows (login, payments, bookings, lead email delivery) with alerting and recovery readiness.
 
