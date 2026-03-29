@@ -81,6 +81,21 @@ Admin view to list, review, approve/reject, and manage incoming booking requests
 - [ ] Revenue reporting dashboard
 - [ ] Multi-currency support
 
+### Ecommerce — Orders & Fulfillment
+- [ ] **Orders page** — admin dashboard view where tenants see incoming purchases (from `stripe_order_payment` table)
+- [ ] Order detail view — line items, customer info, payment status, timestamps
+- [ ] **Status transitions:** `pending → processing → shipped → delivered` with action buttons
+- [ ] **Shipping details** — tracking number, carrier name, shipped-at timestamp per order
+- [ ] Email notifications to customer on status change (shipped w/ tracking link, delivered)
+- [ ] Order filters & search (by status, date range, customer)
+- [ ] Sidebar nav entry (gated by `ecommerce_checkout_enabled` in payment config)
+
+### Booking Deposits — Success & Confirmation
+- [ ] **Separate deposit success page** — booking deposits use PaymentIntent via `/bookings/:id/deposit` (not Checkout Sessions), so success messaging is handled differently
+- [ ] Deposit confirmation view with booking details, amount, and next steps
+- [ ] Deposit status reflected in booking detail page (paid / pending / failed)
+- [ ] Email receipt to customer on successful deposit
+
 ### Platform
 - [ ] Webhook event log viewer (admin)
 - [ ] Stripe Connect onboarding status in site-settings

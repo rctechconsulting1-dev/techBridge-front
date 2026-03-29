@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ websiteId: string; productSlug: string }>;
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ session_id?: string; account?: string }>;
 }
 
 export default async function CheckoutSuccessPage({
@@ -16,7 +16,7 @@ export default async function CheckoutSuccessPage({
   searchParams,
 }: Props) {
   const { websiteId, productSlug } = await params;
-  const { session_id } = await searchParams;
+  const { session_id, account } = await searchParams;
 
   if (!session_id) notFound();
 
@@ -27,9 +27,11 @@ export default async function CheckoutSuccessPage({
 
   let session: Stripe.Checkout.Session;
   try {
-    session = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ["line_items"],
-    });
+    session = await stripe.checkout.sessions.retrieve(
+      session_id,
+      { expand: ["line_items"] },
+      account ? { stripeAccount: account } : undefined,
+    );
   } catch {
     notFound();
   }
@@ -49,10 +51,12 @@ export default async function CheckoutSuccessPage({
 
   const lineItem = session.line_items?.data[0];
   const productName = lineItem?.description ?? "your order";
+  const quantity = lineItem?.quantity ?? 1;
   const amountPaid = session.amount_total
     ? `$${(session.amount_total / 100).toFixed(2)}`
     : null;
   const productDetailHref = `/sites/${websiteId}/shop/${sessionProductSlug}`;
+  const customerEmail = session.customer_details?.email ?? null;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
@@ -93,15 +97,38 @@ export default async function CheckoutSuccessPage({
           </Link>
           .
         </p>
-        {amountPaid && (
-          <p className="mb-6 text-gray-500">
-            Amount charged:{" "}
-            <strong className="text-gray-700">{amountPaid}</strong>
-          </p>
-        )}
-        <p className="mb-8 text-sm text-gray-400">
-          A confirmation email will be sent to you shortly.
-        </p>
+
+        {/* Order summary */}
+        <div className="mx-auto mb-6 mt-4 w-full max-w-xs rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left text-sm">
+          {amountPaid && (
+            <div className="flex justify-between py-1">
+              <span className="text-gray-500">Total</span>
+              <span className="font-semibold text-gray-800">{amountPaid}</span>
+            </div>
+          )}
+          {quantity > 1 && (
+            <div className="flex justify-between py-1">
+              <span className="text-gray-500">Qty</span>
+              <span className="text-gray-700">{quantity}</span>
+            </div>
+          )}
+          {customerEmail && (
+            <div className="flex justify-between py-1">
+              <span className="text-gray-500">Receipt to</span>
+              <span className="truncate pl-2 text-gray-700">{customerEmail}</span>
+            </div>
+          )}
+        </div>
+
+        {/* What happens next */}
+        <div className="mb-8 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-left text-sm text-blue-800">
+          <p className="mb-1 font-semibold">What happens next?</p>
+          <ul className="list-inside list-disc space-y-1 text-blue-700">
+            <li>You&apos;ll receive a receipt at your email shortly.</li>
+            <li>The seller will prepare and ship your order.</li>
+            <li>Contact the seller if you have any questions.</li>
+          </ul>
+        </div>
 
         <Link
           href={shopHref}
