@@ -354,7 +354,7 @@ export async function sendBillingInviteEmail({
   priceFormatted,
   checkoutUrl,
 }: SendBillingInviteEmailOptions) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: `Activate your ${planName} subscription – RC TechBridge`,
