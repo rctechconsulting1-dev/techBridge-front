@@ -110,6 +110,11 @@ Goal: complete per-client operational capabilities.
 
 - [x] Domain onboarding workflow (pending -> active)
 - [x] Domain conflict detection and uniqueness checks
+- [x] Vercel domain API integration (`lib/vercelDomains.js` — add, remove, verify, DNS info)
+- [x] Auto-assigned preview URLs (`{slug}.rctechbridge.com`) via wildcard domain
+- [x] 5 domain API proxy routes (status, onboard, verify, dns-info, delete)
+- [x] `x-tenant-id` header fallback in `tenantContext` middleware for server-to-server calls
+- [x] Admin UI domain management panel (Site Settings → Domains)
 - [x] Per-tenant email sender profile setup
 - [x] SPF/DKIM verification tracking
 - [x] Lead notification routing per tenant
@@ -214,11 +219,17 @@ Kickoff progress (2026-03-24):
 - [x] Controlled client content editing permissions
 - [x] Runbook for support/escalation per feature module
 - [x] Launch checklist for each new tenant
+- [x] Offboarding endpoint (`POST /tenants/:id/offboard`) — removes custom domains, deactivates roles, sets retention deadline
+- [x] "Site no longer active" page for offboarded/suspended tenants
+- [x] `suspension_reason` + `offboarded_at` + `data_retention_expires_at` columns on tenants table
+- [ ] Tenant data export (pages, images, contacts, billing history) before offboard
+- [ ] Scheduled data purge job after retention period expires
 
 Exit criteria:
 
 - [x] Internal team can onboard clients repeatably
 - [x] Clients can edit allowed content safely
+- [ ] Tenant offboarding lifecycle (suspend → offboard → purge) fully automated
 
 ## Completion Gate (Program Done)
 

@@ -1,6 +1,6 @@
 # Tenant Onboarding Runbook
 
-Date: 2026-03-25
+Date: 2026-03-29
 Audience: Internal admin employees
 Status: Active
 
@@ -52,6 +52,49 @@ Only internal users with the `admin` role should use this process.
 
 Tenant-side users should not create tenants.
 
+## Domain Architecture
+
+Every tenant gets a working website URL immediately, with or without a custom domain.
+
+### Automatic Preview URL (No Custom Domain Needed)
+
+When a tenant is created without a domain, the platform auto-assigns:
+
+```
+https://{tenant-slug}.rctechbridge.com
+```
+
+This works because:
+
+1. Vercel has a verified wildcard domain `*.rctechbridge.com` on the project.
+2. The backend auto-generates `{slug}.rctechbridge.com` as the tenant's primary domain with status `active`.
+3. The frontend middleware resolves the hostname via `POST /api/public/site/context` to the correct `websiteId`.
+4. The tenant site renders at that URL immediately after creation.
+
+The preview URL is a real, publicly accessible URL. It is not a draft or a Vercel deployment preview. Tenants can operate on it indefinitely.
+
+### Custom Domain (When The Client Has One)
+
+When the client provides a custom domain:
+
+1. Add it in `Global Site Settings` under the Domains section.
+2. The app sends it to Vercel via the backend and shows required DNS records.
+3. The tenant or their DNS admin adds the records.
+4. Click `Verify` in the app to confirm DNS propagation.
+5. Once verified, the domain status becomes `active`.
+
+For apex domains (e.g. `acmeelectric.com`), the backend also adds a `www` redirect variant automatically.
+
+### Domain Transition (Preview To Custom)
+
+When a tenant upgrades from the preview URL to a custom domain:
+
+1. Add the custom domain in the Domains section.
+2. Complete DNS setup and verification.
+3. The custom domain becomes the new primary.
+4. The old `{slug}.rctechbridge.com` URL continues to work but is no longer primary.
+5. If canonical redirects are enabled, requests to the old URL redirect to the custom domain.
+
 ## Pre-Flight Checks
 
 Before starting, confirm all of the following:
@@ -70,8 +113,9 @@ For live tests that include custom domains or branded sending, also confirm all 
 3. Domain onboarding endpoints are live in the environment under test.
 4. Tenant email profile endpoints are live in the environment under test.
 5. SPF/DKIM verification endpoint is live in the environment under test.
-6. A temporary website hostname strategy exists for no-domain tenants.
-7. A temporary sender strategy exists for no-domain tenants.
+6. The Vercel wildcard `*.rctechbridge.com` is verified on the project.
+7. Backend env `RC_TEMPORARY_DOMAIN_SUFFIX` is set to `rctechbridge.com`.
+8. A temporary sender strategy exists for no-domain tenants.
 
 ## High-Level Sequence
 
@@ -136,6 +180,8 @@ In the `Create Tenant` form, complete the following:
    5. Hybrid Local
 4. Domain
    Optional at creation time.
+   If left blank, the system auto-assigns `{slug}.rctechbridge.com` as the tenant's preview URL.
+   The tenant site is immediately accessible at that URL.
 5. Timezone
    Example: `America/Chicago`
 6. Default Currency
@@ -341,8 +387,16 @@ If a feature page is not visible:
 If the customer package includes launch setup, complete the following:
 
 1. Domain
-   1. verify domain entry
-   2. verify primary domain state
+   1. If no custom domain yet, confirm the preview URL works:
+      Open `https://{slug}.rctechbridge.com` in a browser and verify the tenant site loads.
+   2. If a custom domain is provided:
+      1. Open `Global Site Settings` and go to the Domains section.
+      2. Enter the domain and click `Add Domain`.
+      3. Expand `DNS Records` for the new domain to see required records.
+      4. Send the DNS records to the client or their DNS admin.
+      5. After DNS propagation, click `Verify`.
+      6. Confirm the status badge turns green (`active`).
+   3. To remove a domain, click `Remove` on the domain card.
 2. Email
    1. configure sender profile
    2. configure lead routing
@@ -352,7 +406,8 @@ If the customer package includes launch setup, complete the following:
 
 Expected result:
 
-1. Optional operational systems are configured only where sold.
+1. Every tenant has a working public URL, either the auto-assigned preview or a custom domain.
+2. Optional operational systems are configured only where sold.
 
 ## Step 12 - Verify Owner Invite Status
 
@@ -408,7 +463,10 @@ Before marking onboarding complete, confirm:
 8. Main pages are configured.
 9. Purchased add-ons are available.
 10. Unpurchased features are not available.
-11. Public site content is correct.
+11. Public site loads at the tenant URL:
+    1. If no custom domain: `https://{slug}.rctechbridge.com`
+    2. If custom domain: `https://clientdomain.com`
+12. Public site content is correct.
 
 ## Step 15 - Use Status Actions When Needed
 
@@ -416,17 +474,34 @@ The `Tenants` page supports tenant lifecycle actions.
 
 Use `Suspend` when:
 
-1. service must be paused
-2. billing or compliance requires restriction
-3. access should be temporarily blocked
+1. Service must be paused
+2. Billing or compliance requires restriction
+3. Access should be temporarily blocked
 
 Use `Reactivate` when:
 
-1. tenant access should be restored
+1. Tenant access should be restored
 
 Only internal admins should use these actions.
 
-## Step 16 - Know The Main Admin Surfaces
+## Step 16 - Offboard a Tenant
+
+When a client is leaving the platform permanently:
+
+1. **Confirm the decision** with the account owner.
+2. **Export data** (if available) — pages, images, contacts. Save the export for the client.
+3. **Run offboard**: `POST /api/tenants/:tenantId/offboard` (admin only).
+   - This removes custom domains from Vercel so the client can point them elsewhere.
+   - Marks the preview URL (`{slug}.rctechbridge.com`) as inactive.
+   - Deactivates all member roles.
+   - Sets the tenant to `inactive` with a 90-day data retention deadline.
+4. **Inform the client** that their custom domain is now released and they can configure it elsewhere.
+5. The tenant's public website will show a "site no longer active" page at the preview URL.
+6. Data is retained for 90 days. After that, it will be permanently purged.
+
+**Important:** Do NOT use `Suspend` for permanent offboarding. Use `Suspend` only for temporary pauses. Once offboarded, a tenant can only be restored by engineering — there is no self-service reactivation.
+
+## Step 17 - Know The Main Admin Surfaces
 
 Employees should know these pages:
 
@@ -459,6 +534,7 @@ Use these rules consistently:
 4. If package changes, edit tenant modules and metadata.
 5. If tenant should lose access temporarily, use `Suspend`.
 6. If tenant should resume service, use `Reactivate`.
+7. If tenant is leaving permanently, use `Offboard` (Step 16).
 7. If tenant-side users should not edit something, adjust permissions in onboarding.
 8. If an internal admin needs to complete launch setup, admin access overrides tenant content restrictions.
 
@@ -470,6 +546,8 @@ Use these rules consistently:
 4. Ignoring invite tracking failures
 5. Leaving domain, email, or payment setup partially configured without follow-up
 6. Assuming tenant-side users can edit everything by default
+7. Telling the client they need a custom domain before their site can be viewed. Every tenant gets `{slug}.rctechbridge.com` automatically.
+8. Using a one-off `vercel.app` preview URL as the tenant's durable public hostname. Use the `rctechbridge.com` subdomain instead.
 
 ## What To Escalate
 
@@ -482,6 +560,8 @@ Escalate to engineering or platform support if:
 5. tenant sees features they should not have
 6. tenant cannot access features they purchased
 7. public site renders the wrong tenant content
+8. `{slug}.rctechbridge.com` returns `Unknown tenant domain` instead of loading the site
+9. Vercel domain onboarding returns a `502` or `VERCEL_API_ERROR`
 
 ## Daily Checklist Version
 

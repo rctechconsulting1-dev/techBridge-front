@@ -61,6 +61,13 @@ type StripeConnectStatus = {
   error?: string;
 };
 
+type DnsRecord = {
+  type: string;
+  name: string;
+  value: string;
+  reason?: string;
+};
+
 type DomainRecord = {
   id: number | null;
   domain: string;
@@ -70,6 +77,8 @@ type DomainRecord = {
   verificationTarget: string | null;
   failureReason: string | null;
   updatedAt: string | null;
+  dnsRecords?: DnsRecord[];
+  vercelVerified?: boolean;
 };
 
 type EmailDeliveryProfile = {
@@ -837,6 +846,10 @@ export default function SiteSettingsPage() {
   const [domainPrimaryInput, setDomainPrimaryInput] = useState(false);
   const [domainSubmitting, setDomainSubmitting] = useState(false);
   const [domainVerifyingId, setDomainVerifyingId] = useState<number | null>(null);
+  const [domainRemovingId, setDomainRemovingId] = useState<number | null>(null);
+  const [domainDnsExpanded, setDomainDnsExpanded] = useState<string | null>(null);
+  const [domainDnsRecords, setDomainDnsRecords] = useState<Record<string, DnsRecord[]>>({});
+  const [domainDnsLoading, setDomainDnsLoading] = useState<string | null>(null);
   const [domainMessage, setDomainMessage] = useState<string | null>(null);
   const [launchModeSaving, setLaunchModeSaving] = useState(false);
   const [launchModeMessage, setLaunchModeMessage] = useState<string | null>(null);
@@ -1467,19 +1480,35 @@ export default function SiteSettingsPage() {
       });
 
       if (res.status === 409) {
-        const text = await res.text();
-        setDomainMessage(text || "Domain is already used by another tenant.");
+        const errData = await res.json().catch(() => null);
+        setDomainMessage(
+          (errData as { error?: string } | null)?.error ||
+            "Domain is already used by another tenant.",
+        );
         return;
       }
 
       if (!res.ok) {
-        const text = await res.text();
-        setDomainMessage(text || `Onboarding failed (${res.status})`);
+        const errData = await res.json().catch(() => null);
+        setDomainMessage(
+          (errData as { error?: string } | null)?.error ||
+            `Onboarding failed (${res.status})`,
+        );
         return;
       }
 
+      const data = (await res.json().catch(() => ({}))) as {
+        dnsRecords?: DnsRecord[];
+      };
+      if (data.dnsRecords?.length) {
+        setDomainDnsRecords((prev) => ({
+          ...prev,
+          [normalizedDomain]: data.dnsRecords as DnsRecord[],
+        }));
+        setDomainDnsExpanded(normalizedDomain);
+      }
       setDomainMessage(
-        "Domain submitted. Add DNS records, then click Verify to activate.",
+        "Domain added to Vercel. Add the DNS records shown below, then click Verify.",
       );
       setDomainInput("");
       setDomainPrimaryInput(false);
@@ -1511,12 +1540,30 @@ export default function SiteSettingsPage() {
         });
 
         if (!res.ok) {
-          const text = await res.text();
-          setDomainMessage(text || `Verification failed (${res.status})`);
+          const errData = await res.json().catch(() => null);
+          setDomainMessage(
+            (errData as { error?: string } | null)?.error ||
+              `Verification failed (${res.status})`,
+          );
           return;
         }
 
-        setDomainMessage(`Verification check complete for ${domain.domain}.`);
+        const data = (await res.json().catch(() => ({}))) as {
+          verified?: boolean;
+          status?: string;
+          dnsRecords?: DnsRecord[];
+        };
+        if (data.dnsRecords?.length) {
+          setDomainDnsRecords((prev) => ({
+            ...prev,
+            [domain.domain]: data.dnsRecords as DnsRecord[],
+          }));
+        }
+        setDomainMessage(
+          data.verified
+            ? `${domain.domain} is verified and active!`
+            : `${domain.domain} is not verified yet. Check DNS records and try again.`,
+        );
         await loadDomains(websiteId);
       } catch (e) {
         setDomainMessage(
@@ -1527,6 +1574,75 @@ export default function SiteSettingsPage() {
       }
     },
     [loadDomains, websiteId],
+  );
+
+  const removeDomain = useCallback(
+    async (domain: DomainRecord) => {
+      if (!websiteId || !domain.id) return;
+
+      if (!window.confirm(`Remove ${domain.domain} from Vercel and this tenant? This cannot be undone.`)) {
+        return;
+      }
+
+      setDomainRemovingId(domain.id);
+      setDomainMessage(null);
+      try {
+        const res = await fetch(`/api/domains/${domain.id}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          setDomainMessage(
+            (errData as { error?: string } | null)?.error ||
+              `Failed to remove domain (${res.status})`,
+          );
+          return;
+        }
+
+        setDomainMessage(`${domain.domain} has been removed.`);
+        setDomainDnsRecords((prev) => {
+          const next = { ...prev };
+          delete next[domain.domain];
+          return next;
+        });
+        await loadDomains(websiteId);
+      } catch (e) {
+        setDomainMessage(
+          e instanceof Error ? e.message : "Failed to remove domain.",
+        );
+      } finally {
+        setDomainRemovingId(null);
+      }
+    },
+    [loadDomains, websiteId],
+  );
+
+  const loadDnsInfo = useCallback(
+    async (domain: string) => {
+      setDomainDnsLoading(domain);
+      try {
+        const res = await fetch(
+          `/api/domains/dns-info?domain=${encodeURIComponent(domain)}`,
+          { headers: authHeaders(), cache: "no-store" },
+        );
+        if (res.ok) {
+          const data = (await res.json()) as { dnsRecords?: DnsRecord[] };
+          if (data.dnsRecords) {
+            setDomainDnsRecords((prev) => ({
+              ...prev,
+              [domain]: data.dnsRecords as DnsRecord[],
+            }));
+          }
+        }
+      } catch {
+        // Non-fatal
+      } finally {
+        setDomainDnsLoading(null);
+      }
+    },
+    [],
   );
 
   const startStripeConnectOnboarding = useCallback(async () => {
@@ -3015,46 +3131,123 @@ export default function SiteSettingsPage() {
                   No onboarded domains yet.
                 </p>
               ) : (
-                domains.map((d) => (
-                  <div
-                    key={`${d.domain}-${d.id ?? "none"}`}
-                    className="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {d.domain}
-                          {d.isPrimary && (
-                            <span className="ml-2 rounded bg-[#CD7F32]/10 px-2 py-0.5 text-xs text-[#CD7F32]">
-                              primary
+                domains.map((d) => {
+                  const dnsRecords = domainDnsRecords[d.domain] || [];
+                  const isDnsExpanded = domainDnsExpanded === d.domain;
+                  return (
+                    <div
+                      key={`${d.domain}-${d.id ?? "none"}`}
+                      className="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {d.domain}
+                            {d.isPrimary && (
+                              <span className="ml-2 rounded bg-[#CD7F32]/10 px-2 py-0.5 text-xs text-[#CD7F32]">
+                                primary
+                              </span>
+                            )}
+                            <span className={`ml-2 rounded px-2 py-0.5 text-xs font-medium ${
+                              d.status === "active"
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                : d.status === "verification_failed"
+                                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                            }`}>
+                              {d.status}
                             </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          status: {d.status}
-                          {d.verificationType && d.verificationTarget
-                            ? ` | ${d.verificationType}: ${d.verificationTarget}`
-                            : ""}
-                        </p>
-                        {d.failureReason && (
-                          <p className="mt-1 text-xs text-red-500">
-                            {d.failureReason}
                           </p>
-                        )}
+                          {d.verificationType && d.verificationTarget ? (
+                            <p className="mt-1 text-xs text-gray-500">
+                              {d.verificationType}: {d.verificationTarget}
+                            </p>
+                          ) : null}
+                          {d.failureReason && (
+                            <p className="mt-1 text-xs text-red-500">
+                              {d.failureReason}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isDnsExpanded) {
+                                setDomainDnsExpanded(null);
+                              } else {
+                                setDomainDnsExpanded(d.domain);
+                                if (!dnsRecords.length) {
+                                  loadDnsInfo(d.domain);
+                                }
+                              }
+                            }}
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                          >
+                            {domainDnsLoading === d.domain ? "Loading…" : isDnsExpanded ? "Hide DNS" : "DNS Records"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => verifyDomain(d)}
+                            disabled={domainVerifyingId === (d.id ?? -1)}
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                          >
+                            {domainVerifyingId === (d.id ?? -1)
+                              ? "Verifying…"
+                              : "Verify"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeDomain(d)}
+                            disabled={domainRemovingId === (d.id ?? -1)}
+                            className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+                          >
+                            {domainRemovingId === (d.id ?? -1)
+                              ? "Removing…"
+                              : "Remove"}
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => verifyDomain(d)}
-                        disabled={domainVerifyingId === (d.id ?? -1)}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        {domainVerifyingId === (d.id ?? -1)
-                          ? "Verifying…"
-                          : "Verify"}
-                      </button>
+
+                      {isDnsExpanded && (
+                        <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+                          <p className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            Required DNS Records
+                          </p>
+                          {dnsRecords.length === 0 ? (
+                            <p className="text-xs text-gray-400">No DNS records available. The domain may not be on Vercel yet.</p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-gray-200 text-left text-gray-500 dark:border-gray-600">
+                                    <th className="pb-1 pr-4 font-medium">Type</th>
+                                    <th className="pb-1 pr-4 font-medium">Name</th>
+                                    <th className="pb-1 pr-4 font-medium">Value</th>
+                                    <th className="pb-1 font-medium">Purpose</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {dnsRecords.map((rec, idx) => (
+                                    <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
+                                      <td className="py-1.5 pr-4 font-mono font-semibold">{rec.type}</td>
+                                      <td className="py-1.5 pr-4 font-mono">{rec.name}</td>
+                                      <td className="max-w-[200px] truncate py-1.5 pr-4 font-mono" title={rec.value}>{rec.value}</td>
+                                      <td className="py-1.5 text-gray-500">{rec.reason || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                          <p className="mt-2 text-xs text-gray-400">
+                            Add these records in your DNS provider. After DNS propagates, click Verify.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
