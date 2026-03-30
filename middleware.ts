@@ -38,6 +38,21 @@ export async function middleware(request: NextRequest) {
       cache: "no-store",
     });
 
+    // Tenant offboarded or suspended → show "site no longer active" page
+    if (response.status === 403) {
+      try {
+        const body = (await response.json()) as { code?: string };
+        if (body.code === "TENANT_OFFBOARDED" || body.code === "TENANT_SUSPENDED") {
+          const deactivatedUrl = request.nextUrl.clone();
+          deactivatedUrl.pathname = "/sites/deactivated";
+          return NextResponse.rewrite(deactivatedUrl);
+        }
+      } catch {
+        // Parse failed — fall through to default handling
+      }
+      return NextResponse.next();
+    }
+
     if (!response.ok) {
       return NextResponse.next();
     }
