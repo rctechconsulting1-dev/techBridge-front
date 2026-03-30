@@ -20,8 +20,11 @@ Use this checklist for every new tenant before go-live.
 
 ## 3) Email and Notifications
 
-- [ ] Sender profile configured
-- [ ] SPF/DKIM status verified
+- [ ] Resend sending domain created (click `Setup Sending Domain` in site-settings Domains section)
+- [ ] Resend DNS records added at registrar/Vercel
+- [ ] Resend domain verified (click `Verify Mail DNS` in site-settings Domains section)
+- [ ] Sender profile configured in Email Delivery section
+- [ ] SPF/DKIM status verified (click `Verify SPF/DKIM` in Email Delivery section)
 - [ ] Lead routing recipients validated
 
 ## 4) Payments and Commerce (if enabled)

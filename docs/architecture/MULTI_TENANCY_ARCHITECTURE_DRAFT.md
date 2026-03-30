@@ -1,8 +1,8 @@
 # Multi-Tenancy Architecture Draft
 
-Date: 2026-03-23 (initial), 2026-03-29 (Sections 3.2, 8 updated)
+Date: 2026-03-23 (initial), 2026-03-29 (Sections 3.2, 6, 6.1, 8 updated)
 Owner: RD Tech Bridge
-Status: Draft v2
+Status: Draft v3
 
 Execution tracker: see `MULTI_TENANCY_PHASE_CHECKLIST.md`.
 Phase 1 execution runbook: see `docs/archive/phases/PHASE1_LOCAL_TO_RDS_RUNBOOK.md`.
@@ -123,32 +123,303 @@ Suggested modules:
 - `google_business_management` (add-on)
 - `sms_leads_and_comms` (add-on)
 - `google_ads_optimization` (add-on)
+- `professional_email` (add-on — Google Workspace on tenant domain)
+- `ai_email_agent` (add-on — inbox reading, draft replies, calendar sync)
+- `ai_email_agent_pro` (premium add-on — 24/7 autonomous agent via Workspace delegation)
 - `custom_ai_agent` (premium add-on)
 
 ## 6) Email Architecture (Per Client)
 
 Requirement: each client has different emails.
 
-Recommended approach:
+### 6.1 Three Email Layers
 
-1. Use one email provider account that supports multiple verified sending domains.
-2. Store per-tenant email profile:
-   - `from_name`
-   - `from_email`
-   - `reply_to`
-   - `sending_domain`
-   - `dkim_verified`
-   - `spf_verified`
-3. Store lead notification targets per tenant:
-   - `lead_notification_emails[]`
-   - optional escalation rules
-4. Use template IDs shared globally, inject tenant branding/content at send time.
-5. Enforce per-tenant suppression/bounce handling.
+| Layer | Purpose | Provider | Cost |
+|-------|---------|----------|------|
+| Platform internal | RC team comms, support, ops | Google Workspace (`rctechbridge.com`) | Existing |
+| Transactional/notification | Lead alerts, booking confirmations, invoices, estimates | Resend (per-tenant sender profiles) | Resend Pro $20/mo |
+| Tenant business inbox | Owner reads/replies to email, daily business comms | BYOE (default) or Google Workspace add-on | $0 default, $15–20/user/mo add-on |
+
+Layer 1 and 2 are platform infrastructure. Layer 3 is tenant-owned.
+
+### 6.2 Resend — Transactional Email Engine
+
+Provider: Resend Pro (one shared account, unlimited verified sending domains).
+
+Plan requirements:
+
+| Resend Plan | Domains | Emails/month | Rate limit | Required for |
+|-------------|---------|-------------|------------|-------------|
+| Free | 1 | 3,000 | 2/s | Dev/test only |
+| **Pro ($20/mo)** | **Unlimited** | **50,000** | **10/s** | **Production — required** |
+| Enterprise | Unlimited | Custom | Custom | 500+ tenants or >100k/month |
+
+Resend Pro is required before onboarding a second tenant. No code changes needed — the existing `RESEND_API_KEY` stays the same after upgrading.
+
+#### 6.2.1 Implementation Status (Updated 2026-03-29)
+
+✅ **Complete**:
+- Shared Resend client singleton at `src/lib/resend-client.ts`
+- Per-tenant sending domain management via `src/lib/resend-domains.ts` wrapper
+- Auto-creates `mg.{domain}` on domain onboarding (`POST /api/domains/onboard`)
+- Frontend site-settings UI exposes `Setup Sending Domain` and `Verify Mail DNS` buttons on domain cards
+- DNS records panel merges Vercel + Resend records (`GET /api/domains/dns-info`)
+- SPF/DKIM verification via direct Resend API fallback (`POST /api/email/profile/verify`)
+- Dedicated Resend domain routes: `POST /api/resend-domains/create`, `POST /api/resend-domains/verify`, `GET /api/resend-domains/status`
+- On-mount hydration: site-settings page queries Resend API per custom domain to restore status badges on page load
+
+#### 6.2.2 Future Enhancement — Persist Resend State in DB (Option B)
+
+Currently Resend domain state (domain ID, verification status) is hydrated on each page load via the Resend API. This works well for a small number of tenants but makes one API call per custom domain per page view.
+
+When scaling beyond ~50 tenants with custom domains, migrate to persisted state:
+
+```sql
+ALTER TABLE tenant_domains
+  ADD COLUMN resend_domain_id TEXT,
+  ADD COLUMN resend_status TEXT DEFAULT 'none';
+```
+
+Backend changes required:
+- Update domain onboard handler to persist `resend_domain_id` and `resend_status` when the Resend subdomain is created.
+- Update `GET /domains/status` response to include `resend_domain_id` and `resend_status` per domain.
+- Add a periodic job or webhook handler that syncs Resend verification status back to DB.
+- Remove on-mount Resend API hydration from the frontend once the backend returns the data.
+
+This is not needed until the per-page-load Resend API calls become a performance concern.
+
+### 6.3 Per-Tenant Email Profile (Existing)
+
+Store per-tenant email profile:
+
+- `from_name`
+- `from_email`
+- `reply_to`
+- `sending_domain`
+- `dkim_verified`
+- `spf_verified`
+
+Store lead notification targets per tenant:
+
+- `lead_notification_emails[]`
+- optional escalation rules
+
+Use template IDs shared globally, inject tenant branding/content at send time.
+
+### 6.4 Tenant Email Scenarios
+
+| Scenario | Website URL | Outbound sender (Resend) | Tenant inbox |
+|----------|------------|-------------------------|--------------|
+| No domain | `slug.rctechbridge.com` | `hello@mg.rctechbridge-mail.com` | Their personal Gmail/Outlook |
+| Has domain | `acmeelectric.com` | `hello@acmeelectric.com` via `mg.acmeelectric.com` | Their personal Gmail/Outlook |
+| Domain + email add-on | `acmeelectric.com` | `hello@acmeelectric.com` via `mg.acmeelectric.com` | `owner@acmeelectric.com` (Google Workspace) |
+
+Tenants without a domain are fully functional on the platform sender. Branded sending activates only after the tenant's domain is verified and SPF/DKIM pass.
+
+### 6.5 Outbound Email Types By Module
+
+| Module | Email Types | Template prefix | Trigger |
+|--------|-----------|----------------|--------|
+| Lead Capture | New lead alert to tenant, auto-reply to customer | `lead_*` | Form submission |
+| Appointments/Calendar | Confirmation, reminder (24h), cancellation, reschedule | `appointment_*` | Booking action |
+| Estimates | Estimate sent, approved/declined | `estimate_*` | Tenant creates estimate |
+| Invoices | Invoice sent, payment received, overdue | `invoice_*` | Invoice or payment event |
+| E-Commerce/Shop | Order confirmation, shipping, delivery | `order_*` | Purchase on tenant site |
+| Contracts | Sent for signature, signed confirmation | `contract_*` | Tenant sends contract |
+| Reviews | Review request after job | `review_request` | Job marked complete |
+| Follow-ups | Drip sequence (day 1, 3, 7) | `followup_*` | Automated schedule |
+
+All types share the same send pipeline:
+
+```
+Trigger → resolve tenant email profile → pick template → inject branding → Resend API → log → on failure → retry → DLQ
+```
+
+### 6.6 DNS Coexistence (Per Tenant Domain)
+
+When a tenant has their own domain, website, inbound email, and outbound transactional email coexist on different DNS record types:
+
+```
+acmeelectric.com
+├── A      → 76.76.21.21              (Vercel — website)
+├── CNAME  → cname.vercel-dns.com     (www redirect)
+├── MX     → ASPMX.L.GOOGLE.COM      (Google Workspace — only if email add-on)
+├── TXT    → v=spf1 include:_spf.google.com include:amazonses.com ~all
+└── mg.acmeelectric.com
+    ├── CNAME / TXT → Resend SPF/DKIM  (outbound transactional)
+```
+
+MX records are only added when the tenant purchases the Professional Email add-on.
+
+### 6.7 Professional Email Add-on (Google Workspace)
+
+Add-on key: `professional_email`.
+
+Provisioning model: manual initially (Phase 1), automated via Admin SDK later.
+
+When a tenant purchases the add-on:
+
+1. RC provisions Google Workspace for the tenant's domain in Google Admin Console.
+2. RC creates mailboxes as agreed (owner, office, etc.).
+3. MX records are added to the tenant's DNS alongside existing Vercel + Resend records.
+4. Tenant receives Gmail credentials and can read/reply from professional addresses.
+
+Tenant email config table:
+
+```sql
+tenant_email_config (
+  id                    BIGSERIAL PRIMARY KEY,
+  tenant_id             BIGINT NOT NULL REFERENCES tenants(id),
+  provider              TEXT NOT NULL DEFAULT 'none',  -- 'none', 'google_workspace'
+  workspace_customer_id TEXT,
+  users_provisioned     INT DEFAULT 0,
+  mx_verified           BOOLEAN DEFAULT false,
+  provisioned_at        TIMESTAMPTZ,
+  created_at            TIMESTAMPTZ DEFAULT now(),
+  updated_at            TIMESTAMPTZ DEFAULT now()
+)
+```
+
+Pricing: pass-through + margin (Google costs ~$7–14/user/month, charge tenant $15–20/user/month).
+
+### 6.8 Scaling Safeguards
+
+Required before 50 tenants:
+
+1. **Per-tenant send tracking** — `tenant_email_sends` ledger table for cost attribution and abuse detection.
+2. **Backend send queue** — move Resend calls from inline API route to a backend queue worker that drains at safe rate (8/s).
+3. **Per-tenant daily send cap** — default 100/day per tenant, configurable via `tenant_features`.
+
+Required before 100 tenants:
+
+4. **Bounce/complaint webhooks** — register Resend webhook, route to backend, auto-suppress bad addresses per tenant.
+5. **Domain verification health cron** — periodic check of all active tenant sending domains via Resend API.
+
+When to evaluate migration to AWS SES: 500+ tenants or sustained >100k emails/month.
 
 Operational notes:
 
 - New tenant onboarding must include DNS verification checklist (SPF, DKIM, return-path if needed).
 - If a client cannot verify domain, fall back to platform sender domain with tenant-specific reply-to.
+
+## 6.9 AI Email Agent Architecture
+
+### Tiered Model
+
+| Tier | Name | Access Method | Capabilities | Add-on key |
+|------|------|--------------|-------------|------------|
+| Base | AI Lite | OAuth (BYOE) | Read inbox, draft replies, organize, calendar sync | `ai_email_agent` |
+| Premium | AI Pro | Google Workspace domain-wide delegation | All of Lite + 24/7 autonomous operation, multi-user, auto-triage, auto-follow-up | `ai_email_agent_pro` |
+
+### Base Tier — OAuth (BYOE + AI Lite)
+
+Tenant connects their existing Gmail or Outlook via OAuth. AI agent features run when the token is valid.
+
+Flow:
+
+1. Tenant clicks "Connect Email" in tenant settings.
+2. App redirects to Google/Microsoft OAuth consent screen.
+3. Tenant approves requested scopes.
+4. Callback stores tokens in `tenant_oauth_tokens`.
+5. AI agent uses tokens to access mailbox and calendar APIs.
+
+Google scopes:
+
+- `https://www.googleapis.com/auth/gmail.modify`
+- `https://www.googleapis.com/auth/calendar.events`
+
+Microsoft Graph scopes:
+
+- `Mail.ReadWrite`
+- `Calendars.ReadWrite`
+
+Limitations:
+
+- Token can be revoked by user at any time.
+- Refresh tokens may expire after 6 months of inactivity.
+- Each user must individually consent.
+- AI stops working if token breaks until user re-authenticates.
+
+### Premium Tier — Managed Workspace + AI Pro
+
+RC provisions Google Workspace for the tenant's domain. Domain-wide delegation grants the platform service account access to all tenant mailboxes.
+
+Flow:
+
+1. Tenant purchases Professional Email + AI Pro add-on.
+2. RC provisions Google Workspace (manual Phase 1, automated later).
+3. RC enables domain-wide delegation in Workspace admin.
+4. Platform service account impersonates any `@tenantdomain.com` user.
+5. AI agent operates 24/7 without tenant intervention.
+
+Advantages over OAuth:
+
+- Tokens never expire (service account, controlled by RC).
+- No per-user consent needed.
+- New employees auto-covered when account is created.
+- RC can centrally revoke access on offboarding.
+- Push notifications (Gmail Pub/Sub) are reliable.
+
+### AI Agent Capabilities
+
+| Incoming email pattern | AI action | App result |
+|----------------------|-----------|------------|
+| Request for quote/estimate | Classify as lead, extract details | Create lead record, draft reply with availability |
+| Appointment confirmation | Classify as scheduling | Add to calendar, send confirmation |
+| Signed contract returned | Classify as contract response | Update contract status, notify tenant |
+| Customer service inquiry | Classify as inquiry | Draft reply using app data (order status, etc.) |
+| Payment notification | Classify as payment | Match to invoice, update status |
+| Spam / newsletter | Classify as noise | Auto-archive |
+
+### OAuth Token Data Model
+
+```sql
+tenant_oauth_tokens (
+  id              BIGSERIAL PRIMARY KEY,
+  tenant_id       BIGINT NOT NULL REFERENCES tenants(id),
+  user_id         BIGINT NOT NULL REFERENCES users(id),
+  provider        TEXT NOT NULL,           -- 'google', 'microsoft'
+  scopes          TEXT[] NOT NULL,
+  access_token    TEXT NOT NULL,
+  refresh_token   TEXT,
+  expires_at      TIMESTAMPTZ,
+  status          TEXT NOT NULL DEFAULT 'active',  -- 'active', 'revoked', 'expired'
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+)
+```
+
+This table is separate from the existing Google Business OAuth tokens (`agency_google_token`). Gmail/Calendar OAuth uses the same Google Cloud OAuth client with different scopes.
+
+### Auth Isolation
+
+Gmail OAuth does not affect the platform auth system:
+
+- **App login**: JWT issued by Express backend (unchanged).
+- **Tenant membership**: JWT payload `memberships[]` checked by `requireTenantMembership` (unchanged).
+- **Google Business OAuth**: Existing flow, scopes `business.manage`, tokens in `agency_google_token` (unchanged).
+- **Gmail/Calendar OAuth**: New flow, scopes `gmail.modify` + `calendar.events`, tokens in `tenant_oauth_tokens`.
+
+These are four independent auth layers that never cross paths.
+
+### Inbound Reply Strategy (Phased)
+
+Closing the loop on customer replies coming back into the app:
+
+- **Phase 1 (now)**: Manual notes — tenant logs "customer approved via email" in CRM.
+- **Phase 2**: Gmail API integration — app pulls email threads for known contacts into CRM view.
+- **Phase 3**: Full two-way — tenant reads and replies inside the app.
+
+### API Routes (Planned)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/auth/google/gmail-callback` | GET | Gmail/Calendar OAuth callback |
+| `/api/auth/microsoft/callback` | GET | Microsoft Graph OAuth callback |
+| `/api/tenant-email-oauth/status` | GET | Check OAuth connection status for tenant |
+| `/api/tenant-email-oauth/disconnect` | POST | Revoke and delete OAuth tokens |
+| `/api/ai-agent/inbox/summary` | GET | AI-generated inbox summary for tenant |
+| `/api/ai-agent/drafts` | GET/POST | AI-generated draft replies |
 
 ## 7) Stripe Architecture (Per Client)
 
@@ -238,6 +509,22 @@ Frontend proxy routes (Next.js `src/app/api/domains/`):
 | `/api/domains/verify` | POST | `/domains/verify` | Trigger Vercel DNS verification |
 | `/api/domains/dns-info` | GET | `/domains/dns-info?domain={d}` | Fetch current DNS records |
 | `/api/domains/[domainId]` | DELETE | `/domains/{domainId}` | Remove domain from Vercel + DB |
+
+Resend domain management routes (self-contained, no backend proxy):
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/resend-domains/create` | POST | Create Resend sending subdomain (`mg.{domain}`) |
+| `/api/resend-domains/verify` | POST | Trigger SPF/DKIM verification via Resend API |
+| `/api/resend-domains/status` | GET | Check Resend domain verification status |
+
+Hybrid routes (backend proxy + Resend API):
+
+| Route | Resend Integration |
+|-------|--------------------|
+| `/api/domains/onboard` | Auto-creates `mg.{domain}` in Resend after Vercel domain add |
+| `/api/domains/dns-info` | Merges Resend DNS records alongside Vercel records |
+| `/api/email/profile/verify` | Falls back to direct Resend API verification when backend unavailable |
 
 All proxy routes forward `Authorization` and `x-tenant-id` headers using `fetchFirstSuccessfulCandidate` from `lib/proxy-candidates`.
 
@@ -365,12 +652,40 @@ Feature map:
 - Integrate Stripe Connect per tenant.
 - Add per-tenant email profiles and lead routing.
 - Implement domain onboarding workflow and verification status.
+- Upgrade Resend to Pro for unlimited tenant sending domains.
 
 ## Phase 3: Feature Migration
 
 - Move each current feature to strict tenant context.
 - Add usage tracking and limits for premium add-ons.
 - Add internal onboarding wizard with business-type presets.
+
+## Phase 4: Email Scaling + AI Agent Foundation
+
+- Add `tenant_email_sends` tracking table.
+- Move email sends to backend queue worker (rate-limit safe).
+- Add per-tenant daily send caps.
+- Register Resend bounce/complaint webhooks.
+- Build Gmail OAuth flow ("Connect Email" in tenant settings).
+- Build Microsoft Graph OAuth flow for Outlook users.
+- Add `tenant_oauth_tokens` table.
+
+## Phase 5: AI Email Agent
+
+- Build email read/classify pipeline using AI.
+- Build draft-reply generation with tenant context and templates.
+- Add calendar sync (Google Calendar API, Microsoft Graph).
+- Build inbox summary and triage UI in tenant dashboard.
+- Add `ai_email_agent` add-on to feature/module system.
+
+## Phase 6: Professional Email + AI Pro
+
+- Build Google Workspace manual provisioning workflow.
+- Add `tenant_email_config` table and admin UI.
+- Add `professional_email` add-on.
+- Implement domain-wide delegation for Workspace tenants.
+- Launch `ai_email_agent_pro` with 24/7 autonomous operation.
+- Domain verification health cron for all active sending domains.
 
 ## 11) Reliability Targets For Critical Flows
 

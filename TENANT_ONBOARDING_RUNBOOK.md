@@ -398,8 +398,12 @@ If the customer package includes launch setup, complete the following:
       6. Confirm the status badge turns green (`active`).
    3. To remove a domain, click `Remove` on the domain card.
 2. Email
-   1. configure sender profile
-   2. configure lead routing
+   1. If a custom domain was added, click `Setup Sending Domain` on the domain card to auto-create the Resend sending subdomain (`mg.{domain}`).
+   2. Expand `DNS Records` and ensure all Resend mail records are added in DNS.
+   3. Click `Verify Mail DNS` on the domain card after DNS propagation.
+   4. In the `Email Delivery` section, enter From Name, From Email, Reply-To, Sending Domain (the `mg.` subdomain), and Lead Notification Recipients.
+   5. Save the email profile.
+   6. Click `Verify SPF/DKIM` and confirm verification passes.
 3. Payments
    1. configure payment-related setup
    2. verify Stripe-related status if applicable

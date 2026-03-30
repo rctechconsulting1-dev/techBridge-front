@@ -209,64 +209,76 @@ What happens:
 
 Do not remove the temporary `{slug}.rctechbridge.com` domain unless a verified custom domain is already active.
 
-## Step 6 - Create The Resend Sending Subdomain
+## Step 6 - Setup The Resend Sending Subdomain (Automated)
 
-In the shared RD Tech Bridge Resend account:
+The app now creates the Resend sending subdomain automatically.
 
-1. Add a new sending domain for the tenant.
-2. Use a subdomain, not the root domain.
+In `Global Site Settings` under `Domains`:
 
-Preferred naming convention:
+1. Once a custom domain is added and the domain card appears, click `Setup Sending Domain` on the domain card.
+2. The app creates `mg.{domain}` in Resend automatically and displays all required DNS records.
+3. Expand `DNS Records` to see the Resend mail records (SPF, DKIM, etc.).
 
-1. `mg.clientdomain.com`
-
-Example:
+Naming convention (handled automatically):
 
 1. Website domain: `acmeelectric.com`
 2. Resend sending domain: `mg.acmeelectric.com`
 
-Do not create:
+You do not need to:
 
-1. A new Resend account per tenant
-2. A new Resend login per tenant
+1. Log into the Resend dashboard manually
+2. Create a new Resend account per tenant
+3. Create a new Resend login per tenant
+
+Note: If the domain was added via `Add Domain`, the Resend sending subdomain may have been auto-created during onboarding. Check the domain card for a Resend status badge before clicking `Setup Sending Domain`.
 
 Expected result:
 
-1. Resend gives you the required DNS records for SPF/DKIM and verification.
+1. The domain card shows a Resend status badge (e.g. `mg.acmeelectric.com: not_started`).
+2. DNS Records panel shows all required Resend mail records.
 
 ## Step 7 - Add Resend DNS Records
 
+DNS records are now shown directly in the app after clicking `Setup Sending Domain`.
+
 If DNS is in Vercel:
 
-1. Open the DNS panel for the tenant domain in Vercel.
-2. Add every Resend-provided DNS record exactly as shown.
+1. Expand `DNS Records` on the domain card in site-settings.
+2. Copy each Resend-provided record and add it in Vercel DNS.
 3. Save the records.
 
 If DNS is external:
 
-1. Send the full record set to the DNS owner.
-2. Wait for propagation.
+1. Copy the full record set from the DNS Records panel.
+2. Send to the DNS owner.
+3. Wait for propagation.
 
 Important rule:
 
 1. Website DNS records and Resend mail DNS records are separate.
 2. Do not remove working website records while adding mail records.
+3. The DNS Records panel shows both Vercel and Resend records merged together.
 
 Expected result:
 
 1. The Resend sending subdomain can be verified.
 
-## Step 8 - Verify The Sending Subdomain In Resend
+## Step 8 - Verify The Sending Subdomain (Automated)
 
-In Resend:
+In `Global Site Settings` under `Domains`:
 
-1. Refresh the domain verification status.
-2. Wait until SPF and DKIM show verified.
-3. Do not continue using placeholder values after verification is available.
+1. On the domain card, click `Verify Mail DNS`.
+2. The app triggers Resend verification automatically.
+3. Wait for DNS propagation (usually minutes to hours).
+4. Refresh the DNS Records panel to see updated SPF/DKIM verification status.
+5. Do not continue using placeholder values after verification is available.
+
+You do not need to log into the Resend dashboard to verify manually.
 
 Expected result:
 
-1. Resend shows the tenant sending subdomain as verified.
+1. The domain card Resend status badge updates to `verified`.
+2. SPF and DKIM records show as verified in the DNS Records panel.
 
 ## Step 9 - Choose The Four Email Values For The App
 

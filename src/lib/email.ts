@@ -7,7 +7,6 @@
  *   NEXT_PUBLIC_APP_URL – Public base URL used to build links (e.g. https://app.yourdomain.com)
  */
 
-import { Resend } from "resend";
 import {
   buildWelcomeHtml,
   buildVerifyHtml,
@@ -17,8 +16,7 @@ import {
   type NotificationPayload,
 } from "@/lib/email-templates";
 import { getApiBaseUrl, getAppBaseUrl } from "@/lib/api";
-
-const getResend = () => new Resend(process.env.RESEND_API_KEY);
+import { getResendClient } from "@/lib/resend-client";
 
 const FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL ?? "RD TechBridge <noreply@rdtechbridge.com>";
@@ -265,7 +263,7 @@ export async function sendWelcomeEmail({
   to,
   firstName,
 }: SendWelcomeEmailOptions) {
-  return getResend().emails.send({
+  return getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Welcome to RC TechBridge!",
@@ -290,7 +288,7 @@ export async function sendVerifyEmail({
   const verifyToken = token ?? (await createVerificationToken(to, userId));
   const verifyUrl = `${APP_URL}/auth/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-  return getResend().emails.send({
+  return getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Verify your email – RC TechBridge",
@@ -315,7 +313,7 @@ export async function sendResetPasswordEmail({
   const resetToken = token ?? (await createPasswordResetToken(to, userId));
   const resetUrl = `${APP_URL}/reset-password/confirm?token=${encodeURIComponent(resetToken)}`;
 
-  return getResend().emails.send({
+  return getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Reset your password – RC TechBridge",
@@ -330,7 +328,7 @@ export async function sendNotificationEmail(
 ) {
   const sender = await resolveNotificationSenderForContext(context);
 
-  return getResend().emails.send({
+  return getResendClient().emails.send({
     from: sender.from,
     to,
     subject: payload.subject,
@@ -354,7 +352,7 @@ export async function sendBillingInviteEmail({
   priceFormatted,
   checkoutUrl,
 }: SendBillingInviteEmailOptions) {
-  return getResend().emails.send({
+  return getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
     subject: `Activate your ${planName} subscription – RC TechBridge`,
