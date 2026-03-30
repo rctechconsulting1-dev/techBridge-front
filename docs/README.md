@@ -20,10 +20,14 @@ Additional live-test and launch-mode guidance:
 
 1. `operations/TENANT_LIVE_TEST_RUNBOOK.md`
 
+## Roadmap
+
+1. `FEATURES_AND_ADDONS_ROADMAP.md` — planned features with backend ready, UI pending
+
 ## Architecture
 
 1. `architecture/MULTI_TENANCY_ARCHITECTURE_DRAFT.md`
-2. `guides/MIGRATION_GUIDE.md`
+2. `architecture/STRIPE_BILLING_AND_PAYMENTS_ARCHITECTURE.md`
 3. `guides/IMAGE_METADATA_MIGRATION.md`
 4. `templates/LANDING_PAGE_TEMPLATE.md`
 
@@ -34,20 +38,9 @@ Additional live-test and launch-mode guidance:
 3. `operations/PHASE8_SUPPORT_ESCALATION_RUNBOOK.md`
 4. `operations/PHASE8_TENANT_LAUNCH_CHECKLIST.md`
 
-## Google Integration Docs
-
-1. `integrations/google/GOOGLE_OAUTH_SETUP.md`
-2. `integrations/google/GOOGLE_SCOPE_JUSTIFICATIONS.md`
-3. `integrations/google/GOOGLE_VERIFICATION_ACTION_PLAN.md`
-4. `integrations/google/GOOGLE_VERIFICATION_CHECKLIST.md`
-
-## Planning
-
-1. `plans/phase6/PHASE6_ENTITLEMENT_MATRIX_DRAFT.md`
-2. `plans/phase6/PHASE6_BILLING_ENTITLEMENT_SYNC_CONTRACT.md`
-3. `plans/phase6/PHASE6_PACKAGING_PRICING_LINKAGE_DRAFT.md`
-4. `plans/phase6/PHASE6_ENTITLEMENT_ENFORCEMENT_PLAN.md`
-
 ## Archive
 
+Completed phase plans moved here for reference:
+
 1. `archive/phases/README.md`
+2. `archive/phase6/` — Billing & entitlement design drafts (implemented)

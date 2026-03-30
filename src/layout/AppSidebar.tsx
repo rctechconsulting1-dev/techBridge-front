@@ -106,6 +106,18 @@ const navItems: NavItem[] = [
   },
   {
     icon: <ListIcon />,
+    name: "Payment Config",
+    path: "/payment-config",
+    requiredRoles: ["admin", "platform_admin", "tenant_owner", "tenant_manager"],
+  },
+  {
+    icon: <FileIcon />,
+    name: "Estimates",
+    path: "/estimates",
+    requiredRoles: ["admin", "platform_admin", "tenant_owner", "tenant_manager"],
+  },
+  {
+    icon: <ListIcon />,
     name: "Email DLQ",
     path: "/email-dlq",
     requiredRoles: ["admin", "platform_admin"],
