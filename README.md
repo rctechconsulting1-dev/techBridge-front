@@ -277,6 +277,11 @@ See [docs/architecture/MULTI_TENANCY_ARCHITECTURE_DRAFT.md](./docs/architecture/
 - Per-tenant email and Stripe strategy
 - Migration plan for existing features
 
+See [docs/architecture/STRIPE_BILLING_AND_PAYMENTS_ARCHITECTURE.md](./docs/architecture/STRIPE_BILLING_AND_PAYMENTS_ARCHITECTURE.md) for:
+- Platform billing versus tenant merchant payments
+- Scalable backend schema and endpoint plan for Stripe
+- Webhook event matrix for subscriptions, ecommerce, and appointment deposits
+
 See [docs/README.md](./docs/README.md) for the broader documentation map.
 
 ---
