@@ -851,6 +851,8 @@ export default function SiteSettingsPage() {
   const [domainDnsRecords, setDomainDnsRecords] = useState<Record<string, DnsRecord[]>>({});
   const [domainDnsLoading, setDomainDnsLoading] = useState<string | null>(null);
   const [domainMessage, setDomainMessage] = useState<string | null>(null);
+  const [resendDomainStatus, setResendDomainStatus] = useState<Record<string, { id: string; status: string } | null>>({});
+  const [resendDomainCreating, setResendDomainCreating] = useState<string | null>(null);
   const [launchModeSaving, setLaunchModeSaving] = useState(false);
   const [launchModeMessage, setLaunchModeMessage] = useState<string | null>(null);
   const [emailProfileLoading, setEmailProfileLoading] = useState(false);
@@ -1109,6 +1111,43 @@ export default function SiteSettingsPage() {
     }
   }, []);
 
+  /** Hydrate Resend domain status for a list of custom domains (non-blocking). */
+  const loadResendDomainStatuses = useCallback(async (domainList: DomainRecord[]) => {
+    const customDomains = domainList.filter(
+      (d) => d.domain.split(".").length <= 2 && !d.domain.endsWith(".rctechbridge.com"),
+    );
+    if (!customDomains.length) return;
+
+    const results = await Promise.allSettled(
+      customDomains.map(async (d) => {
+        const res = await fetch(
+          `/api/resend-domains/status?domain=${encodeURIComponent(d.domain)}`,
+          { method: "GET", headers: authHeaders(), cache: "no-store" },
+        );
+        if (!res.ok) return null;
+        const data = (await res.json()) as {
+          found?: boolean;
+          resendDomainId?: string;
+          status?: string;
+        };
+        if (data.found && data.resendDomainId) {
+          return { domain: d.domain, id: data.resendDomainId, status: data.status || "not_started" };
+        }
+        return null;
+      }),
+    );
+
+    const statusMap: Record<string, { id: string; status: string }> = {};
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) {
+        statusMap[r.value.domain] = { id: r.value.id, status: r.value.status };
+      }
+    }
+    if (Object.keys(statusMap).length) {
+      setResendDomainStatus((prev) => ({ ...prev, ...statusMap }));
+    }
+  }, []);
+
   const loadDomains = useCallback(async (wid: number) => {
     setDomainsLoading(true);
     try {
@@ -1126,7 +1165,11 @@ export default function SiteSettingsPage() {
       }
 
       const data = (await res.json()) as { domains?: DomainRecord[] };
-      setDomains(Array.isArray(data.domains) ? data.domains : []);
+      const list = Array.isArray(data.domains) ? data.domains : [];
+      setDomains(list);
+
+      // Hydrate Resend status for custom domains (non-blocking)
+      loadResendDomainStatuses(list);
     } catch (e) {
       setDomainMessage(
         e instanceof Error ? e.message : "Unable to load domain status.",
@@ -1135,7 +1178,7 @@ export default function SiteSettingsPage() {
     } finally {
       setDomainsLoading(false);
     }
-  }, []);
+  }, [loadResendDomainStatuses]);
 
   const loadEmailProfile = useCallback(async (wid: number) => {
     setEmailProfileLoading(true);
@@ -1499,6 +1542,8 @@ export default function SiteSettingsPage() {
 
       const data = (await res.json().catch(() => ({}))) as {
         dnsRecords?: DnsRecord[];
+        resendDomainId?: string;
+        resendStatus?: string;
       };
       if (data.dnsRecords?.length) {
         setDomainDnsRecords((prev) => ({
@@ -1507,8 +1552,21 @@ export default function SiteSettingsPage() {
         }));
         setDomainDnsExpanded(normalizedDomain);
       }
+      // Capture Resend domain info if it was auto-created during onboard
+      if (data.resendDomainId) {
+        setResendDomainStatus((prev) => ({
+          ...prev,
+          [normalizedDomain]: {
+            id: data.resendDomainId as string,
+            status: data.resendStatus || "not_started",
+          },
+        }));
+      }
+      const hasResend = Boolean(data.resendDomainId);
       setDomainMessage(
-        "Domain added to Vercel. Add the DNS records shown below, then click Verify.",
+        hasResend
+          ? "Domain added to Vercel and Resend sending domain created. Add ALL DNS records shown below, then click Verify."
+          : "Domain added to Vercel. Add the DNS records shown below, then click Verify.",
       );
       setDomainInput("");
       setDomainPrimaryInput(false);
@@ -1643,6 +1701,130 @@ export default function SiteSettingsPage() {
       }
     },
     [],
+  );
+
+  const setupResendDomain = useCallback(
+    async (domain: string) => {
+      const isSubdomain = domain.split(".").length > 2;
+      const isRCDomain = domain.endsWith(".rctechbridge.com");
+      if (isSubdomain || isRCDomain) return;
+
+      setResendDomainCreating(domain);
+      setDomainMessage(null);
+      try {
+        const res = await fetch("/api/resend-domains/create", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ domain }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          setDomainMessage(
+            (errData as { error?: string } | null)?.error ||
+              `Failed to create Resend sending domain (${res.status})`,
+          );
+          return;
+        }
+
+        const data = (await res.json()) as {
+          resendDomainId?: string;
+          sendingDomain?: string;
+          resendStatus?: string;
+          status?: string;
+          dnsRecords?: DnsRecord[];
+          alreadyExisted?: boolean;
+        };
+
+        const status = data.resendStatus || data.status || "not_started";
+        if (data.resendDomainId) {
+          setResendDomainStatus((prev) => ({
+            ...prev,
+            [domain]: { id: data.resendDomainId as string, status },
+          }));
+        }
+
+        // Merge Resend DNS records into the domain card
+        if (data.dnsRecords?.length) {
+          setDomainDnsRecords((prev) => {
+            const existing = prev[domain] || [];
+            const existingValues = new Set(existing.map((r) => `${r.type}|${r.name}|${r.value}`));
+            const newRecords = (data.dnsRecords as DnsRecord[]).filter(
+              (r) => !existingValues.has(`${r.type}|${r.name}|${r.value}`),
+            );
+            return { ...prev, [domain]: [...existing, ...newRecords] };
+          });
+          setDomainDnsExpanded(domain);
+        }
+
+        // Auto-fill sending domain in email profile if empty
+        if (data.sendingDomain && !emailProfile.sendingDomain) {
+          setEmailProfile((prev) => ({ ...prev, sendingDomain: data.sendingDomain as string }));
+        }
+
+        setDomainMessage(
+          data.alreadyExisted
+            ? `Resend sending domain (${data.sendingDomain}) already exists. DNS records shown below.`
+            : `Resend sending domain (${data.sendingDomain}) created. Add the mail DNS records below, then verify.`,
+        );
+      } catch (e) {
+        setDomainMessage(
+          e instanceof Error ? e.message : "Failed to setup Resend sending domain.",
+        );
+      } finally {
+        setResendDomainCreating(null);
+      }
+    },
+    [emailProfile.sendingDomain],
+  );
+
+  const verifyResendDomain = useCallback(
+    async (domain: string) => {
+      const info = resendDomainStatus[domain];
+      if (!info?.id) return;
+
+      setResendDomainCreating(domain);
+      setDomainMessage(null);
+      try {
+        const res = await fetch("/api/resend-domains/verify", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ resendDomainId: info.id }),
+        });
+
+        const data = (await res.json().catch(() => ({}))) as {
+          status?: string;
+          dnsRecords?: DnsRecord[];
+          message?: string;
+        };
+
+        if (data.status) {
+          setResendDomainStatus((prev) => ({
+            ...prev,
+            [domain]: { id: info.id, status: data.status as string },
+          }));
+        }
+
+        if (data.dnsRecords?.length) {
+          setDomainDnsRecords((prev) => ({
+            ...prev,
+            [domain]: [
+              ...(prev[domain] || []).filter((r) => !r.reason?.startsWith("Resend")),
+              ...(data.dnsRecords as DnsRecord[]),
+            ],
+          }));
+        }
+
+        setDomainMessage(data.message || "Resend verification triggered.");
+      } catch (e) {
+        setDomainMessage(
+          e instanceof Error ? e.message : "Failed to verify Resend domain.",
+        );
+      } finally {
+        setResendDomainCreating(null);
+      }
+    },
+    [resendDomainStatus],
   );
 
   const startStripeConnectOnboarding = useCallback(async () => {
@@ -3134,6 +3316,9 @@ export default function SiteSettingsPage() {
                 domains.map((d) => {
                   const dnsRecords = domainDnsRecords[d.domain] || [];
                   const isDnsExpanded = domainDnsExpanded === d.domain;
+                  const isCustomDomain = d.domain.split(".").length <= 2 && !d.domain.endsWith(".rctechbridge.com");
+                  const resendInfo = resendDomainStatus[d.domain];
+                  const isResendBusy = resendDomainCreating === d.domain;
                   return (
                     <div
                       key={`${d.domain}-${d.id ?? "none"}`}
@@ -3168,8 +3353,41 @@ export default function SiteSettingsPage() {
                               {d.failureReason}
                             </p>
                           )}
+                          {isCustomDomain && resendInfo && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              Mail domain (mg.{d.domain}):{" "}
+                              <span className={
+                                resendInfo.status === "verified"
+                                  ? "font-semibold text-green-600 dark:text-green-400"
+                                  : "font-semibold text-amber-600 dark:text-amber-400"
+                              }>
+                                {resendInfo.status}
+                              </span>
+                            </p>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isCustomDomain && (
+                            resendInfo ? (
+                              <button
+                                type="button"
+                                onClick={() => verifyResendDomain(d.domain)}
+                                disabled={isResendBusy}
+                                className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                              >
+                                {isResendBusy ? "Checking…" : "Verify Mail DNS"}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setupResendDomain(d.domain)}
+                                disabled={isResendBusy}
+                                className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                              >
+                                {isResendBusy ? "Creating…" : "Setup Sending Domain"}
+                              </button>
+                            )
+                          )}
                           <button
                             type="button"
                             onClick={() => {

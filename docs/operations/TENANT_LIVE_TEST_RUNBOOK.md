@@ -98,12 +98,13 @@ Expected app result:
 1. domain record appears in the list
 2. domain status moves from pending toward active
 
-### A5 - Create The Resend Sending Domain
+### A5 - Setup The Resend Sending Domain (Automated)
 
-In Resend:
+In `Global Site Settings` under `Domains` on the domain card:
 
-1. Create a sending domain using a subdomain, usually `mg.clientdomain.com`
-2. Copy SPF and DKIM records exactly
+1. Click `Setup Sending Domain` (or confirm the Resend status badge already shows — it may have been auto-created during domain onboarding)
+2. The app creates `mg.{domain}` in Resend and displays required DNS records
+3. Expand `DNS Records` and copy all Resend mail records (SPF, DKIM, etc.)
 
 If DNS is in Vercel:
 
@@ -113,9 +114,14 @@ If DNS is external:
 
 1. send the Resend DNS records to the DNS owner
 
-Expected Resend result:
+After DNS propagation:
 
-1. sending domain exists and can be verified
+1. Click `Verify Mail DNS` on the domain card to trigger verification
+
+Expected app result:
+
+1. Domain card shows Resend status badge (`mg.{domain}: not_started` → `verified`)
+2. DNS Records panel shows SPF/DKIM verification status
 
 ### A6 - Configure Email Delivery In The App
 
@@ -240,11 +246,12 @@ What you cannot fully certify yet:
 
 When the domain becomes available:
 
-1. add the website domain in Vercel
-2. add the domain in app
-3. create the Resend sending subdomain
-4. update the app email profile from temporary platform sender values to tenant-branded values
-5. re-run domain and SPF/DKIM verification
+1. add the domain in app via `Global Site Settings` → `Domains` → `Add Domain` (automatically adds to Vercel)
+2. click `Setup Sending Domain` on the domain card (auto-creates `mg.{domain}` in Resend)
+3. add all DNS records shown in the DNS Records panel
+4. click `Verify Mail DNS` after DNS propagation
+5. update the app email profile from temporary platform sender values to tenant-branded values
+6. re-run SPF/DKIM verification in Email Delivery section
 
 ### B6 - Pause-State Workflow When Providers Are Blocked
 
