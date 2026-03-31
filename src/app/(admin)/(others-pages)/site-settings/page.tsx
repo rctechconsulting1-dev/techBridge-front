@@ -23,10 +23,7 @@ import {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type FormData = Partial<
-  Omit<
-    SiteSettings,
-    "id" | "website_id" | "created_at" | "updated_at"
-  >
+  Omit<SiteSettings, "id" | "website_id" | "created_at" | "updated_at">
 >;
 
 interface Service {
@@ -281,7 +278,9 @@ const isTemporaryWebsiteHost = (domain: string | null | undefined): boolean => {
     return true;
   }
 
-  return RC_TEMPORARY_HOST_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+  return RC_TEMPORARY_HOST_SUFFIXES.some((suffix) =>
+    normalized.endsWith(suffix),
+  );
 };
 
 const isLikelyPlatformSender = (value: string | null | undefined): boolean => {
@@ -312,7 +311,11 @@ const emailModeLabel = (value: EmailMode | "not_configured"): string => {
   return "Not Configured";
 };
 
-function pickValue(current: string | null | undefined, next: string, force: boolean) {
+function pickValue(
+  current: string | null | undefined,
+  next: string,
+  force: boolean,
+) {
   if (force) return next;
   return current && current.trim().length > 0 ? current : next;
 }
@@ -550,7 +553,9 @@ function buildTemplateDraft({
       accent_color: colors.accent,
       footer_tagline: `${safeBusinessName} serving ${safeCity}.`,
       footer_copyright: `Copyright ${safeBusinessName}`,
-      contact_email: email.trim() || `hello@${safeBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, "")}.com`,
+      contact_email:
+        email.trim() ||
+        `hello@${safeBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, "")}.com`,
       contact_phone: phone.trim() || "(000) 000-0000",
       address: `${safeCity}`,
     },
@@ -629,7 +634,9 @@ function parseServicesInput(input: string): string[] {
     .slice(0, 12);
 }
 
-function coerceNavLinks(links: FooterNavLink[] | null | undefined): FooterNavLink[] {
+function coerceNavLinks(
+  links: FooterNavLink[] | null | undefined,
+): FooterNavLink[] {
   if (!Array.isArray(links)) return [];
   return links.map((link) => ({
     label: typeof link?.label === "string" ? link.label : "",
@@ -637,7 +644,9 @@ function coerceNavLinks(links: FooterNavLink[] | null | undefined): FooterNavLin
   }));
 }
 
-function sanitizeNavLinks(links: FooterNavLink[] | null | undefined): FooterNavLink[] {
+function sanitizeNavLinks(
+  links: FooterNavLink[] | null | undefined,
+): FooterNavLink[] {
   return coerceNavLinks(links).filter(
     (link) => link.label.trim().length > 0 && link.href.trim().length > 0,
   );
@@ -654,8 +663,12 @@ function normalizeNavFields(editable: FormData): FormData {
     .filter((link) => link.location !== "header")
     .map((link) => ({ label: link.label, href: link.href }));
 
-  const headerNavLinks = sanitizeNavLinks(editable.header_nav_links as FooterNavLink[] | null);
-  const footerNavLinks = sanitizeNavLinks(editable.footer_nav_links as FooterNavLink[] | null);
+  const headerNavLinks = sanitizeNavLinks(
+    editable.header_nav_links as FooterNavLink[] | null,
+  );
+  const footerNavLinks = sanitizeNavLinks(
+    editable.footer_nav_links as FooterNavLink[] | null,
+  );
 
   return {
     ...editable,
@@ -665,14 +678,13 @@ function normalizeNavFields(editable: FormData): FormData {
         : legacyHeader.length > 0
           ? legacyHeader
           : legacyCombined,
-    footer_nav_links:
-      hasLegacyLocationTags
-        ? legacyFooter.length > 0
-          ? legacyFooter
-          : DEFAULT_FOOTER_LINKS
-        : footerNavLinks.length > 0
+    footer_nav_links: hasLegacyLocationTags
+      ? legacyFooter.length > 0
+        ? legacyFooter
+        : DEFAULT_FOOTER_LINKS
+      : footerNavLinks.length > 0
         ? footerNavLinks
-          : DEFAULT_FOOTER_LINKS,
+        : DEFAULT_FOOTER_LINKS,
   };
 }
 
@@ -731,7 +743,8 @@ function getNavLinkStatus(
     }
     return {
       tone: "warn",
-      message: "Unknown anchor. Use #services, #faq, #testimonials, or #contact.",
+      message:
+        "Unknown anchor. Use #services, #faq, #testimonials, or #contact.",
     };
   }
 
@@ -743,7 +756,8 @@ function getNavLinkStatus(
   if (!slug) {
     return {
       tone: "warn",
-      message: "Nested routes are not validated here. Confirm this path exists.",
+      message:
+        "Nested routes are not validated here. Confirm this path exists.",
     };
   }
 
@@ -768,7 +782,9 @@ export default function SiteSettingsPage() {
   const [tab, setTab] = useState<Tab>("settings");
 
   // Settings state
-  const [form, setForm] = useState<FormData>({ launch_mode: "temporary_launch" });
+  const [form, setForm] = useState<FormData>({
+    launch_mode: "temporary_launch",
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -821,6 +837,9 @@ export default function SiteSettingsPage() {
     stock_quantity: "99",
     is_published: true,
     sort_order: 0,
+    fulfillment_type: "manual" as "manual" | "printify",
+    printify_blueprint_id: "",
+    printify_variant_id: "",
   });
   const [productSaving, setProductSaving] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
@@ -828,18 +847,33 @@ export default function SiteSettingsPage() {
     useState<StripeConnectStatus | null>(null);
   const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
   const [stripeConnectStarting, setStripeConnectStarting] = useState(false);
-  const [stripeConnectMessage, setStripeConnectMessage] = useState<string | null>(
-    null,
-  );
+  const [stripeConnectMessage, setStripeConnectMessage] = useState<
+    string | null
+  >(null);
+
+  // Printify state
+  type PrintifyStatus = { connected: boolean; shopId?: string | null } | null;
+  const [printifyStatus, setPrintifyStatus] = useState<PrintifyStatus>(null);
+  const [printifyLoading, setPrintifyLoading] = useState(false);
+  const [printifyApiKeyInput, setPrintifyApiKeyInput] = useState("");
+  const [printifyMessage, setPrintifyMessage] = useState<string | null>(null);
+  const [printifySaving, setPrintifySaving] = useState(false);
+  const [printifyDisconnecting, setPrintifyDisconnecting] = useState(false);
+  const [printifySyncing, setPrintifySyncing] = useState(false);
+
   const [domains, setDomains] = useState<DomainRecord[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [domainInput, setDomainInput] = useState("");
   const [domainPrimaryInput, setDomainPrimaryInput] = useState(false);
   const [domainSubmitting, setDomainSubmitting] = useState(false);
-  const [domainVerifyingId, setDomainVerifyingId] = useState<number | null>(null);
+  const [domainVerifyingId, setDomainVerifyingId] = useState<number | null>(
+    null,
+  );
   const [domainMessage, setDomainMessage] = useState<string | null>(null);
   const [launchModeSaving, setLaunchModeSaving] = useState(false);
-  const [launchModeMessage, setLaunchModeMessage] = useState<string | null>(null);
+  const [launchModeMessage, setLaunchModeMessage] = useState<string | null>(
+    null,
+  );
   const [emailProfileLoading, setEmailProfileLoading] = useState(false);
   const [emailProfileSaving, setEmailProfileSaving] = useState(false);
   const [emailProfileVerifying, setEmailProfileVerifying] = useState(false);
@@ -905,10 +939,8 @@ export default function SiteSettingsPage() {
   const [aiIdeas, setAiIdeas] = useState<AIContentIdea[]>([]);
   const [aiSelectedIdea, setAiSelectedIdea] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
-  const {
-    trigger: triggerContentAgent,
-    isLoading: isAIApplying,
-  } = useContentAgent();
+  const { trigger: triggerContentAgent, isLoading: isAIApplying } =
+    useContentAgent();
   const { assets: clientAssets, isLoading: assetsLoading } = useGetAssets(
     websiteId,
     0,
@@ -973,12 +1005,16 @@ export default function SiteSettingsPage() {
 
       if (!res.ok) {
         const text = await res.text();
-        setPermissionsError(text || `Failed to load permissions (${res.status})`);
+        setPermissionsError(
+          text || `Failed to load permissions (${res.status})`,
+        );
         setContentPermissions(DEFAULT_CONTENT_PERMISSION_FLAGS);
         return;
       }
 
-      const data = (await res.json()) as { permissions?: Record<string, unknown> };
+      const data = (await res.json()) as {
+        permissions?: Record<string, unknown>;
+      };
       setContentPermissions(
         normalizePermissionFlags(
           data.permissions,
@@ -1056,6 +1092,106 @@ export default function SiteSettingsPage() {
       setProductsLoading(false);
     }
   }, []);
+
+  // ── Printify handlers ──
+  const loadPrintifyStatus = useCallback(async () => {
+    setPrintifyLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/integrations/printify`, {
+        headers: authHeaders(),
+        cache: "no-store",
+      });
+      if (res.ok) setPrintifyStatus(await res.json());
+    } finally {
+      setPrintifyLoading(false);
+    }
+  }, []);
+
+  const savePrintifyKey = async () => {
+    if (!printifyApiKeyInput.trim()) {
+      setPrintifyMessage("Please enter a Printify API key.");
+      return;
+    }
+    setPrintifySaving(true);
+    setPrintifyMessage(null);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/integrations/printify`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ api_key: printifyApiKeyInput.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPrintifyMessage(
+          (data as { error?: string }).error ?? `Failed (${res.status})`,
+        );
+        return;
+      }
+      const data = await res.json();
+      setPrintifyStatus(data);
+      setPrintifyApiKeyInput("");
+      setPrintifyMessage("Printify connected successfully.");
+    } catch (e) {
+      setPrintifyMessage(e instanceof Error ? e.message : "Save failed.");
+    } finally {
+      setPrintifySaving(false);
+    }
+  };
+
+  const disconnectPrintify = async () => {
+    if (
+      !confirm(
+        "Disconnect Printify? New orders will fall back to manual fulfillment.",
+      )
+    )
+      return;
+    setPrintifyDisconnecting(true);
+    setPrintifyMessage(null);
+    try {
+      await fetch(`${getApiBaseUrl()}/integrations/printify`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      setPrintifyStatus({ connected: false });
+      setPrintifyMessage("Printify disconnected.");
+    } finally {
+      setPrintifyDisconnecting(false);
+    }
+  };
+
+  const syncPrintifyProducts = async () => {
+    if (!websiteId) {
+      setPrintifyMessage("No website selected.");
+      return;
+    }
+    setPrintifySyncing(true);
+    setPrintifyMessage(null);
+    try {
+      const res = await fetch(
+        `${getApiBaseUrl()}/integrations/printify/sync-products`,
+        {
+          method: "POST",
+          headers: { ...authHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify({ website_id: websiteId }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      setPrintifyMessage(
+        `Sync complete — ${data.created} added, ${data.updated} updated (${data.synced} total from Printify).`,
+      );
+      // Reload the product list so the new products show immediately
+      const prRes = await fetch(
+        `${getApiBaseUrl()}/products?website_id=${websiteId}`,
+        { headers: authHeaders() },
+      );
+      if (prRes.ok) setProducts(await prRes.json());
+    } catch (e) {
+      setPrintifyMessage(e instanceof Error ? e.message : "Sync failed.");
+    } finally {
+      setPrintifySyncing(false);
+    }
+  };
 
   const loadStripeConnectStatus = useCallback(async (wid: number) => {
     setStripeConnectLoading(true);
@@ -1135,11 +1271,15 @@ export default function SiteSettingsPage() {
 
       if (!res.ok) {
         const text = await res.text();
-        setEmailProfileMessage(text || `Unable to load email profile (${res.status})`);
+        setEmailProfileMessage(
+          text || `Unable to load email profile (${res.status})`,
+        );
         return;
       }
 
-      const data = (await res.json()) as { profile?: Partial<EmailDeliveryProfile> };
+      const data = (await res.json()) as {
+        profile?: Partial<EmailDeliveryProfile>;
+      };
       if (data.profile) {
         setEmailProfile((prev) => ({
           ...prev,
@@ -1156,7 +1296,8 @@ export default function SiteSettingsPage() {
           spfVerified: Boolean(data.profile?.spfVerified),
           leadNotificationEmails: data.profile?.leadNotificationEmails || [],
           verificationNotes: data.profile?.verificationNotes || null,
-          verificationLastCheckedAt: data.profile?.verificationLastCheckedAt || null,
+          verificationLastCheckedAt:
+            data.profile?.verificationLastCheckedAt || null,
           lastTestEmailStatus:
             data.profile?.lastTestEmailStatus === "success" ||
             data.profile?.lastTestEmailStatus === "failed"
@@ -1168,7 +1309,9 @@ export default function SiteSettingsPage() {
           lastTestEmailAt: data.profile?.lastTestEmailAt || null,
           updatedAt: data.profile?.updatedAt || null,
         }));
-        setLeadRoutingInput((data.profile.leadNotificationEmails || []).join(", "));
+        setLeadRoutingInput(
+          (data.profile.leadNotificationEmails || []).join(", "),
+        );
         setEmailTestRecipient((prev) => {
           if (prev.trim()) {
             return prev;
@@ -1243,6 +1386,7 @@ export default function SiteSettingsPage() {
     loadProducts(wid);
     loadContentPermissions(wid);
     loadStripeConnectStatus(wid);
+    loadPrintifyStatus();
     loadDomains(wid);
     loadEmailProfile(wid);
     loadPageSlugs(wid);
@@ -1255,6 +1399,7 @@ export default function SiteSettingsPage() {
     loadProducts,
     loadContentPermissions,
     loadStripeConnectStatus,
+    loadPrintifyStatus,
     loadDomains,
     loadEmailProfile,
     loadPageSlugs,
@@ -1284,7 +1429,9 @@ export default function SiteSettingsPage() {
 
       if (!res.ok) {
         const text = await res.text();
-        setEmailProfileMessage(text || `Failed to save profile (${res.status})`);
+        setEmailProfileMessage(
+          text || `Failed to save profile (${res.status})`,
+        );
         return;
       }
 
@@ -1310,7 +1457,9 @@ export default function SiteSettingsPage() {
   const saveLaunchMode = useCallback(async () => {
     if (!websiteId) return;
     if (!canEditSiteSettings) {
-      setLaunchModeMessage("You do not have permission to update launch mode for this tenant.");
+      setLaunchModeMessage(
+        "You do not have permission to update launch mode for this tenant.",
+      );
       return;
     }
 
@@ -1321,7 +1470,9 @@ export default function SiteSettingsPage() {
       const res = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
         method: "PUT",
         headers: authHeaders(),
-        body: JSON.stringify({ launch_mode: form.launch_mode || "temporary_launch" }),
+        body: JSON.stringify({
+          launch_mode: form.launch_mode || "temporary_launch",
+        }),
       });
 
       if (!res.ok) {
@@ -1339,8 +1490,12 @@ export default function SiteSettingsPage() {
       }
 
       const data = (await res.json().catch(() => ({}))) as SiteSettings;
-      setForm((prev) => normalizeNavFields({ ...prev, launch_mode: data.launch_mode }));
-      setLaunchModeMessage(`Launch mode saved as ${launchModeLabel(data.launch_mode)}.`);
+      setForm((prev) =>
+        normalizeNavFields({ ...prev, launch_mode: data.launch_mode }),
+      );
+      setLaunchModeMessage(
+        `Launch mode saved as ${launchModeLabel(data.launch_mode)}.`,
+      );
     } catch (error) {
       setLaunchModeMessage(
         error instanceof Error ? error.message : "Failed to save launch mode.",
@@ -1375,7 +1530,9 @@ export default function SiteSettingsPage() {
         message?: string;
       };
 
-      setEmailProfileMessage(data.message || "SPF/DKIM verification check executed.");
+      setEmailProfileMessage(
+        data.message || "SPF/DKIM verification check executed.",
+      );
       await loadEmailProfile(websiteId);
     } catch (e) {
       setEmailProfileMessage(
@@ -1414,7 +1571,9 @@ export default function SiteSettingsPage() {
       };
 
       if (!res.ok) {
-        setEmailProfileMessage(data.error || `Failed to send test email (${res.status})`);
+        setEmailProfileMessage(
+          data.error || `Failed to send test email (${res.status})`,
+        );
         await loadEmailProfile(websiteId);
         return;
       }
@@ -1569,7 +1728,9 @@ export default function SiteSettingsPage() {
   const handleSave = async () => {
     if (!websiteId) return;
     if (!canEditSiteSettings) {
-      setSettingsError("You do not have permission to edit site settings for this tenant.");
+      setSettingsError(
+        "You do not have permission to edit site settings for this tenant.",
+      );
       return;
     }
     setSaving(true);
@@ -1612,7 +1773,9 @@ export default function SiteSettingsPage() {
   // ── Services CRUD ──
   const startNewService = () => {
     if (!contentPermissions.edit_services) {
-      setServiceError("You do not have permission to edit services for this tenant.");
+      setServiceError(
+        "You do not have permission to edit services for this tenant.",
+      );
       return;
     }
     setServiceForm({ title: "", slug: "", content: "", image_url: "" });
@@ -1621,7 +1784,9 @@ export default function SiteSettingsPage() {
   };
   const startEditService = (s: Service) => {
     if (!contentPermissions.edit_services) {
-      setServiceError("You do not have permission to edit services for this tenant.");
+      setServiceError(
+        "You do not have permission to edit services for this tenant.",
+      );
       return;
     }
     setServiceForm({
@@ -1648,7 +1813,9 @@ export default function SiteSettingsPage() {
 
   const saveService = async () => {
     if (!contentPermissions.edit_services) {
-      setServiceError("You do not have permission to edit services for this tenant.");
+      setServiceError(
+        "You do not have permission to edit services for this tenant.",
+      );
       return;
     }
     if (!serviceForm.title.trim()) {
@@ -1687,7 +1854,9 @@ export default function SiteSettingsPage() {
 
   const deleteService = async (id: number) => {
     if (!contentPermissions.edit_services) {
-      setServiceError("You do not have permission to edit services for this tenant.");
+      setServiceError(
+        "You do not have permission to edit services for this tenant.",
+      );
       return;
     }
     if (!confirm("Delete this service?")) return;
@@ -1701,7 +1870,9 @@ export default function SiteSettingsPage() {
   // ── Team CRUD ──
   const startNewTeam = () => {
     if (!contentPermissions.edit_team) {
-      setTeamError("You do not have permission to edit team content for this tenant.");
+      setTeamError(
+        "You do not have permission to edit team content for this tenant.",
+      );
       return;
     }
     setTeamForm({
@@ -1717,7 +1888,9 @@ export default function SiteSettingsPage() {
   };
   const startEditTeam = (m: TeamMember) => {
     if (!contentPermissions.edit_team) {
-      setTeamError("You do not have permission to edit team content for this tenant.");
+      setTeamError(
+        "You do not have permission to edit team content for this tenant.",
+      );
       return;
     }
     setTeamForm({
@@ -1740,7 +1913,9 @@ export default function SiteSettingsPage() {
 
   const saveTeam = async () => {
     if (!contentPermissions.edit_team) {
-      setTeamError("You do not have permission to edit team content for this tenant.");
+      setTeamError(
+        "You do not have permission to edit team content for this tenant.",
+      );
       return;
     }
     if (!teamForm.name.trim()) {
@@ -1792,7 +1967,9 @@ export default function SiteSettingsPage() {
 
   const deleteTeam = async (id: number) => {
     if (!contentPermissions.edit_team) {
-      setTeamError("You do not have permission to edit team content for this tenant.");
+      setTeamError(
+        "You do not have permission to edit team content for this tenant.",
+      );
       return;
     }
     if (!confirm("Delete this team member?")) return;
@@ -1815,6 +1992,9 @@ export default function SiteSettingsPage() {
       stock_quantity: "99",
       is_published: true,
       sort_order: 0,
+      fulfillment_type: "manual",
+      printify_blueprint_id: "",
+      printify_variant_id: "",
     });
     setProductEdit("new");
     setProductError(null);
@@ -1830,6 +2010,11 @@ export default function SiteSettingsPage() {
       stock_quantity: String(p.stock_quantity),
       is_published: p.is_published,
       sort_order: p.sort_order,
+      fulfillment_type: p.fulfillment_type ?? "manual",
+      printify_blueprint_id:
+        p.printify_blueprint_id != null ? String(p.printify_blueprint_id) : "",
+      printify_variant_id:
+        p.printify_variant_id != null ? String(p.printify_variant_id) : "",
     });
     setProductEdit(p.id);
     setProductError(null);
@@ -1866,6 +2051,12 @@ export default function SiteSettingsPage() {
           : null,
         stock_quantity: parseInt(String(productForm.stock_quantity), 10),
         compare_at_price_val: undefined,
+        printify_blueprint_id: productForm.printify_blueprint_id
+          ? parseInt(productForm.printify_blueprint_id, 10)
+          : null,
+        printify_variant_id: productForm.printify_variant_id
+          ? parseInt(productForm.printify_variant_id, 10)
+          : null,
       };
       if (productEdit === "new") {
         const res = await fetch(`${getApiBaseUrl()}/products`, {
@@ -2025,7 +2216,8 @@ export default function SiteSettingsPage() {
         "Template content staged in the form. Review it, then click Save Changes to persist site settings.",
       );
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to apply template.";
+      const message =
+        e instanceof Error ? e.message : "Failed to apply template.";
       setTemplateMessage(message);
       setSettingsError(message);
     } finally {
@@ -2057,7 +2249,8 @@ export default function SiteSettingsPage() {
           mode: "site_settings_orchestrator",
           city: templateCity,
           industry: templateIndustry,
-          keyword: templateKeyword || `${templateIndustry} ${templateCity}`.trim(),
+          keyword:
+            templateKeyword || `${templateIndustry} ${templateCity}`.trim(),
           competitor1Url: templateCompetitorUrl || undefined,
           service: services[0]?.title || undefined,
           userChosenIdea: idea,
@@ -2100,7 +2293,9 @@ export default function SiteSettingsPage() {
           ),
           hero_subheadline: pickValue(
             form.hero_subheadline,
-            metadata?.description || intro || "Expert service tailored to your goals.",
+            metadata?.description ||
+              intro ||
+              "Expert service tailored to your goals.",
             templateForceReplace,
           ),
           cta_headline: pickValue(
@@ -2161,7 +2356,9 @@ export default function SiteSettingsPage() {
         setAiMessage("AI draft applied to Site Settings and starter services.");
       } catch (e) {
         setAiMessage(
-          e instanceof Error ? e.message : "Failed to apply AI-generated draft.",
+          e instanceof Error
+            ? e.message
+            : "Failed to apply AI-generated draft.",
         );
       }
     },
@@ -2189,20 +2386,25 @@ export default function SiteSettingsPage() {
         mode: "site_settings_orchestrator",
         city: templateCity,
         industry: templateIndustry,
-        keyword: templateKeyword || `${templateIndustry} ${templateCity}`.trim(),
+        keyword:
+          templateKeyword || `${templateIndustry} ${templateCity}`.trim(),
         competitor1Url: templateCompetitorUrl || undefined,
         service: services[0]?.title || undefined,
       })) as unknown;
 
       const ideas = parseIdeas(aiResponse);
       if (ideas.length === 0) {
-        setAiMessage("No AI ideas returned. Please refine city/keyword and retry.");
+        setAiMessage(
+          "No AI ideas returned. Please refine city/keyword and retry.",
+        );
         return;
       }
       setAiIdeas(ideas);
       setAiMessage("Ideas generated. Choose one to apply AI draft.");
     } catch (e) {
-      setAiMessage(e instanceof Error ? e.message : "Failed to generate AI ideas.");
+      setAiMessage(
+        e instanceof Error ? e.message : "Failed to generate AI ideas.",
+      );
     }
   }, [
     triggerContentAgent,
@@ -2228,7 +2430,8 @@ export default function SiteSettingsPage() {
         mode: "service_copy",
         city: templateCity,
         industry: templateIndustry,
-        keyword: templateKeyword || `${templateIndustry} ${templateCity}`.trim(),
+        keyword:
+          templateKeyword || `${templateIndustry} ${templateCity}`.trim(),
         competitor1Url: templateCompetitorUrl || undefined,
         servicesOffered: servicesProvided,
       })) as AIServiceCopyResponse;
@@ -2242,33 +2445,40 @@ export default function SiteSettingsPage() {
         ...form,
         hero_headline: pickValue(
           form.hero_headline,
-          aiResponse.heroHeadline || `${templateBusinessName} in ${templateCity}`,
+          aiResponse.heroHeadline ||
+            `${templateBusinessName} in ${templateCity}`,
           templateForceReplace,
         ),
         hero_subheadline: pickValue(
           form.hero_subheadline,
-          aiResponse.heroSubheadline || "Trusted local service with fast response and quality results.",
+          aiResponse.heroSubheadline ||
+            "Trusted local service with fast response and quality results.",
           templateForceReplace,
         ),
         cta_headline: pickValue(
           form.cta_headline,
-          aiResponse.ctaHeadline || `Need help from ${templateBusinessName || "our team"}?`,
+          aiResponse.ctaHeadline ||
+            `Need help from ${templateBusinessName || "our team"}?`,
           templateForceReplace,
         ),
         cta_body: pickValue(
           form.cta_body,
-          aiResponse.ctaBody || "Contact us today and we will recommend the best next step.",
+          aiResponse.ctaBody ||
+            "Contact us today and we will recommend the best next step.",
           templateForceReplace,
         ),
       };
 
       setForm(mergedForm);
 
-      const settingsRes = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify(mergedForm),
-      });
+      const settingsRes = await fetch(
+        `${getApiBaseUrl()}/site-settings/${websiteId}`,
+        {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify(mergedForm),
+        },
+      );
       if (!settingsRes.ok) {
         throw new Error(`Failed to save settings (${settingsRes.status})`);
       }
@@ -2317,7 +2527,9 @@ export default function SiteSettingsPage() {
       setAiMessage("V3 service-first copy applied successfully.");
     } catch (e) {
       setAiMessage(
-        e instanceof Error ? e.message : "Failed to generate/apply V3 service copy.",
+        e instanceof Error
+          ? e.message
+          : "Failed to generate/apply V3 service copy.",
       );
     }
   }, [
@@ -2341,7 +2553,10 @@ export default function SiteSettingsPage() {
     setTemplateMessage(null);
 
     try {
-      const featuredServices = services.slice(0, 3).map((s) => s.title).join(", ");
+      const featuredServices = services
+        .slice(0, 3)
+        .map((s) => s.title)
+        .join(", ");
       const nextForm: FormData = {
         ...form,
         hero_headline: pickValue(
@@ -2395,10 +2610,14 @@ export default function SiteSettingsPage() {
       }
 
       await loadSettings(websiteId);
-      setTemplateMessage("Home and Contact sections synced from current content.");
+      setTemplateMessage(
+        "Home and Contact sections synced from current content.",
+      );
     } catch (e) {
       setTemplateMessage(
-        e instanceof Error ? e.message : "Failed to sync Home/Contact sections.",
+        e instanceof Error
+          ? e.message
+          : "Failed to sync Home/Contact sections.",
       );
     }
   }, [
@@ -2446,11 +2665,14 @@ export default function SiteSettingsPage() {
       };
 
       setForm(mergedForm);
-      const settingsRes = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify(mergedForm),
-      });
+      const settingsRes = await fetch(
+        `${getApiBaseUrl()}/site-settings/${websiteId}`,
+        {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify(mergedForm),
+        },
+      );
       if (!settingsRes.ok) {
         throw new Error(`Failed to save About copy (${settingsRes.status})`);
       }
@@ -2493,7 +2715,9 @@ export default function SiteSettingsPage() {
       setAiMessage("V3 About/Team copy applied successfully.");
     } catch (e) {
       setAiMessage(
-        e instanceof Error ? e.message : "Failed to generate/apply V3 About copy.",
+        e instanceof Error
+          ? e.message
+          : "Failed to generate/apply V3 About copy.",
       );
     }
   }, [
@@ -2510,8 +2734,12 @@ export default function SiteSettingsPage() {
     loadTeam,
   ]);
 
-  const headerNavLinks = coerceNavLinks(form.header_nav_links as FooterNavLink[] | null);
-  const footerNavLinks = coerceNavLinks(form.footer_nav_links as FooterNavLink[] | null);
+  const headerNavLinks = coerceNavLinks(
+    form.header_nav_links as FooterNavLink[] | null,
+  );
+  const footerNavLinks = coerceNavLinks(
+    form.footer_nav_links as FooterNavLink[] | null,
+  );
   const headerLinkStatuses = headerNavLinks.map((link) =>
     getNavLinkStatus(link.href ?? "", publishedPageSlugs),
   );
@@ -2653,7 +2881,9 @@ export default function SiteSettingsPage() {
     emailProfile.sendingDomain.trim() &&
     !isLikelyPlatformSender(emailProfile.fromEmail)
       ? "tenant_branded"
-      : emailProfile.fromEmail.trim() || emailProfile.replyTo.trim() || emailProfile.sendingDomain.trim()
+      : emailProfile.fromEmail.trim() ||
+          emailProfile.replyTo.trim() ||
+          emailProfile.sendingDomain.trim()
         ? "platform_sender"
         : "not_configured";
   const selectedEmailMode: EmailMode =
@@ -2670,7 +2900,9 @@ export default function SiteSettingsPage() {
     {
       key: "domain-primary",
       label: "Primary website domain is configured and active",
-      satisfied: Boolean(primaryDomainRecord?.domain) && primaryDomainRecord?.status === "active",
+      satisfied:
+        Boolean(primaryDomainRecord?.domain) &&
+        primaryDomainRecord?.status === "active",
       detail: primaryDomainRecord?.domain
         ? `${primaryDomainRecord.domain} (${primaryDomainRecord.status})`
         : "No primary tenant domain is configured yet.",
@@ -2720,7 +2952,8 @@ export default function SiteSettingsPage() {
         !!emailProfile.lastTestEmailAt &&
         lastSuccessfulSenderMatches,
       detail:
-        emailProfile.lastTestEmailStatus === "success" && emailProfile.lastTestEmailAt
+        emailProfile.lastTestEmailStatus === "success" &&
+        emailProfile.lastTestEmailAt
           ? lastSuccessfulSenderMatches
             ? `Successful test recorded ${new Date(emailProfile.lastTestEmailAt).toLocaleString()}.`
             : "A test succeeded, but the recorded sender does not match the configured tenant sender."
@@ -2732,14 +2965,19 @@ export default function SiteSettingsPage() {
     !emailProfile.available
       ? "Email delivery controls are not available in this environment yet."
       : null,
-    selectedLaunchMode === "final_domain" && detectedWebsiteMode !== "final_domain"
+    selectedLaunchMode === "final_domain" &&
+    detectedWebsiteMode !== "final_domain"
       ? "The tenant is still on a temporary or unverified website hostname."
       : null,
-    selectedEmailMode === "tenant_branded" && actualEmailMode !== "tenant_branded"
+    selectedEmailMode === "tenant_branded" &&
+    actualEmailMode !== "tenant_branded"
       ? "Tenant-branded sender verification is still incomplete."
       : null,
     selectedLaunchMode === "final_domain" &&
-    !(emailProfile.lastTestEmailStatus === "success" && lastSuccessfulSenderMatches)
+    !(
+      emailProfile.lastTestEmailStatus === "success" &&
+      lastSuccessfulSenderMatches
+    )
       ? "A successful outbound sender test has not been recorded for the configured tenant sender."
       : null,
   ].filter(Boolean) as string[];
@@ -2790,7 +3028,8 @@ export default function SiteSettingsPage() {
             Global Site Settings
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Edit tenant-wide site configuration, shared content, navigation, and launch settings.
+            Edit tenant-wide site configuration, shared content, navigation, and
+            launch settings.
           </p>
         </div>
         <Link
@@ -2835,24 +3074,31 @@ export default function SiteSettingsPage() {
           <div className={`${SECTION} ${launchReadinessClass}`}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className={`text-base font-semibold ${launchReadinessTextClass}`}>
+                <p
+                  className={`text-base font-semibold ${launchReadinessTextClass}`}
+                >
                   {launchReadinessTitle}
                 </p>
                 <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
                   {launchReadinessSummary}
                 </p>
                 <p className="mt-3 text-xs text-gray-600 dark:text-gray-300">
-                  Saved launch mode: <strong>{launchModeLabel(selectedLaunchMode)}</strong>
-                  {primaryDomainRecord?.domain ? ` | primary domain: ${primaryDomainRecord.domain}` : " | no primary domain yet"}
+                  Saved launch mode:{" "}
+                  <strong>{launchModeLabel(selectedLaunchMode)}</strong>
+                  {primaryDomainRecord?.domain
+                    ? ` | primary domain: ${primaryDomainRecord.domain}`
+                    : " | no primary domain yet"}
                   {` | actual email state: ${emailModeLabel(actualEmailMode)}`}
                 </p>
               </div>
               <div className="rounded-lg border border-white/60 bg-white/70 px-3 py-2 text-xs text-gray-700 dark:border-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
-                Pause-state workflow is documented in TENANT_LIVE_TEST_RUNBOOK.md.
+                Pause-state workflow is documented in
+                TENANT_LIVE_TEST_RUNBOOK.md.
               </div>
             </div>
 
-            {launchReadinessTone === "blocked" || launchReadinessTone === "temporary" ? (
+            {launchReadinessTone === "blocked" ||
+            launchReadinessTone === "temporary" ? (
               <div className="mt-4 space-y-2">
                 {providerBlockedReasons.length > 0 ? (
                   providerBlockedReasons.map((reason) => (
@@ -2865,7 +3111,9 @@ export default function SiteSettingsPage() {
                   ))
                 ) : (
                   <div className="rounded-lg border border-white/60 bg-white/70 px-3 py-3 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
-                    Final launch is not selected. Continue tenant setup, content population, and temporary-host validation without claiming branded final launch readiness.
+                    Final launch is not selected. Continue tenant setup, content
+                    population, and temporary-host validation without claiming
+                    branded final launch readiness.
                   </div>
                 )}
               </div>
@@ -2881,7 +3129,8 @@ export default function SiteSettingsPage() {
 
             <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
               <p>
-                Detected website state: <strong>{launchModeLabel(detectedWebsiteMode)}</strong>
+                Detected website state:{" "}
+                <strong>{launchModeLabel(detectedWebsiteMode)}</strong>
               </p>
               <p className="mt-1">
                 {detectedWebsiteMode === "final_domain"
@@ -2897,7 +3146,8 @@ export default function SiteSettingsPage() {
                     Launch control
                   </p>
                   <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                    Persist the intended launch mode here. Final domain launch is blocked until all launch gate checks pass.
+                    Persist the intended launch mode here. Final domain launch
+                    is blocked until all launch gate checks pass.
                   </p>
                   <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label className="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
@@ -2905,7 +3155,12 @@ export default function SiteSettingsPage() {
                         type="radio"
                         name="launch-mode"
                         checked={selectedLaunchMode === "temporary_launch"}
-                        onChange={() => setForm((prev) => ({ ...prev, launch_mode: "temporary_launch" }))}
+                        onChange={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            launch_mode: "temporary_launch",
+                          }))
+                        }
                         className="mr-2"
                       />
                       Temporary launch
@@ -2918,7 +3173,12 @@ export default function SiteSettingsPage() {
                         type="radio"
                         name="launch-mode"
                         checked={selectedLaunchMode === "final_domain"}
-                        onChange={() => setForm((prev) => ({ ...prev, launch_mode: "final_domain" }))}
+                        onChange={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            launch_mode: "final_domain",
+                          }))
+                        }
                         className="mr-2"
                       />
                       Final domain launch
@@ -2932,13 +3192,19 @@ export default function SiteSettingsPage() {
                   <button
                     type="button"
                     onClick={saveLaunchMode}
-                    disabled={launchModeSaving || !websiteId || !canEditSiteSettings}
+                    disabled={
+                      launchModeSaving || !websiteId || !canEditSiteSettings
+                    }
                     className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
                     {launchModeSaving ? "Saving..." : "Save Launch Mode"}
                   </button>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isFinalLaunchReady ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"}`}>
-                    {isFinalLaunchReady ? "Final launch ready" : "Final launch blocked"}
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${isFinalLaunchReady ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"}`}
+                  >
+                    {isFinalLaunchReady
+                      ? "Final launch ready"
+                      : "Final launch blocked"}
                   </span>
                 </div>
               </div>
@@ -2949,7 +3215,9 @@ export default function SiteSettingsPage() {
                     key={item.key}
                     className={`rounded-lg border px-3 py-3 text-sm ${item.satisfied ? "border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-950/20" : "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20"}`}
                   >
-                    <p className={`font-medium ${item.satisfied ? "text-green-700 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}>
+                    <p
+                      className={`font-medium ${item.satisfied ? "text-green-700 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}
+                    >
                       {item.satisfied ? "Ready" : "Blocked"} - {item.label}
                     </p>
                     <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
@@ -3065,35 +3333,47 @@ export default function SiteSettingsPage() {
             )}
           </div>
 
-          <div className="rounded-lg border border-stroke bg-white p-6 shadow-sm dark:border-strokedark dark:bg-boxdark">
+          <div className="border-stroke dark:border-strokedark dark:bg-boxdark rounded-lg border bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-black dark:text-white">
                   Email Delivery (Phase 5)
                 </h3>
-                <p className="text-sm text-body-color dark:text-bodydark">
-                  Configure per-tenant sender profile, SPF/DKIM status, and lead notification routing.
+                <p className="text-body-color dark:text-bodydark text-sm">
+                  Configure per-tenant sender profile, SPF/DKIM status, and lead
+                  notification routing.
                 </p>
-                <p className="mt-2 text-xs text-body-color dark:text-bodydark">
-                  Use this before launch when the tenant needs branded outbound email and clear routing for new lead alerts.
-                  The sender fields control how email appears to clients, and the recipient list controls who gets notified when leads arrive.
+                <p className="text-body-color dark:text-bodydark mt-2 text-xs">
+                  Use this before launch when the tenant needs branded outbound
+                  email and clear routing for new lead alerts. The sender fields
+                  control how email appears to clients, and the recipient list
+                  controls who gets notified when leads arrive.
                 </p>
-                <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-3 text-xs text-body-color dark:border-strokedark dark:bg-meta-4 dark:text-bodydark">
+                <div className="text-body-color dark:border-strokedark dark:bg-meta-4 dark:text-bodydark mt-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-3 text-xs">
                   <p>
-                    Saved launch mode: <strong>{launchModeLabel(selectedLaunchMode)}</strong>
+                    Saved launch mode:{" "}
+                    <strong>{launchModeLabel(selectedLaunchMode)}</strong>
                   </p>
                   <p className="mt-1">
-                    Detected website state: <strong>{launchModeLabel(detectedWebsiteMode)}</strong>
-                    {primaryDomainRecord?.domain ? ` (${primaryDomainRecord.domain})` : " (no primary domain yet)"}
+                    Detected website state:{" "}
+                    <strong>{launchModeLabel(detectedWebsiteMode)}</strong>
+                    {primaryDomainRecord?.domain
+                      ? ` (${primaryDomainRecord.domain})`
+                      : " (no primary domain yet)"}
                   </p>
                   <p className="mt-1">
-                    Saved email mode: <strong>{emailModeLabel(selectedEmailMode)}</strong>
+                    Saved email mode:{" "}
+                    <strong>{emailModeLabel(selectedEmailMode)}</strong>
                   </p>
                   <p className="mt-1">
-                    Actual email state: <strong>{emailModeLabel(actualEmailMode)}</strong>
+                    Actual email state:{" "}
+                    <strong>{emailModeLabel(actualEmailMode)}</strong>
                   </p>
                   <p className="mt-2">
-                    Operational rule: saved tenant email profile values are configuration state. Do not claim branded outbound email is live until a real outbound test confirms the expected sender identity.
+                    Operational rule: saved tenant email profile values are
+                    configuration state. Do not claim branded outbound email is
+                    live until a real outbound test confirms the expected sender
+                    identity.
                   </p>
                 </div>
               </div>
@@ -3102,7 +3382,7 @@ export default function SiteSettingsPage() {
                   type="button"
                   onClick={() => websiteId && loadEmailProfile(websiteId)}
                   disabled={emailProfileLoading || !websiteId}
-                  className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-black hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-strokedark dark:text-white dark:hover:bg-meta-4"
+                  className="border-stroke hover:bg-gray-2 dark:border-strokedark dark:hover:bg-meta-4 rounded-md border px-3 py-2 text-sm font-medium text-black disabled:cursor-not-allowed disabled:opacity-60 dark:text-white"
                 >
                   {emailProfileLoading ? "Refreshing..." : "Refresh"}
                 </button>
@@ -3115,19 +3395,19 @@ export default function SiteSettingsPage() {
                     !emailProfile.available ||
                     !emailProfile.sendingDomain.trim()
                   }
-                  className="rounded-md border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="border-primary text-primary hover:bg-primary rounded-md border px-3 py-2 text-sm font-medium hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {emailProfileVerifying ? "Checking..." : "Verify SPF/DKIM"}
                 </button>
               </div>
             </div>
 
-            <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-strokedark dark:bg-meta-4">
+            <div className="dark:border-strokedark dark:bg-meta-4 mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
               <p className="text-sm font-medium text-black dark:text-white">
                 Desired email mode
               </p>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="rounded-lg border border-stroke bg-white p-3 text-sm dark:border-strokedark dark:bg-boxdark">
+                <label className="border-stroke dark:border-strokedark dark:bg-boxdark rounded-lg border bg-white p-3 text-sm">
                   <input
                     type="radio"
                     name="email-mode"
@@ -3141,11 +3421,12 @@ export default function SiteSettingsPage() {
                     className="mr-2"
                   />
                   Platform sender
-                  <p className="mt-1 text-xs text-body-color dark:text-bodydark">
-                    Use the shared verified RC sender while the tenant is still in temporary launch mode.
+                  <p className="text-body-color dark:text-bodydark mt-1 text-xs">
+                    Use the shared verified RC sender while the tenant is still
+                    in temporary launch mode.
                   </p>
                 </label>
-                <label className="rounded-lg border border-stroke bg-white p-3 text-sm dark:border-strokedark dark:bg-boxdark">
+                <label className="border-stroke dark:border-strokedark dark:bg-boxdark rounded-lg border bg-white p-3 text-sm">
                   <input
                     type="radio"
                     name="email-mode"
@@ -3159,8 +3440,9 @@ export default function SiteSettingsPage() {
                     className="mr-2"
                   />
                   Tenant branded
-                  <p className="mt-1 text-xs text-body-color dark:text-bodydark">
-                    Use the tenant sender only after sender fields are complete, SPF/DKIM are verified, and the live test succeeds.
+                  <p className="text-body-color dark:text-bodydark mt-1 text-xs">
+                    Use the tenant sender only after sender fields are complete,
+                    SPF/DKIM are verified, and the live test succeeds.
                   </p>
                 </label>
               </div>
@@ -3180,7 +3462,7 @@ export default function SiteSettingsPage() {
                       fromName: e.target.value,
                     }))
                   }
-                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  className="border-stroke focus:border-primary dark:border-strokedark dark:bg-boxdark w-full rounded-md border px-3 py-2 text-sm outline-none"
                   placeholder="TechBridge Team"
                 />
               </label>
@@ -3198,7 +3480,7 @@ export default function SiteSettingsPage() {
                       fromEmail: e.target.value,
                     }))
                   }
-                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  className="border-stroke focus:border-primary dark:border-strokedark dark:bg-boxdark w-full rounded-md border px-3 py-2 text-sm outline-none"
                   placeholder="hello@yourdomain.com"
                 />
               </label>
@@ -3216,7 +3498,7 @@ export default function SiteSettingsPage() {
                       replyTo: e.target.value,
                     }))
                   }
-                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  className="border-stroke focus:border-primary dark:border-strokedark dark:bg-boxdark w-full rounded-md border px-3 py-2 text-sm outline-none"
                   placeholder="support@yourdomain.com"
                 />
               </label>
@@ -3234,7 +3516,7 @@ export default function SiteSettingsPage() {
                       sendingDomain: e.target.value,
                     }))
                   }
-                  className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                  className="border-stroke focus:border-primary dark:border-strokedark dark:bg-boxdark w-full rounded-md border px-3 py-2 text-sm outline-none"
                   placeholder="mg.yourdomain.com"
                 />
               </label>
@@ -3248,16 +3530,16 @@ export default function SiteSettingsPage() {
                 type="text"
                 value={leadRoutingInput}
                 onChange={(e) => setLeadRoutingInput(e.target.value)}
-                className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                className="border-stroke focus:border-primary dark:border-strokedark dark:bg-boxdark w-full rounded-md border px-3 py-2 text-sm outline-none"
                 placeholder="sales@yourdomain.com, ops@yourdomain.com"
               />
-              <span className="mt-1 block text-xs text-body-color dark:text-bodydark">
+              <span className="text-body-color dark:text-bodydark mt-1 block text-xs">
                 Comma-separated email addresses used for tenant lead routing.
               </span>
             </label>
 
             {emailProfile.verificationNotes ? (
-              <div className="mb-4 rounded-md border border-stroke bg-gray-2 px-3 py-2 text-xs text-body-color dark:border-strokedark dark:bg-meta-4 dark:text-bodydark">
+              <div className="border-stroke bg-gray-2 text-body-color dark:border-strokedark dark:bg-meta-4 dark:text-bodydark mb-4 rounded-md border px-3 py-2 text-xs">
                 {emailProfile.verificationNotes}
               </div>
             ) : null}
@@ -3270,7 +3552,7 @@ export default function SiteSettingsPage() {
               </div>
             ) : null}
 
-            <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-strokedark dark:bg-meta-4">
+            <div className="dark:border-strokedark dark:bg-meta-4 mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                 <label className="block flex-1">
                   <span className="mb-1 block text-sm font-medium text-black dark:text-white">
@@ -3280,24 +3562,39 @@ export default function SiteSettingsPage() {
                     type="email"
                     value={emailTestRecipient}
                     onChange={(e) => setEmailTestRecipient(e.target.value)}
-                    className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
+                    className="border-stroke focus:border-primary dark:border-strokedark dark:bg-boxdark w-full rounded-md border px-3 py-2 text-sm outline-none"
                     placeholder="qa@clientdomain.com"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={sendEmailProfileTest}
-                  disabled={emailProfileTesting || !websiteId || !emailProfile.available}
-                  className="rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={
+                    emailProfileTesting || !websiteId || !emailProfile.available
+                  }
+                  className="border-primary text-primary hover:bg-primary rounded-md border px-4 py-2 text-sm font-medium hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {emailProfileTesting ? "Sending Test..." : "Send Test Email"}
                 </button>
               </div>
-              <div className="mt-3 text-xs text-body-color dark:text-bodydark">
-                Last test status: <strong>{emailProfile.lastTestEmailStatus === "success" ? "Success" : emailProfile.lastTestEmailStatus === "failed" ? "Failed" : "Not run yet"}</strong>
-                {emailProfile.lastTestEmailAt ? ` at ${new Date(emailProfile.lastTestEmailAt).toLocaleString()}` : ""}
-                {emailProfile.lastTestEmailTo ? ` to ${emailProfile.lastTestEmailTo}` : ""}
-                {emailProfile.lastTestEmailSender ? ` using ${emailProfile.lastTestEmailSender}` : ""}
+              <div className="text-body-color dark:text-bodydark mt-3 text-xs">
+                Last test status:{" "}
+                <strong>
+                  {emailProfile.lastTestEmailStatus === "success"
+                    ? "Success"
+                    : emailProfile.lastTestEmailStatus === "failed"
+                      ? "Failed"
+                      : "Not run yet"}
+                </strong>
+                {emailProfile.lastTestEmailAt
+                  ? ` at ${new Date(emailProfile.lastTestEmailAt).toLocaleString()}`
+                  : ""}
+                {emailProfile.lastTestEmailTo
+                  ? ` to ${emailProfile.lastTestEmailTo}`
+                  : ""}
+                {emailProfile.lastTestEmailSender
+                  ? ` using ${emailProfile.lastTestEmailSender}`
+                  : ""}
               </div>
               {emailProfile.lastTestEmailError ? (
                 <p className="mt-2 text-xs text-red-600 dark:text-red-400">
@@ -3326,13 +3623,17 @@ export default function SiteSettingsPage() {
                 DKIM {emailProfile.dkimVerified ? "Verified" : "Pending"}
               </span>
               {emailProfile.updatedAt ? (
-                <span className="text-xs text-body-color dark:text-bodydark">
-                  Last updated {new Date(emailProfile.updatedAt).toLocaleString()}
+                <span className="text-body-color dark:text-bodydark text-xs">
+                  Last updated{" "}
+                  {new Date(emailProfile.updatedAt).toLocaleString()}
                 </span>
               ) : null}
               {emailProfile.verificationLastCheckedAt ? (
-                <span className="text-xs text-body-color dark:text-bodydark">
-                  Last checked {new Date(emailProfile.verificationLastCheckedAt).toLocaleString()}
+                <span className="text-body-color dark:text-bodydark text-xs">
+                  Last checked{" "}
+                  {new Date(
+                    emailProfile.verificationLastCheckedAt,
+                  ).toLocaleString()}
                 </span>
               ) : null}
             </div>
@@ -3341,13 +3642,15 @@ export default function SiteSettingsPage() {
               <button
                 type="button"
                 onClick={saveEmailProfile}
-                disabled={emailProfileSaving || !websiteId || !emailProfile.available}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={
+                  emailProfileSaving || !websiteId || !emailProfile.available
+                }
+                className="bg-primary hover:bg-opacity-90 rounded-md px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {emailProfileSaving ? "Saving..." : "Save Email Profile"}
               </button>
               {emailProfileMessage ? (
-                <span className="text-sm text-body-color dark:text-bodydark">
+                <span className="text-body-color dark:text-bodydark text-sm">
                   {emailProfileMessage}
                 </span>
               ) : null}
@@ -3361,7 +3664,8 @@ export default function SiteSettingsPage() {
               About, Contact, and 3 starter services.
             </p>
             <p className="mb-4 text-xs text-gray-500">
-              Prefill actions only stage values in this form. Nothing is saved until you click <strong>Save Changes</strong>.
+              Prefill actions only stage values in this form. Nothing is saved
+              until you click <strong>Save Changes</strong>.
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -3377,7 +3681,9 @@ export default function SiteSettingsPage() {
                   <option value="services">Services</option>
                   <option value="ecommerce">Ecommerce</option>
                   <option value="restaurants">Restaurants</option>
-                  <option value="healthcare-wellness">Healthcare / Wellness</option>
+                  <option value="healthcare-wellness">
+                    Healthcare / Wellness
+                  </option>
                 </select>
               </div>
               <Field
@@ -3408,7 +3714,9 @@ export default function SiteSettingsPage() {
                   className={INPUT}
                   value={templateVisualDirection}
                   onChange={(e) =>
-                    setTemplateVisualDirection(e.target.value as VisualDirection)
+                    setTemplateVisualDirection(
+                      e.target.value as VisualDirection,
+                    )
                   }
                 >
                   <option value="clean">Clean</option>
@@ -3496,19 +3804,27 @@ export default function SiteSettingsPage() {
           </div>
 
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Header Navigation Templates (Phase A)</p>
+            <p className={SECTION_TITLE}>
+              Header Navigation Templates (Phase A)
+            </p>
             <p className="mb-4 text-sm text-gray-500">
               Configure top navbar links by industry. You can edit, delete, or
               add custom links.
             </p>
             <p className="mb-4 text-xs text-gray-500">
-              For anchor links use <code>#services</code>, <code>#faq</code>, <code>#testimonials</code>, or <code>#contact</code>. For a new page, set href like <code>/why-us</code> and create/publish that slug in <code>Custom Pages</code>.
+              For anchor links use <code>#services</code>, <code>#faq</code>,{" "}
+              <code>#testimonials</code>, or <code>#contact</code>. For a new
+              page, set href like <code>/why-us</code> and create/publish that
+              slug in <code>Custom Pages</code>.
             </p>
             {missingHeaderLinks.length > 0 && (
               <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                <p className="font-semibold">Potential 404s detected in Header Navigation</p>
+                <p className="font-semibold">
+                  Potential 404s detected in Header Navigation
+                </p>
                 <p className="mt-1">
-                  {missingHeaderLinks.length} link(s) need page setup or href updates. Use Custom Pages to create/publish missing slugs.
+                  {missingHeaderLinks.length} link(s) need page setup or href
+                  updates. Use Custom Pages to create/publish missing slugs.
                 </p>
                 <Link
                   href="/main-page"
@@ -3525,14 +3841,18 @@ export default function SiteSettingsPage() {
                   className={INPUT}
                   value={headerNavTemplateIndustry}
                   onChange={(e) =>
-                    setHeaderNavTemplateIndustry(e.target.value as IndustryTemplate)
+                    setHeaderNavTemplateIndustry(
+                      e.target.value as IndustryTemplate,
+                    )
                   }
                 >
                   <option value="trades">Trades</option>
                   <option value="services">Services</option>
                   <option value="ecommerce">Ecommerce</option>
                   <option value="restaurants">Restaurants</option>
-                  <option value="healthcare-wellness">Healthcare / Wellness</option>
+                  <option value="healthcare-wellness">
+                    Healthcare / Wellness
+                  </option>
                 </select>
               </div>
               <button
@@ -3620,14 +3940,18 @@ export default function SiteSettingsPage() {
                   className={INPUT}
                   value={footerNavTemplateIndustry}
                   onChange={(e) =>
-                    setFooterNavTemplateIndustry(e.target.value as IndustryTemplate)
+                    setFooterNavTemplateIndustry(
+                      e.target.value as IndustryTemplate,
+                    )
                   }
                 >
                   <option value="trades">Trades</option>
                   <option value="services">Services</option>
                   <option value="ecommerce">Ecommerce</option>
                   <option value="restaurants">Restaurants</option>
-                  <option value="healthcare-wellness">Healthcare / Wellness</option>
+                  <option value="healthcare-wellness">
+                    Healthcare / Wellness
+                  </option>
                 </select>
               </div>
               <button
@@ -4442,343 +4766,509 @@ export default function SiteSettingsPage() {
           requiredFeatures={["commerce.checkout.manage"]}
           pageTitle="Shop Management"
         >
-        <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
-                  Stripe Connect
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  Connect this tenant&apos;s Stripe account for live payouts and
-                  tenant-scoped checkout settlement.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => websiteId && loadStripeConnectStatus(websiteId)}
-                  disabled={stripeConnectLoading || !websiteId}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  {stripeConnectLoading ? "Refreshing…" : "Refresh Status"}
-                </button>
-                <button
-                  type="button"
-                  onClick={startStripeConnectOnboarding}
-                  disabled={stripeConnectStarting || !websiteId}
-                  className="rounded-lg bg-[#CD7F32] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {stripeConnectStarting
-                    ? "Redirecting…"
-                    : stripeConnectStatus?.connected
-                      ? "Continue Onboarding"
-                      : "Connect Stripe"}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-              <p>
-                Status:{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {stripeConnectStatus?.connected
-                    ? "Connected"
-                    : stripeConnectLoading
-                      ? "Checking…"
-                      : "Not connected"}
-                </span>
-              </p>
-              <p>
-                Charges Enabled:{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {stripeConnectStatus?.chargesEnabled ? "Yes" : "No"}
-                </span>
-              </p>
-              <p>
-                Payouts Enabled:{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {stripeConnectStatus?.payoutsEnabled ? "Yes" : "No"}
-                </span>
-              </p>
-              <p>
-                Onboarding Complete:{" "}
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {stripeConnectStatus?.onboardingComplete ? "Yes" : "No"}
-                </span>
-              </p>
-            </div>
-
-            {stripeConnectStatus?.accountId && (
-              <p className="mt-3 text-xs text-gray-500">
-                Account ID: {stripeConnectStatus.accountId}
-              </p>
-            )}
-            {(stripeConnectStatus?.error || stripeConnectMessage) && (
-              <p className="mt-3 text-sm text-red-500">
-                {stripeConnectMessage || stripeConnectStatus?.error}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">
-              Manage products shown on your public <strong>Shop</strong> page.
-              Enable the shop in <strong>Site Settings</strong> to show the nav
-              link.
-            </p>
-            {productEdit === null && (
-              <button
-                onClick={startNewProduct}
-                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-              >
-                + Add Product
-              </button>
-            )}
-          </div>
-
-          {/* Product form */}
-          {productEdit !== null && (
-            <div className="rounded-xl border border-[#CD7F32]/30 bg-orange-50/40 p-5 shadow-sm dark:bg-gray-800">
-              <p className="mb-4 text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
-                {productEdit === "new" ? "New Product" : "Edit Product"}
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className={LABEL}>Title *</label>
-                  <input
-                    className={INPUT}
-                    value={productForm.title}
-                    onChange={(e) => setProductField("title", e.target.value)}
-                    placeholder="e.g. Small Wrapped Bouquet"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className={LABEL}>Slug</label>
-                  <input
-                    className={INPUT}
-                    value={productForm.slug}
-                    onChange={(e) =>
-                      setProductField("slug", slugify(e.target.value))
-                    }
-                    placeholder="e.g. small-wrapped-bouquet"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Auto-generated from title.
+          <div className="space-y-4">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
+                    Stripe Connect
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Connect this tenant&apos;s Stripe account for live payouts
+                    and tenant-scoped checkout settlement.
                   </p>
                 </div>
-                <div>
-                  <label className={LABEL}>Price ($) *</label>
-                  <input
-                    className={INPUT}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={productForm.price}
-                    onChange={(e) => setProductField("price", e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className={LABEL}>Compare-at Price ($)</label>
-                  <input
-                    className={INPUT}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={productForm.compare_at_price}
-                    onChange={(e) =>
-                      setProductField("compare_at_price", e.target.value)
-                    }
-                    placeholder="0.00 (optional strikethrough price)"
-                  />
-                </div>
-                <div>
-                  <label className={LABEL}>Stock Quantity</label>
-                  <input
-                    className={INPUT}
-                    type="number"
-                    min="0"
-                    value={productForm.stock_quantity}
-                    onChange={(e) =>
-                      setProductField("stock_quantity", e.target.value)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className={LABEL}>Sort Order</label>
-                  <input
-                    className={INPUT}
-                    type="number"
-                    min="0"
-                    value={productForm.sort_order}
-                    onChange={(e) =>
-                      setProductField("sort_order", Number(e.target.value))
-                    }
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Lower = appears first.
-                  </p>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className={LABEL}>Image URL</label>
-                  <input
-                    className={INPUT}
-                    value={productForm.image_url}
-                    onChange={(e) =>
-                      setProductField("image_url", e.target.value)
-                    }
-                    placeholder="https://example.com/product.jpg"
-                  />
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() =>
-                      openAssetPicker("Select Product Image", (url) =>
-                        setProductField("image_url", url),
-                      )
+                      websiteId && loadStripeConnectStatus(websiteId)
                     }
-                    className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                    disabled={stripeConnectLoading || !websiteId}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
-                    Select from Client Assets
+                    {stripeConnectLoading ? "Refreshing…" : "Refresh Status"}
                   </button>
-                  {productForm.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={productForm.image_url}
-                      alt="preview"
-                      className="mt-3 h-40 w-full rounded-lg border border-gray-200 object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
+                  <button
+                    type="button"
+                    onClick={startStripeConnectOnboarding}
+                    disabled={stripeConnectStarting || !websiteId}
+                    className="rounded-lg bg-[#CD7F32] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {stripeConnectStarting
+                      ? "Redirecting…"
+                      : stripeConnectStatus?.connected
+                        ? "Continue Onboarding"
+                        : "Connect Stripe"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                <p>
+                  Status:{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {stripeConnectStatus?.connected
+                      ? "Connected"
+                      : stripeConnectLoading
+                        ? "Checking…"
+                        : "Not connected"}
+                  </span>
+                </p>
+                <p>
+                  Charges Enabled:{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {stripeConnectStatus?.chargesEnabled ? "Yes" : "No"}
+                  </span>
+                </p>
+                <p>
+                  Payouts Enabled:{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {stripeConnectStatus?.payoutsEnabled ? "Yes" : "No"}
+                  </span>
+                </p>
+                <p>
+                  Onboarding Complete:{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {stripeConnectStatus?.onboardingComplete ? "Yes" : "No"}
+                  </span>
+                </p>
+              </div>
+
+              {stripeConnectStatus?.accountId && (
+                <p className="mt-3 text-xs text-gray-500">
+                  Account ID: {stripeConnectStatus.accountId}
+                </p>
+              )}
+              {(stripeConnectStatus?.error || stripeConnectMessage) && (
+                <p className="mt-3 text-sm text-red-500">
+                  {stripeConnectMessage || stripeConnectStatus?.error}
+                </p>
+              )}
+            </div>
+
+            {/* ── Printify Integration card ── */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
+                    Printify (Print-on-Demand)
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Connect a Printify account to automatically fulfill
+                    print-on-demand products when customers check out.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={loadPrintifyStatus}
+                    disabled={printifyLoading}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    {printifyLoading ? "Refreshing…" : "Refresh Status"}
+                  </button>
+                  {printifyStatus?.connected && (
+                    <button
+                      type="button"
+                      onClick={syncPrintifyProducts}
+                      disabled={printifySyncing || !websiteId}
+                      className="rounded-lg bg-[#CD7F32] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {printifySyncing ? "Syncing…" : "Sync Products"}
+                    </button>
+                  )}
+                  {printifyStatus?.connected && (
+                    <button
+                      type="button"
+                      onClick={disconnectPrintify}
+                      disabled={printifyDisconnecting}
+                      className="rounded-lg border border-red-200 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {printifyDisconnecting ? "Disconnecting…" : "Disconnect"}
+                    </button>
                   )}
                 </div>
-                <div className="sm:col-span-2">
-                  <label className={LABEL}>Description</label>
-                  <textarea
-                    className={INPUT}
-                    rows={4}
-                    value={productForm.description}
-                    onChange={(e) =>
-                      setProductField("description", e.target.value)
-                    }
-                    placeholder="Describe this product…"
-                  />
-                </div>
-                <div className="flex items-center gap-3 sm:col-span-2">
+              </div>
+
+              <div className="mt-4 text-sm">
+                <p>
+                  Status:{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {printifyStatus?.connected
+                      ? "Connected"
+                      : printifyLoading
+                        ? "Checking…"
+                        : "Not connected"}
+                  </span>
+                </p>
+                {printifyStatus?.connected && printifyStatus.shopId && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Shop ID: {printifyStatus.shopId}
+                  </p>
+                )}
+              </div>
+
+              {!printifyStatus?.connected && (
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Printify API Key
+                    </label>
+                    <input
+                      type="password"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[#CD7F32] focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                      value={printifyApiKeyInput}
+                      onChange={(e) => setPrintifyApiKeyInput(e.target.value)}
+                      placeholder="Paste your Printify API key…"
+                      autoComplete="off"
+                    />
+                  </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setProductField("is_published", !productForm.is_published)
-                    }
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      productForm.is_published ? "bg-[#CD7F32]" : "bg-gray-200"
-                    }`}
-                    role="switch"
-                    aria-checked={productForm.is_published}
+                    onClick={savePrintifyKey}
+                    disabled={printifySaving || !printifyApiKeyInput.trim()}
+                    className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    <span
-                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                        productForm.is_published
-                          ? "translate-x-4"
-                          : "translate-x-0.5"
-                      }`}
-                    />
+                    {printifySaving ? "Connecting…" : "Connect Printify"}
                   </button>
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Published (visible on shop)
-                  </span>
                 </div>
-              </div>
-              {productError && (
-                <p className="mt-2 text-sm text-red-500">{productError}</p>
               )}
-              <div className="mt-4 flex gap-3">
-                <button
-                  onClick={saveProduct}
-                  disabled={productSaving}
-                  className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {productSaving ? "Saving…" : "Save"}
-                </button>
-                <button
-                  onClick={cancelProduct}
-                  className="rounded-lg border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* Product list */}
-          {productsLoading ? (
-            <p className="text-sm text-gray-400">Loading…</p>
-          ) : products.length === 0 && productEdit === null ? (
-            <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
-              No products yet. Click <strong>+ Add Product</strong> to get
-              started.
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {products.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+              {printifyMessage && (
+                <p
+                  className={`mt-3 text-sm ${printifyMessage.toLowerCase().includes("success") || printifyMessage.toLowerCase().includes("connected") ? "text-green-600" : "text-red-500"}`}
                 >
-                  <div className="flex min-w-0 gap-3">
-                    {p.image_url && (
+                  {printifyMessage}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                Manage products shown on your public <strong>Shop</strong> page.
+                Enable the shop in <strong>Site Settings</strong> to show the
+                nav link.
+              </p>
+              {productEdit === null && (
+                <button
+                  onClick={startNewProduct}
+                  className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  + Add Product
+                </button>
+              )}
+            </div>
+
+            {/* Product form */}
+            {productEdit !== null && (
+              <div className="rounded-xl border border-[#CD7F32]/30 bg-orange-50/40 p-5 shadow-sm dark:bg-gray-800">
+                <p className="mb-4 text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
+                  {productEdit === "new" ? "New Product" : "Edit Product"}
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className={LABEL}>Title *</label>
+                    <input
+                      className={INPUT}
+                      value={productForm.title}
+                      onChange={(e) => setProductField("title", e.target.value)}
+                      placeholder="e.g. Small Wrapped Bouquet"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={LABEL}>Slug</label>
+                    <input
+                      className={INPUT}
+                      value={productForm.slug}
+                      onChange={(e) =>
+                        setProductField("slug", slugify(e.target.value))
+                      }
+                      placeholder="e.g. small-wrapped-bouquet"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Auto-generated from title.
+                    </p>
+                  </div>
+                  <div>
+                    <label className={LABEL}>Price ($) *</label>
+                    <input
+                      className={INPUT}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={productForm.price}
+                      onChange={(e) => setProductField("price", e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL}>Compare-at Price ($)</label>
+                    <input
+                      className={INPUT}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={productForm.compare_at_price}
+                      onChange={(e) =>
+                        setProductField("compare_at_price", e.target.value)
+                      }
+                      placeholder="0.00 (optional strikethrough price)"
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL}>Stock Quantity</label>
+                    <input
+                      className={INPUT}
+                      type="number"
+                      min="0"
+                      value={productForm.stock_quantity}
+                      onChange={(e) =>
+                        setProductField("stock_quantity", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL}>Sort Order</label>
+                    <input
+                      className={INPUT}
+                      type="number"
+                      min="0"
+                      value={productForm.sort_order}
+                      onChange={(e) =>
+                        setProductField("sort_order", Number(e.target.value))
+                      }
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Lower = appears first.
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={LABEL}>Image URL</label>
+                    <input
+                      className={INPUT}
+                      value={productForm.image_url}
+                      onChange={(e) =>
+                        setProductField("image_url", e.target.value)
+                      }
+                      placeholder="https://example.com/product.jpg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openAssetPicker("Select Product Image", (url) =>
+                          setProductField("image_url", url),
+                        )
+                      }
+                      className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      Select from Client Assets
+                    </button>
+                    {productForm.image_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={p.image_url}
-                        alt={p.title}
-                        className="h-14 w-14 shrink-0 rounded-lg border border-gray-200 object-cover"
+                        src={productForm.image_url}
+                        alt="preview"
+                        className="mt-3 h-40 w-full rounded-lg border border-gray-200 object-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                         }}
                       />
                     )}
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {p.title}
-                      </p>
-                      <p className="text-sm text-[#CD7F32]">
-                        ${parseFloat(p.price).toFixed(2)}
-                        {p.compare_at_price && (
-                          <span className="ml-2 text-gray-400 line-through">
-                            ${parseFloat(p.compare_at_price).toFixed(2)}
-                          </span>
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-400">
-                        slug: {p.slug} · stock: {p.stock_quantity} ·{" "}
-                        {p.is_published ? (
-                          <span className="text-green-500">published</span>
-                        ) : (
-                          <span className="text-gray-400">draft</span>
-                        )}
-                      </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={LABEL}>Description</label>
+                    <textarea
+                      className={INPUT}
+                      rows={4}
+                      value={productForm.description}
+                      onChange={(e) =>
+                        setProductField("description", e.target.value)
+                      }
+                      placeholder="Describe this product…"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductField(
+                          "is_published",
+                          !productForm.is_published,
+                        )
+                      }
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                        productForm.is_published
+                          ? "bg-[#CD7F32]"
+                          : "bg-gray-200"
+                      }`}
+                      role="switch"
+                      aria-checked={productForm.is_published}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                          productForm.is_published
+                            ? "translate-x-4"
+                            : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      Published (visible on shop)
+                    </span>
+                  </div>
+
+                  {/* ── Fulfillment ── */}
+                  <div className="sm:col-span-2">
+                    <label className={LABEL}>Fulfillment Type</label>
+                    <select
+                      className={INPUT}
+                      value={productForm.fulfillment_type}
+                      onChange={(e) =>
+                        setProductField(
+                          "fulfillment_type",
+                          e.target.value as "manual" | "printify",
+                        )
+                      }
+                    >
+                      <option value="manual">Manual fulfillment</option>
+                      <option value="printify">
+                        Printify (print-on-demand)
+                      </option>
+                    </select>
+                  </div>
+                  {productForm.fulfillment_type === "printify" && (
+                    <>
+                      <div>
+                        <label className={LABEL}>Printify Blueprint ID</label>
+                        <input
+                          className={INPUT}
+                          type="number"
+                          min="1"
+                          value={productForm.printify_blueprint_id}
+                          onChange={(e) =>
+                            setProductField(
+                              "printify_blueprint_id",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="e.g. 12"
+                        />
+                        <p className="mt-1 text-xs text-gray-400">
+                          Found in the Printify catalog URL.
+                        </p>
+                      </div>
+                      <div>
+                        <label className={LABEL}>Printify Variant ID</label>
+                        <input
+                          className={INPUT}
+                          type="number"
+                          min="1"
+                          value={productForm.printify_variant_id}
+                          onChange={(e) =>
+                            setProductField(
+                              "printify_variant_id",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="e.g. 45308"
+                        />
+                        <p className="mt-1 text-xs text-gray-400">
+                          The specific size/color variant id from Printify.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {productError && (
+                  <p className="mt-2 text-sm text-red-500">{productError}</p>
+                )}
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={saveProduct}
+                    disabled={productSaving}
+                    className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {productSaving ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    onClick={cancelProduct}
+                    className="rounded-lg border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Product list */}
+            {productsLoading ? (
+              <p className="text-sm text-gray-400">Loading…</p>
+            ) : products.length === 0 && productEdit === null ? (
+              <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
+                No products yet. Click <strong>+ Add Product</strong> to get
+                started.
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {products.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                  >
+                    <div className="flex min-w-0 gap-3">
+                      {p.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.image_url}
+                          alt={p.title}
+                          className="h-14 w-14 shrink-0 rounded-lg border border-gray-200 object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {p.title}
+                        </p>
+                        <p className="text-sm text-[#CD7F32]">
+                          ${parseFloat(p.price).toFixed(2)}
+                          {p.compare_at_price && (
+                            <span className="ml-2 text-gray-400 line-through">
+                              ${parseFloat(p.compare_at_price).toFixed(2)}
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-400">
+                          slug: {p.slug} · stock: {p.stock_quantity} ·{" "}
+                          {p.is_published ? (
+                            <span className="text-green-500">published</span>
+                          ) : (
+                            <span className="text-gray-400">draft</span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      onClick={() => startEditProduct(p)}
-                      className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => setConfirmDeleteProductId(p.id)}
-                      className="rounded-md border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => startEditProduct(p)}
+                        className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteProductId(p.id)}
+                        className="rounded-md border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </EntitlementGate>
       )}
 

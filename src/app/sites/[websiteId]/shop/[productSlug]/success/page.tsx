@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Stripe from "stripe";
 import { getSiteSettings } from "@/lib/cms-api";
+import FulfillmentStatus from "./FulfillmentStatus";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +54,7 @@ export default async function CheckoutSuccessPage({
     ? `$${(session.amount_total / 100).toFixed(2)}`
     : null;
   const productDetailHref = `/sites/${websiteId}/shop/${sessionProductSlug}`;
+  const isPrintify = session.metadata?.fulfillmentType === "printify";
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
@@ -99,9 +101,13 @@ export default async function CheckoutSuccessPage({
             <strong className="text-gray-700">{amountPaid}</strong>
           </p>
         )}
-        <p className="mb-8 text-sm text-gray-400">
-          A confirmation email will be sent to you shortly.
-        </p>
+        {isPrintify ? (
+          <FulfillmentStatus sessionId={session_id} primaryColor={primary} />
+        ) : (
+          <p className="mb-8 text-sm text-gray-400">
+            A confirmation email will be sent to you shortly.
+          </p>
+        )}
 
         <Link
           href={shopHref}

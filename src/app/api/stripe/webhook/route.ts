@@ -24,7 +24,10 @@ const getProcessedWebhookStore = (): Map<string, ProcessedWebhookRecord> => {
   };
 
   if (!globalWithStore.__processedStripeWebhooks) {
-    globalWithStore.__processedStripeWebhooks = new Map<string, ProcessedWebhookRecord>();
+    globalWithStore.__processedStripeWebhooks = new Map<
+      string,
+      ProcessedWebhookRecord
+    >();
   }
 
   return globalWithStore.__processedStripeWebhooks;
@@ -125,7 +128,17 @@ export async function POST(request: NextRequest) {
   let metricTenantId: string | null = null;
 
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+    // Re-fetch the session so collected_information (including shipping) is
+    // populated — the raw webhook event object may not include it.
+    // NOTE: shipping_details is not expandable in API ≥ 2025-01; use
+    //       collected_information.shipping_details instead.
+    const rawSession = event.data.object as Stripe.Checkout.Session;
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.retrieve(
+      rawSession.id,
+      {},
+      accountId ? { stripeAccount: accountId } : undefined,
+    );
     metricWebsiteId = session.metadata?.websiteId ?? null;
     metricTenantId = session.metadata?.tenantId ?? null;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -151,17 +164,15 @@ export async function POST(request: NextRequest) {
     } else if (session.payment_intent) {
       try {
         // Resolve the actual Charge id (ch_...) via the PaymentIntent
-        const stripe = getStripe();
         const paymentIntentId =
           typeof session.payment_intent === "string"
             ? session.payment_intent
             : session.payment_intent.id;
-        const paymentIntent =
-          await stripe.paymentIntents.retrieve(
-            paymentIntentId,
-            {},
-            accountId ? { stripeAccount: accountId } : undefined,
-          );
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          paymentIntentId,
+          {},
+          accountId ? { stripeAccount: accountId } : undefined,
+        );
         const chargeId =
           typeof paymentIntent.latest_charge === "string"
             ? paymentIntent.latest_charge
@@ -193,6 +204,7 @@ export async function POST(request: NextRequest) {
             headers: {
               "Content-Type": "application/json",
               "Idempotency-Key": event.id,
+              "x-internal-key": process.env.INTERNAL_API_KEY ?? "",
             },
             body: JSON.stringify({
               stripe_charge_id: chargeId,
@@ -205,12 +217,47 @@ export async function POST(request: NextRequest) {
               tenant_id: session.metadata?.tenantId ?? null,
               website_id: session.metadata?.websiteId ?? null,
               product_slug: session.metadata?.productSlug ?? null,
+              product_id: session.metadata?.productId ?? null,
+              quantity: session.metadata?.quantity
+                ? parseInt(session.metadata.quantity, 10)
+                : 1,
+              fulfillment_type: session.metadata?.fulfillmentType ?? "manual",
+              stripe_checkout_session_id: session.id,
+              // Shipping — collected_information.shipping_details (API ≥ 2025-01).
+              ...(() => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const s = (session as any).collected_information
+                  ?.shipping_details as
+                  | {
+                      name?: string;
+                      address?: {
+                        line1?: string;
+                        line2?: string;
+                        city?: string;
+                        state?: string;
+                        postal_code?: string;
+                        country?: string;
+                      };
+                    }
+                  | undefined;
+                return {
+                  shipping_name: s?.name ?? null,
+                  shipping_address_line1: s?.address?.line1 ?? null,
+                  shipping_address_line2: s?.address?.line2 ?? null,
+                  shipping_city: s?.address?.city ?? null,
+                  shipping_state: s?.address?.state ?? null,
+                  shipping_postal_code: s?.address?.postal_code ?? null,
+                  shipping_country: s?.address?.country ?? null,
+                };
+              })(),
             }),
           });
 
           if (!recordRes.ok && recordRes.status !== 409) {
             const text = await recordRes.text();
-            throw new Error(`Charge record failed (${recordRes.status}): ${text}`);
+            throw new Error(
+              `Charge record failed (${recordRes.status}): ${text}`,
+            );
           }
         }
       } catch (err) {

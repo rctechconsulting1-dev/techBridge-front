@@ -47,10 +47,10 @@ async function fetchStripeTenantContext(
 
       const raw = (await res.json()) as Record<string, unknown>;
       const tenantId =
-        typeof raw.tenantId === "string"
-          ? raw.tenantId
-          : typeof raw.tenant_id === "string"
-            ? raw.tenant_id
+        raw.tenantId != null
+          ? String(raw.tenantId)
+          : raw.tenant_id != null
+            ? String(raw.tenant_id)
             : undefined;
       const stripeConnectedAccountId =
         typeof raw.stripeConnectedAccountId === "string"
@@ -156,7 +156,10 @@ export async function POST(request: NextRequest) {
     const appUrl = getAppUrl();
     const shopBase = `${appUrl}/sites/${encodeURIComponent(websiteIdString)}/shop/${encodeURIComponent(product.slug)}`;
     const authHeader = request.headers.get("authorization");
-    const tenantContext = await fetchStripeTenantContext(websiteIdString, authHeader);
+    const tenantContext = await fetchStripeTenantContext(
+      websiteIdString,
+      authHeader,
+    );
     const stripeAccount = tenantContext?.stripeConnectedAccountId;
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -181,11 +184,55 @@ export async function POST(request: NextRequest) {
       metadata: {
         websiteId: websiteIdString,
         productSlug: product.slug,
-        ...(tenantContext?.tenantId ? { tenantId: tenantContext.tenantId } : {}),
+        productId: String(product.id),
+        quantity: String(qty),
+        fulfillmentType: product.fulfillment_type ?? "manual",
+        // Printify fulfillment ids — read back by webhook to submit the order
+        ...(product.fulfillment_type === "printify"
+          ? {
+              printify_blueprint_id: String(
+                product.printify_blueprint_id ?? "",
+              ),
+              printify_print_provider_id: String(
+                product.printify_print_provider_id ?? "",
+              ),
+              printify_variant_id: String(product.printify_variant_id ?? ""),
+            }
+          : {}),
+        ...(tenantContext?.tenantId
+          ? { tenantId: tenantContext.tenantId }
+          : {}),
         ...(stripeAccount ? { stripeAccountId: stripeAccount } : {}),
       },
       success_url: `${shopBase}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: shopBase,
+      // Collect shipping address when the product is fulfilled via Printify
+      ...(product.fulfillment_type === "printify"
+        ? {
+            shipping_address_collection: {
+              allowed_countries: [
+                "US",
+                "CA",
+                "GB",
+                "AU",
+                "DE",
+                "FR",
+                "IT",
+                "ES",
+                "NL",
+                "SE",
+                "NO",
+                "DK",
+                "FI",
+                "BE",
+                "AT",
+                "CH",
+                "NZ",
+                "JP",
+              ],
+            },
+          }
+        : {}),
     };
 
     const session = await stripe.checkout.sessions.create(

@@ -17,6 +17,7 @@ Use this runbook for the overall sequence, then use the companion playbooks for 
 7. `TENANT_FEATURE_PLAYBOOK_EMAIL_DLQ.md`
 8. `TENANT_FEATURE_PLAYBOOK_RELIABILITY.md`
 9. `docs/operations/TENANT_LIVE_TEST_RUNBOOK.md`
+10. `TENANT_FEATURE_PLAYBOOK_PRINTIFY.md` (print-on-demand ecommerce)
 
 ## Purpose
 
@@ -87,8 +88,8 @@ Follow this order every time:
 8. Configure built-in pages and branding
 9. Add custom pages only if needed
 10. Configure purchased add-ons only
-10. Verify owner invite delivery
-11. Complete final QA and handoff
+11. Verify owner invite delivery
+12. Complete final QA and handoff
 
 ## Step 1 - Sign In As Admin
 
@@ -328,13 +329,132 @@ Examples:
    Configure Google Business integration if included.
 3. Checkout / Ecommerce
    Configure product and checkout-related settings if included.
-4. AI
+4. Printify (Print-On-Demand)
+   Configure Printify integration if included. See the Printify section below.
+5. AI
    Only available if AI module/features are enabled.
 
 If a feature page is not visible:
 
 1. Check the tenant's enabled modules in the `Tenants` page.
 2. Update the tenant if the sold package changed.
+
+## Printify Integration Setup
+
+Use this section when the tenant's package includes print-on-demand fulfillment via Printify.
+
+### Overview
+
+Printify handles order creation and fulfillment automatically when a customer purchases a product with `fulfillment_type = printify`. After a successful Stripe checkout, the platform webhook creates an order in Printify using the tenant's connected shop and the real shipping address the customer entered at checkout.
+
+### Prerequisites
+
+Before configuring Printify for a tenant:
+
+1. Tenant has the `Checkout / Ecommerce` module enabled.
+2. Tenant has a Printify account and at least one published product in their Printify shop.
+3. The Printify product(s) they want to sell are already created and published in Printify — the platform does **not** create Printify products; it only syncs and fulfills them.
+
+### Step 1 — Connect Printify In Site Settings
+
+1. In the admin dashboard, select the tenant context.
+2. Open `Global Site Settings` → `Integrations` (or `Shop` tab depending on page layout).
+3. Find the `Printify` section.
+4. Enter the tenant's Printify API key.
+   - The tenant can generate this from their Printify account under `My Profile → Connections → API Access`.
+5. Click `Connect`.
+6. Confirm the status shows `Connected`.
+
+Expected result:
+
+1. Printify integration is saved and the API key is encrypted at rest.
+2. The `Sync Products` button becomes available.
+
+### Step 2 — Sync Products From Printify
+
+After connecting, import the tenant's published Printify products into the platform product catalog:
+
+1. Click `Sync Products` next to the Printify connection.
+2. Wait for the sync to complete.
+3. Confirm the success message shows how many products were created or updated.
+
+What happens during sync:
+
+1. The platform fetches all published products from the tenant's Printify shop (up to 50 per page, paginates automatically).
+2. Each product is upserted into the platform `product` table keyed on `printify_product_id`.
+3. `fulfillment_type` is set to `printify` on each synced product.
+4. The product is published (visible in the shop) automatically.
+
+Expected result:
+
+1. Products from Printify appear in the platform shop for the tenant.
+2. Each product has a `printify_product_id` matching the Printify shop product.
+
+### Step 3 — Verify Product Configuration
+
+After syncing, verify each product that will go live:
+
+1. Open the `Shop` tab in `Global Site Settings`.
+2. Confirm each Printify product appears in the list.
+3. Confirm `fulfillment_type` is `printify`.
+4. Confirm `printify_product_id` is populated (not null).
+5. Confirm `printify_variant_id` is set — this is the specific SKU (size/color) the customer will receive.
+   - If variant is missing, the order will be blocked at checkout with a guard error.
+6. Confirm the product has a price, title, and image set so the storefront renders correctly.
+
+Important: the platform sends orders using the `printify_product_id` and `printify_variant_id` directly to Printify. The customer does not choose a variant at checkout in the current implementation — the variant is fixed at the product level. If the tenant sells multiple variants (e.g., sizes), each should be a separate platform product.
+
+### Step 4 — Verify Shipping Is Collected At Checkout
+
+Printify orders require a real shipping address. The platform Stripe checkout session is created with `shipping_address_collection` enabled when `fulfillment_type = printify`. Confirm this is working:
+
+1. Open the tenant's shop page on their public site.
+2. Add a Printify product to the cart and proceed to checkout.
+3. Confirm the Stripe checkout form shows a `Shipping address` section.
+
+If the shipping form does not appear, the product's `fulfillment_type` may not be set to `printify` correctly.
+
+### Step 5 — Verify End-To-End Order Flow (Staging Only)
+
+Before going live, do a test order in the Stripe test environment:
+
+1. Complete a checkout using a Stripe test card (e.g., `4242 4242 4242 4242`).
+2. Enter a real US address — Printify validates addresses and will reject obviously fake ones.
+3. After checkout, observe the success page.
+4. The `FulfillmentStatus` component on the success page should poll and eventually show the order was submitted to Printify.
+5. In the backend DB (`stripe_order_payment`), confirm:
+   - `fulfillment_status = 'submitted'`
+   - `printify_order_id` is populated
+   - `shipping_name`, `shipping_address_line1`, `shipping_city`, `shipping_state`, `shipping_postal_code`, `shipping_country` are all populated
+
+If `fulfillment_status = 'failed'`, check `fulfillment_error` in the same table row for the Printify error message.
+
+### Common Printify Errors
+
+| Error                                               | Cause                                                                  | Fix                                                                                                      |
+| --------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `print_areas required`                              | Product was sent using `blueprint_id` instead of `product_id`          | Ensure `printify_product_id` is set on the product; sync fills this in                                   |
+| `Validation failed` on address                      | Address is not valid or missing fields                                 | Use a real US address during test                                                                        |
+| Order guard blocked — `printify_variant_id` missing | Variant not set on the product record                                  | Update the product in the DB or via the admin UI                                                         |
+| `fulfillment_status` stays blank                    | Webhook was not received (backend was down or signature mismatch)      | Resend the Stripe event via `stripe events resend <evt_id>` after confirming the backend is running      |
+| Shipping fields null in DB                          | Stripe API version ≥ 2025-01 moved shipping to `collected_information` | Webhook handler reads from `collected_information.shipping_details` — confirm it is the deployed version |
+
+### What Does Not Require Admin Setup
+
+The following happen automatically and do not require manual steps per tenant:
+
+1. Printify order creation when a checkout completes (handled by webhook → backend).
+2. Shipping address capture (enabled automatically when product is `fulfillment_type = printify`).
+3. Fulfillment status polling on the success page (`FulfillmentStatus` component handles this for the customer).
+
+### Escalation
+
+Escalate to engineering if:
+
+1. Sync returns an error or imports 0 products when products exist in Printify.
+2. Printify API key is valid but `Connect` fails.
+3. Orders are placed but `fulfillment_status` is stuck at `null` or `failed` with an unexpected error.
+4. Printify reports the order as created but the platform DB shows `failed`.
 
 ## Step 11 - Configure Domain, Email, And Payments If Included
 
