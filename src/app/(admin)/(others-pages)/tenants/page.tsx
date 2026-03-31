@@ -496,6 +496,66 @@ export default function TenantsPage() {
     }
   };
 
+  const handleSendBillingInvite = async (tenant: TenantListItem) => {
+    if (!tenant.owner_email) {
+      setTenantListError("Tenant owner email is missing.");
+      return;
+    }
+    if (!tenant.plan_key) {
+      setTenantListError("Tenant has no plan assigned.");
+      return;
+    }
+
+    setTenantListError(null);
+    setRowActionMessage(null);
+    setRowActionTenantId(tenant.id);
+
+    try {
+      // 1. Generate Stripe Checkout Session via backend
+      const inviteResult = await apiClient.post<{
+        checkoutUrl: string;
+        plan: { plan_key: string; name: string; price_monthly_cents: number };
+      }>("/billing/invite", {
+        tenantId: tenant.id,
+        plan_key: tenant.plan_key,
+        success_url: `${window.location.origin}/billing?checkout=success`,
+        cancel_url: `${window.location.origin}/billing?checkout=canceled`,
+      });
+
+      // 2. Send the email with the checkout link
+      const firstName = tenant.owner_name?.trim().split(/\s+/)[0] || undefined;
+      const priceFormatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 0,
+      }).format(inviteResult.plan.price_monthly_cents / 100);
+
+      await fetch("/api/email/billing-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: tenant.owner_email,
+          firstName,
+          planName: inviteResult.plan.name,
+          priceFormatted,
+          checkoutUrl: inviteResult.checkoutUrl,
+        }),
+      });
+
+      setRowActionMessage(
+        `Billing invite sent to ${tenant.owner_email} for the ${inviteResult.plan.name} plan.`,
+      );
+    } catch (billingInviteError) {
+      setTenantListError(
+        billingInviteError instanceof Error
+          ? billingInviteError.message
+          : "Failed to send billing invite.",
+      );
+    } finally {
+      setRowActionTenantId(null);
+    }
+  };
+
   const handleTenantStatus = async (tenant: TenantListItem, nextStatus: "active" | "suspended") => {
     setTenantListError(null);
     setRowActionMessage(null);
@@ -946,6 +1006,15 @@ export default function TenantsPage() {
                             disabled={!tenant.owner_email || rowActionTenantId === tenant.id}
                           >
                             {rowActionTenantId === tenant.id ? "Working..." : "Resend Invite"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSendBillingInvite(tenant)}
+                            disabled={!tenant.owner_email || !tenant.plan_key || rowActionTenantId === tenant.id}
+                          >
+                            {rowActionTenantId === tenant.id ? "Working..." : "Billing Invite"}
                           </Button>
                           <Button
                             type="button"

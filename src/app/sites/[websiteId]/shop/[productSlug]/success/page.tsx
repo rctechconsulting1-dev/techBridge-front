@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import Stripe from "stripe";
 import { getSiteSettings } from "@/lib/cms-api";
 import FulfillmentStatus from "./FulfillmentStatus";
 
@@ -12,6 +11,20 @@ interface Props {
   searchParams: Promise<{ session_id?: string }>;
 }
 
+type SessionSummary = {
+  paymentStatus: string;
+  productName: string | null;
+  productSlug: string | null;
+  quantity: number | null;
+  amountTotal: number | null;
+  customerEmail: string | null;
+  fulfillmentType: string;
+};
+
+const BACKEND_URL = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api"
+).replace(/\/$/, "");
+
 export default async function CheckoutSuccessPage({
   params,
   searchParams,
@@ -21,40 +34,37 @@ export default async function CheckoutSuccessPage({
 
   if (!session_id) notFound();
 
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-
-  const stripe = new Stripe(stripeKey);
-
-  let session: Stripe.Checkout.Session;
+  // Fetch session details from the backend — it holds the correct Stripe key.
+  let summary: SessionSummary;
   try {
-    session = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ["line_items"],
-    });
+    const res = await fetch(
+      `${BACKEND_URL}/stripe/connect/session-summary?session_id=${encodeURIComponent(session_id)}&website_id=${encodeURIComponent(websiteId)}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) notFound();
+    summary = (await res.json()) as SessionSummary;
   } catch {
     notFound();
   }
 
-  if (session.payment_status !== "paid") notFound();
-
-  // ── Security: verify this session belongs to the websiteId in the URL ──
-  if (session.metadata?.websiteId !== websiteId) notFound();
+  if (summary.paymentStatus !== "paid") notFound();
 
   // ── Security: verify the productSlug in the URL matches the session metadata ──
-  const sessionProductSlug = session.metadata?.productSlug;
+  const sessionProductSlug = summary.productSlug;
   if (!sessionProductSlug || sessionProductSlug !== productSlug) notFound();
 
   const settings = await getSiteSettings(websiteId);
   const primary = settings?.primary_color ?? "#000000";
   const shopHref = `/sites/${websiteId}/shop`;
 
-  const lineItem = session.line_items?.data[0];
-  const productName = lineItem?.description ?? "your order";
-  const amountPaid = session.amount_total
-    ? `$${(session.amount_total / 100).toFixed(2)}`
+  const productName = summary.productName ?? "your order";
+  const quantity = summary.quantity ?? 1;
+  const amountPaid = summary.amountTotal
+    ? `$${(summary.amountTotal / 100).toFixed(2)}`
     : null;
   const productDetailHref = `/sites/${websiteId}/shop/${sessionProductSlug}`;
-  const isPrintify = session.metadata?.fulfillmentType === "printify";
+  const isPrintify = summary.fulfillmentType === "printify";
+  const customerEmail = summary.customerEmail;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
@@ -95,12 +105,7 @@ export default async function CheckoutSuccessPage({
           </Link>
           .
         </p>
-        {amountPaid && (
-          <p className="mb-6 text-gray-500">
-            Amount charged:{" "}
-            <strong className="text-gray-700">{amountPaid}</strong>
-          </p>
-        )}
+
         {isPrintify ? (
           <FulfillmentStatus sessionId={session_id} primaryColor={primary} />
         ) : (
@@ -108,6 +113,40 @@ export default async function CheckoutSuccessPage({
             A confirmation email will be sent to you shortly.
           </p>
         )}
+
+        {/* Order summary */}
+        <div className="mx-auto mt-4 mb-6 w-full max-w-xs rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left text-sm">
+          {amountPaid && (
+            <div className="flex justify-between py-1">
+              <span className="text-gray-500">Total</span>
+              <span className="font-semibold text-gray-800">{amountPaid}</span>
+            </div>
+          )}
+          {quantity > 1 && (
+            <div className="flex justify-between py-1">
+              <span className="text-gray-500">Qty</span>
+              <span className="text-gray-700">{quantity}</span>
+            </div>
+          )}
+          {customerEmail && (
+            <div className="flex justify-between py-1">
+              <span className="text-gray-500">Receipt to</span>
+              <span className="truncate pl-2 text-gray-700">
+                {customerEmail}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* What happens next */}
+        <div className="mb-8 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-left text-sm text-blue-800">
+          <p className="mb-1 font-semibold">What happens next?</p>
+          <ul className="list-inside list-disc space-y-1 text-blue-700">
+            <li>You&apos;ll receive a receipt at your email shortly.</li>
+            <li>The seller will prepare and ship your order.</li>
+            <li>Contact the seller if you have any questions.</li>
+          </ul>
+        </div>
 
         <Link
           href={shopHref}

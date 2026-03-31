@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchFirstSuccessfulCandidate } from "@/lib/proxy-candidates";
 import { getApiBaseUrl } from "@/lib/api";
+import {
+  findResendDomainByName,
+  getResendDomain,
+  verifyResendDomain,
+} from "@/lib/resend-domains";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +26,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const sendingDomain = body.sendingDomain?.trim() || null;
   const authHeader = req.headers.get("authorization");
   const tenantHeader = req.headers.get("x-tenant-id");
   const apiBase = getBackendApiBase();
@@ -28,9 +34,10 @@ export async function POST(req: NextRequest) {
   const payload = {
     website_id: Number.isNaN(Number(websiteId)) ? websiteId : Number(websiteId),
     websiteId,
-    sending_domain: body.sendingDomain?.trim() || null,
+    sending_domain: sendingDomain,
   };
 
+  // Try backend verification first
   const candidates = [
     `${apiBase}/email/profile/verify`,
     `${apiBase}/email/sender-profile/verify`,
@@ -59,6 +66,37 @@ export async function POST(req: NextRequest) {
   if (result.kind === "success") {
     const data = await result.response.json().catch(() => ({}));
     return NextResponse.json(data);
+  }
+
+  // Backend verification not available — fall back to direct Resend API verification
+  if (sendingDomain) {
+    try {
+      const existing = await findResendDomainByName(sendingDomain);
+      if (existing.data) {
+        await verifyResendDomain(existing.data.id);
+        const updated = await getResendDomain(existing.data.id);
+        const records = updated.data?.records || [];
+        const spfRecord = records.find((r) => r.record === "SPF");
+        const dkimRecords = records.filter((r) => r.record === "DKIM");
+        const spfVerified = spfRecord?.status === "verified";
+        const dkimVerified = dkimRecords.length > 0 && dkimRecords.every((r) => r.status === "verified");
+
+        return NextResponse.json({
+          message: `Resend verification triggered for ${sendingDomain}. SPF: ${spfVerified ? "verified" : "pending"}, DKIM: ${dkimVerified ? "verified" : "pending"}.`,
+          spfVerified,
+          dkimVerified,
+          resendDomainStatus: updated.data?.status || "pending",
+        });
+      }
+
+      return NextResponse.json({
+        message: `Sending domain ${sendingDomain} is not registered in Resend. Use "Setup Sending Domain" on the domain card first.`,
+        spfVerified: false,
+        dkimVerified: false,
+      });
+    } catch {
+      // Fall through to generic error
+    }
   }
 
   return NextResponse.json(

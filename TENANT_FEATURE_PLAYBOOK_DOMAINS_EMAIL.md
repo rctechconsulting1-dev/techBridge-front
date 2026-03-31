@@ -1,6 +1,6 @@
 # Tenant Feature Playbook - Domains, Email, And Payments
 
-Date: 2026-03-25
+Date: 2026-03-29
 Audience: Internal admin employees
 Status: Active
 
@@ -65,24 +65,30 @@ If the client does not have a final domain yet, use a temporary launch mode inst
 
 Website rule:
 
-1. Use a stable RC-controlled subdomain on the main Vercel project.
-2. Example: `tenant-slug.rdtechbridge.com`
-3. Do not use a one-off `vercel.app` preview URL as the tenant's durable public hostname.
+1. Every tenant automatically receives a stable RC-controlled subdomain.
+2. Format: `{tenant-slug}.rctechbridge.com`
+3. This is auto-assigned during tenant creation and works immediately because Vercel has `*.rctechbridge.com` as a verified wildcard.
+4. Do not use a one-off `vercel.app` preview URL as the tenant's durable public hostname.
+5. Do not manually create the temporary domain. The backend handles this automatically.
 
 Email rule:
 
 1. Use a platform-owned verified sender domain temporarily.
-2. Example: `hello@mg.rdtechbridge-mail.com`
+2. Example: `hello@mg.rctechbridge-mail.com`
 3. If the client has a real inbox already, use that as reply-to where appropriate.
 4. Do not configure a fake future branded sender before the real client domain exists and is verified.
 
 When the real client domain becomes available:
 
-1. Add the website domain in Vercel.
-2. Add the website domain in the app.
-3. Create the tenant's Resend sending subdomain, usually `mg.clientdomain.com`.
-4. Update the saved tenant email profile in the app.
-5. Re-run domain verification and SPF/DKIM verification.
+1. Add the custom domain in `Global Site Settings` under the Domains section.
+2. The app sends the domain to Vercel automatically via the backend.
+3. Expand `DNS Records` on the new domain card to see required A/CNAME and verification records.
+4. Send the DNS records to the client or their DNS admin.
+5. After propagation, click `Verify` in the app.
+6. Once active, the custom domain becomes the new primary.
+7. Create the tenant's Resend sending subdomain, usually `mg.clientdomain.com`.
+8. Update the saved tenant email profile in the app.
+9. Re-run SPF/DKIM verification.
 
 ## Current Implementation Check
 
@@ -121,132 +127,158 @@ Required outputs before proceeding:
 3. Chosen reply-to email
 4. Lead recipient emails
 
-## Step 2 - Add Or Import The Domain Into Vercel
+## Step 2 - Add The Domain Via The App
 
-If RC is buying the domain:
+The app now handles Vercel domain management directly. You do not need to add domains in the Vercel dashboard manually.
 
-1. Buy the domain in Vercel.
-2. Confirm the domain appears in the correct RC Vercel team/account.
+In `Global Site Settings` under the Domains section:
 
-If the client already owns the domain:
+1. Enter the bare website domain, such as `acmeelectric.com`.
+2. Turn on primary if this should be the main tenant domain.
+3. Click `Add Domain`.
 
-1. Add the domain to the correct Vercel project or shared domain management surface.
-2. If DNS will be moved to Vercel, follow the Vercel nameserver migration process.
-3. If DNS stays external, collect the DNS records Vercel requires and send them to the DNS owner.
+What happens automatically:
 
-Expected result:
-
-1. The tenant website domain is present in Vercel.
-2. You know whether DNS is managed in Vercel or externally.
-
-## Step 3 - Attach The Website Domain To The Tenant Site
-
-In Vercel:
-
-1. Connect the final website domain to the tenant website/project.
-2. Configure the primary website hostname.
-3. Add any required redirect hostname such as `www` if the project needs it.
-
-Common pattern:
-
-1. Primary website domain: `acmeelectric.com`
-2. Redirect domain: `www.acmeelectric.com`
+1. The backend adds the domain to the Vercel project.
+2. For apex domains, the backend also adds a `www` redirect variant (308 redirect).
+3. The app displays the required DNS records inline.
 
 Expected result:
 
-1. The tenant site has its public web domain assigned.
+1. The domain appears in the domain list with status `pending`.
+2. DNS records are shown in the expandable panel.
+3. You can see the exact Type, Name, and Value for each record.
 
-## Step 4 - Add The Tenant Website Domain In The App
+If the domain was previously added to Vercel manually, the backend handles the `domain_already_in_use` case gracefully and proceeds with the DB insert.
 
-In `Global Site Settings`:
+## Step 3 - Complete Website DNS
 
-1. Open the `Domains (Phase 5)` section.
-2. Enter the bare website domain, such as `acmeelectric.com`.
-3. Turn on primary if this should be the main tenant domain.
-4. Click `Add Domain`.
+Using the DNS records shown in the app:
 
-Expected result:
+1. If DNS is managed in Vercel:
+   1. Open the domain DNS settings in Vercel.
+   2. Add the A or CNAME records shown in the app.
+   3. Add any TXT verification records shown in the app.
 
-1. The app accepts the domain record.
-2. The domain appears in the status list.
-3. The page tells you to complete DNS and then verify.
+2. If DNS is external:
+   1. Copy the DNS records from the app (click `DNS Records` to expand).
+   2. Send them to the client or their DNS admin.
+   3. Wait for propagation.
 
-## Step 5 - Complete Website DNS In Vercel
+Common DNS records the app will show:
 
-If DNS is managed in Vercel:
-
-1. Open the domain DNS settings in Vercel.
-2. Add or confirm the A/CNAME records required for the website.
-3. Confirm the apex and `www` behavior matches the intended routing.
-
-If DNS is external:
-
-1. Copy the required website DNS records from Vercel.
-2. Send them to the DNS owner.
-3. Wait for propagation.
+1. For apex domains: `A` record pointing to `76.76.21.21`
+2. For subdomains: `CNAME` record pointing to `cname.vercel-dns.com`
+3. For unverified domains: `TXT` verification record
 
 Expected result:
 
 1. The website domain resolves to the tenant site.
 
-## Step 6 - Create The Resend Sending Subdomain
+## Step 4 - Verify The Domain In The App
 
-In the shared RD Tech Bridge Resend account:
+In the Domains section of `Global Site Settings`:
 
-1. Add a new sending domain for the tenant.
-2. Use a subdomain, not the root domain.
+1. Click `Verify` on the domain card.
+2. The app calls the Vercel verification API via the backend.
+3. If DNS is propagated, the status badge turns green (`active`).
+4. If not yet propagated, the app shows a message to try again later.
 
-Preferred naming convention:
+To refresh DNS info at any time:
 
-1. `mg.clientdomain.com`
+1. Click `DNS Records` on the domain card.
+2. The app fetches the latest required records from Vercel.
 
-Example:
+Expected result:
+
+1. The domain status is `active`.
+2. The tenant site is accessible at the custom domain.
+
+## Step 5 - Remove A Domain If Needed
+
+To remove a domain that was added in error or is no longer needed:
+
+1. Click `Remove` on the domain card.
+2. Confirm the removal in the dialog.
+
+What happens:
+
+1. The domain is removed from both Vercel and the database.
+2. The `www` redirect variant is also removed if it exists.
+3. The domain is available for reassignment.
+
+Do not remove the temporary `{slug}.rctechbridge.com` domain unless a verified custom domain is already active.
+
+## Step 6 - Setup The Resend Sending Subdomain (Automated)
+
+The app now creates the Resend sending subdomain automatically.
+
+In `Global Site Settings` under `Domains`:
+
+1. Once a custom domain is added and the domain card appears, click `Setup Sending Domain` on the domain card.
+2. The app creates `mg.{domain}` in Resend automatically and displays all required DNS records.
+3. Expand `DNS Records` to see the Resend mail records (SPF, DKIM, etc.).
+
+Naming convention (handled automatically):
 
 1. Website domain: `acmeelectric.com`
 2. Resend sending domain: `mg.acmeelectric.com`
 
-Do not create:
+You do not need to:
 
-1. A new Resend account per tenant
-2. A new Resend login per tenant
+1. Log into the Resend dashboard manually
+2. Create a new Resend account per tenant
+3. Create a new Resend login per tenant
+
+Note: If the domain was added via `Add Domain`, the Resend sending subdomain may have been auto-created during onboarding. Check the domain card for a Resend status badge before clicking `Setup Sending Domain`.
 
 Expected result:
 
-1. Resend gives you the required DNS records for SPF/DKIM and verification.
+1. The domain card shows a Resend status badge (e.g. `mg.acmeelectric.com: not_started`).
+2. DNS Records panel shows all required Resend mail records.
 
 ## Step 7 - Add Resend DNS Records
 
+DNS records are now shown directly in the app after clicking `Setup Sending Domain`.
+
 If DNS is in Vercel:
 
-1. Open the DNS panel for the tenant domain in Vercel.
-2. Add every Resend-provided DNS record exactly as shown.
+1. Expand `DNS Records` on the domain card in site-settings.
+2. Copy each Resend-provided record and add it in Vercel DNS.
 3. Save the records.
 
 If DNS is external:
 
-1. Send the full record set to the DNS owner.
-2. Wait for propagation.
+1. Copy the full record set from the DNS Records panel.
+2. Send to the DNS owner.
+3. Wait for propagation.
 
 Important rule:
 
 1. Website DNS records and Resend mail DNS records are separate.
 2. Do not remove working website records while adding mail records.
+3. The DNS Records panel shows both Vercel and Resend records merged together.
 
 Expected result:
 
 1. The Resend sending subdomain can be verified.
 
-## Step 8 - Verify The Sending Subdomain In Resend
+## Step 8 - Verify The Sending Subdomain (Automated)
 
-In Resend:
+In `Global Site Settings` under `Domains`:
 
-1. Refresh the domain verification status.
-2. Wait until SPF and DKIM show verified.
-3. Do not continue using placeholder values after verification is available.
+1. On the domain card, click `Verify Mail DNS`.
+2. The app triggers Resend verification automatically.
+3. Wait for DNS propagation (usually minutes to hours).
+4. Refresh the DNS Records panel to see updated SPF/DKIM verification status.
+5. Do not continue using placeholder values after verification is available.
+
+You do not need to log into the Resend dashboard to verify manually.
 
 Expected result:
 
-1. Resend shows the tenant sending subdomain as verified.
+1. The domain card Resend status badge updates to `verified`.
+2. SPF and DKIM records show as verified in the DNS Records panel.
 
 ## Step 9 - Choose The Four Email Values For The App
 
@@ -296,15 +328,16 @@ Expected result:
 
 ## Step 11 - Verify The Website Domain In The App
 
-Back in the `Domains (Phase 5)` section:
+Back in the Domains section:
 
-1. Click `Refresh`.
-2. Click `Verify` on the onboarded website domain.
-3. Repeat only after DNS propagation time if needed.
+1. Click `Verify` on the domain card.
+2. If already verified, the status badge will show `active` in green.
+3. If not yet verified, check the DNS records panel and confirm records were entered correctly.
+4. Retry after DNS propagation time if needed.
 
 Expected result:
 
-1. The domain status moves toward `active`.
+1. The domain status moves to `active`.
 
 ## Step 12 - Start Stripe Connect If Included
 
@@ -325,16 +358,17 @@ Expected result:
 
 Complete these checks before handoff:
 
-1. Website domain exists in Vercel.
-2. Website domain is attached to the correct tenant site.
-3. App domain record exists in `Global Site Settings`.
-4. Resend sending subdomain exists in the shared RC Resend account.
-5. Resend DNS records were added.
-6. SPF and DKIM are verified or clearly documented as pending propagation.
-7. Email profile values in the app use real tenant values, not placeholders.
-8. Lead notification recipients are real inboxes.
-9. Stripe status is recorded if payments were sold.
-10. All pending external dependencies are documented.
+1. Tenant site loads at the preview URL `{slug}.rctechbridge.com`.
+2. If a custom domain was added, the domain appears in the app with status `active`.
+3. Website domain is attached to the correct Vercel project (verified via the app, not the Vercel dashboard).
+4. DNS Records panel in the app shows the expected A/CNAME and TXT records.
+5. Resend sending subdomain exists in the shared RC Resend account.
+6. Resend DNS records were added.
+7. SPF and DKIM are verified or clearly documented as pending propagation.
+8. Email profile values in the app use real tenant values, not placeholders.
+9. Lead notification recipients are real inboxes.
+10. Stripe status is recorded if payments were sold.
+11. All pending external dependencies are documented.
 
 ## Common Problems
 
@@ -343,13 +377,19 @@ Complete these checks before handoff:
 2. Website works but email verification fails.
    Fix: confirm you added Resend mail records for the sending subdomain, not just the website records.
 3. Verify keeps failing immediately.
-   Fix: wait for DNS propagation and confirm the DNS records were entered exactly.
+   Fix: wait for DNS propagation and confirm the DNS records were entered exactly as shown in the app.
 4. Team asks whether a new Resend account is needed.
    Fix: no; use the shared RC Resend account and add one sending subdomain per tenant.
 5. Email profile endpoint unavailable.
    Fix: escalate to backend work rather than re-entering the same data.
 6. Stripe onboarding does not start.
    Fix: confirm environment configuration and retry from the same tenant website context.
+7. Preview URL `{slug}.rctechbridge.com` shows `Unknown tenant domain`.
+   Fix: confirm the `tenant_domains` table has a row with the correct domain and status `active`. Check that `RC_TEMPORARY_DOMAIN_SUFFIX` is set to `rctechbridge.com` in the backend `.env`.
+8. Domain add returns `502` or `VERCEL_API_ERROR`.
+   Fix: confirm `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID`, and `VERCEL_TEAM_ID` are set correctly in the backend `.env`. Run `node scripts/verify-vercel-config.js` to test.
+9. DNS Records panel shows no records.
+   Fix: the domain may not be on Vercel yet. Re-add it or check the Vercel dashboard.
 
 ## Completion Checklist
 
