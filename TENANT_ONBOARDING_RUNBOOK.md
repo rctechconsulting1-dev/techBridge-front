@@ -17,7 +17,7 @@ Use this runbook for the overall sequence, then use the companion playbooks for 
 7. `TENANT_FEATURE_PLAYBOOK_EMAIL_DLQ.md`
 8. `TENANT_FEATURE_PLAYBOOK_RELIABILITY.md`
 9. `docs/operations/TENANT_LIVE_TEST_RUNBOOK.md`
-10. `TENANT_FEATURE_PLAYBOOK_PRINTIFY.md` (print-on-demand ecommerce)
+10. Printify (print-on-demand ecommerce) – feature playbook TBD
 
 ## Purpose
 

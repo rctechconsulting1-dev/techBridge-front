@@ -218,9 +218,14 @@ export async function POST(request: NextRequest) {
               website_id: session.metadata?.websiteId ?? null,
               product_slug: session.metadata?.productSlug ?? null,
               product_id: session.metadata?.productId ?? null,
-              quantity: session.metadata?.quantity
-                ? parseInt(session.metadata.quantity, 10)
-                : 1,
+              quantity: (() => {
+                const raw = session.metadata?.quantity;
+                if (raw != null) {
+                  const parsed = parseInt(raw, 10);
+                  if (Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0) return parsed;
+                }
+                return 1;
+              })(),
               fulfillment_type: session.metadata?.fulfillmentType ?? "manual",
               stripe_checkout_session_id: session.id,
               // Shipping — collected_information.shipping_details (API ≥ 2025-01).

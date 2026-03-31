@@ -871,6 +871,9 @@ export default function SiteSettingsPage() {
   const [printifyLoading, setPrintifyLoading] = useState(false);
   const [printifyApiKeyInput, setPrintifyApiKeyInput] = useState("");
   const [printifyMessage, setPrintifyMessage] = useState<string | null>(null);
+  const [printifyMessageType, setPrintifyMessageType] = useState<
+    "success" | "error"
+  >("success");
   const [printifySaving, setPrintifySaving] = useState(false);
   const [printifyDisconnecting, setPrintifyDisconnecting] = useState(false);
   const [printifySyncing, setPrintifySyncing] = useState(false);
@@ -1138,6 +1141,7 @@ export default function SiteSettingsPage() {
 
   const savePrintifyKey = async () => {
     if (!printifyApiKeyInput.trim()) {
+      setPrintifyMessageType("error");
       setPrintifyMessage("Please enter a Printify API key.");
       return;
     }
@@ -1151,6 +1155,7 @@ export default function SiteSettingsPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        setPrintifyMessageType("error");
         setPrintifyMessage(
           (data as { error?: string }).error ?? `Failed (${res.status})`,
         );
@@ -1159,8 +1164,10 @@ export default function SiteSettingsPage() {
       const data = await res.json();
       setPrintifyStatus(data);
       setPrintifyApiKeyInput("");
+      setPrintifyMessageType("success");
       setPrintifyMessage("Printify connected successfully.");
     } catch (e) {
+      setPrintifyMessageType("error");
       setPrintifyMessage(e instanceof Error ? e.message : "Save failed.");
     } finally {
       setPrintifySaving(false);
@@ -1177,12 +1184,26 @@ export default function SiteSettingsPage() {
     setPrintifyDisconnecting(true);
     setPrintifyMessage(null);
     try {
-      await fetch(`${getApiBaseUrl()}/integrations/printify`, {
+      const res = await fetch(`${getApiBaseUrl()}/integrations/printify`, {
         method: "DELETE",
         headers: authHeaders(),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPrintifyMessageType("error");
+        setPrintifyMessage(
+          (data as { error?: string }).error ?? `Failed (${res.status})`,
+        );
+        return;
+      }
       setPrintifyStatus({ connected: false });
+      setPrintifyMessageType("success");
       setPrintifyMessage("Printify disconnected.");
+    } catch (e) {
+      setPrintifyMessageType("error");
+      setPrintifyMessage(
+        e instanceof Error ? e.message : "Disconnect failed.",
+      );
     } finally {
       setPrintifyDisconnecting(false);
     }
@@ -1190,6 +1211,7 @@ export default function SiteSettingsPage() {
 
   const syncPrintifyProducts = async () => {
     if (!websiteId) {
+      setPrintifyMessageType("error");
       setPrintifyMessage("No website selected.");
       return;
     }
@@ -1206,6 +1228,7 @@ export default function SiteSettingsPage() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      setPrintifyMessageType("success");
       setPrintifyMessage(
         `Sync complete — ${data.created} added, ${data.updated} updated (${data.synced} total from Printify).`,
       );
@@ -1216,6 +1239,7 @@ export default function SiteSettingsPage() {
       );
       if (prRes.ok) setProducts(await prRes.json());
     } catch (e) {
+      setPrintifyMessageType("error");
       setPrintifyMessage(e instanceof Error ? e.message : "Sync failed.");
     } finally {
       setPrintifySyncing(false);
@@ -5424,7 +5448,7 @@ export default function SiteSettingsPage() {
 
               {printifyMessage && (
                 <p
-                  className={`mt-3 text-sm ${printifyMessage.toLowerCase().includes("success") || printifyMessage.toLowerCase().includes("connected") ? "text-green-600" : "text-red-500"}`}
+                  className={`mt-3 text-sm ${printifyMessageType === "success" ? "text-green-600" : "text-red-500"}`}
                 >
                   {printifyMessage}
                 </p>

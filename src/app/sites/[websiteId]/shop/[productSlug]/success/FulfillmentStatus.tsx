@@ -27,6 +27,7 @@ export default function FulfillmentStatus({ sessionId, primaryColor }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval>;
 
     async function poll() {
       if (cancelled) return;
@@ -45,7 +46,9 @@ export default function FulfillmentStatus({ sessionId, primaryColor }: Props) {
           const done = ["submitted", "failed", "skipped"].includes(
             data.fulfillment_status ?? "",
           );
-          if (!done) {
+          if (done) {
+            clearInterval(intervalId);
+          } else {
             setAttempts((n) => n + 1);
           }
         }
@@ -55,10 +58,10 @@ export default function FulfillmentStatus({ sessionId, primaryColor }: Props) {
     }
 
     poll();
-    const id = setInterval(() => {
+    intervalId = setInterval(() => {
       setAttempts((n) => {
         if (n >= MAX_ATTEMPTS) {
-          clearInterval(id);
+          clearInterval(intervalId);
           return n;
         }
         poll();
@@ -68,7 +71,7 @@ export default function FulfillmentStatus({ sessionId, primaryColor }: Props) {
 
     return () => {
       cancelled = true;
-      clearInterval(id);
+      clearInterval(intervalId);
     };
   }, [sessionId]);
 
