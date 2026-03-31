@@ -47,6 +47,11 @@ interface Product {
   sort_order: number;
   average_rating: string;
   review_count: number;
+  fulfillment_type: "manual" | "printify";
+  printify_blueprint_id: number | null;
+  printify_print_provider_id: number | null;
+  printify_variant_id: number | null;
+  printify_product_id: string | null;
 }
 
 type StripeConnectStatus = {
