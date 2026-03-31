@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Stripe from "stripe";
 import { getSiteSettings } from "@/lib/cms-api";
 import FulfillmentStatus from "./FulfillmentStatus";
 
@@ -8,63 +9,56 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ websiteId: string; productSlug: string }>;
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ session_id?: string; account?: string }>;
 }
-
-type SessionSummary = {
-  paymentStatus: string;
-  productName: string | null;
-  productSlug: string | null;
-  quantity: number | null;
-  amountTotal: number | null;
-  customerEmail: string | null;
-  fulfillmentType: string;
-};
-
-const BACKEND_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api"
-).replace(/\/$/, "");
 
 export default async function CheckoutSuccessPage({
   params,
   searchParams,
 }: Props) {
   const { websiteId, productSlug } = await params;
-  const { session_id } = await searchParams;
+  const { session_id, account } = await searchParams;
 
   if (!session_id) notFound();
 
-  // Fetch session details from the backend — it holds the correct Stripe key.
-  let summary: SessionSummary;
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+
+  const stripe = new Stripe(stripeKey);
+
+  let session: Stripe.Checkout.Session;
   try {
-    const res = await fetch(
-      `${BACKEND_URL}/stripe/connect/session-summary?session_id=${encodeURIComponent(session_id)}&website_id=${encodeURIComponent(websiteId)}`,
-      { cache: "no-store" },
+    session = await stripe.checkout.sessions.retrieve(
+      session_id,
+      { expand: ["line_items"] },
+      account ? { stripeAccount: account } : undefined,
     );
-    if (!res.ok) notFound();
-    summary = (await res.json()) as SessionSummary;
   } catch {
     notFound();
   }
 
-  if (summary.paymentStatus !== "paid") notFound();
+  if (session.payment_status !== "paid") notFound();
+
+  // ── Security: verify this session belongs to the websiteId in the URL ──
+  if (session.metadata?.websiteId !== websiteId) notFound();
 
   // ── Security: verify the productSlug in the URL matches the session metadata ──
-  const sessionProductSlug = summary.productSlug;
+  const sessionProductSlug = session.metadata?.productSlug;
   if (!sessionProductSlug || sessionProductSlug !== productSlug) notFound();
 
   const settings = await getSiteSettings(websiteId);
   const primary = settings?.primary_color ?? "#000000";
   const shopHref = `/sites/${websiteId}/shop`;
 
-  const productName = summary.productName ?? "your order";
-  const quantity = summary.quantity ?? 1;
-  const amountPaid = summary.amountTotal
-    ? `$${(summary.amountTotal / 100).toFixed(2)}`
+  const lineItem = session.line_items?.data[0];
+  const productName = lineItem?.description ?? "your order";
+  const quantity = lineItem?.quantity ?? 1;
+  const amountPaid = session.amount_total
+    ? `$${(session.amount_total / 100).toFixed(2)}`
     : null;
   const productDetailHref = `/sites/${websiteId}/shop/${sessionProductSlug}`;
-  const isPrintify = summary.fulfillmentType === "printify";
-  const customerEmail = summary.customerEmail;
+  const isPrintify = session.metadata?.fulfillmentType === "printify";
+  const customerEmail = session.customer_details?.email ?? null;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
