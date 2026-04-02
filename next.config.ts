@@ -11,10 +11,10 @@ const nextConfig: NextConfig = {
       return [];
     }
 
-    const normalized = rawApiUrl.replace(/\/$/, '');
+    const normalized = rawApiUrl.replace(/\/$/, "");
     return [
       {
-        source: '/api/:path*',
+        source: "/api/:path*",
         destination: `${normalized}/:path*`,
       },
     ];
@@ -22,10 +22,21 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/:path*',
+        source: "/:path*",
         headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+      // Static branding assets (favicons, logos) are content-addressed and
+      // never change at runtime — cache aggressively.
+      {
+        source: "/branding/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
         ],
       },
     ];

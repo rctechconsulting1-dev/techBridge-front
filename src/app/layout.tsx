@@ -75,29 +75,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          href="/branding/favicons/favicon-64x64.svg"
-        />
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          sizes="32x32"
-          href="/branding/favicons/favicon-32x32.svg"
-        />
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          sizes="16x16"
-          href="/branding/favicons/favicon-16x16.svg"
-        />
-        <link
-          rel="apple-touch-icon"
-          href="/branding/favicons/apple-touch-icon.svg"
-        />
-      </head>
+      <head />
       <body
         className={`${outfit.className} dark:bg-gray-900`}
         suppressHydrationWarning

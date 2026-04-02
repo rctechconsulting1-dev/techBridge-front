@@ -1,5 +1,11 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -69,9 +75,7 @@ const navItems: NavItem[] = [
   {
     name: "Forms",
     icon: <ListIcon />,
-    subItems: [
-      { name: "Form Elements", path: "/form-elements", pro: false },
-    ],
+    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
   },
   {
     name: "Google Business",
@@ -178,6 +182,8 @@ const othersItems: NavItem[] = [
   },
 ];
 
+const SUBMENU_STORAGE_KEY = "sidebar_open_submenu";
+
 const AppSidebar = ({}) => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
@@ -232,7 +238,8 @@ const AppSidebar = ({}) => {
           : false
         : true;
 
-      return roleAllowed && (
+      return (
+        roleAllowed &&
         hasAnyModule(entitlementSnapshot, item.requiredModules) &&
         hasAnyFeature(entitlementSnapshot, item.requiredFeatures)
       );
@@ -243,27 +250,27 @@ const AppSidebar = ({}) => {
   const computedNavItems = navItems
     .filter((item) => shouldShowNavItem(item))
     .map((item) => {
-    if (item.name === "Pages") {
-      return {
-        ...item,
-        subItems: [
-          ...(item.subItems || []),
-          ...(websiteId
-            ? [
-                {
-                  name: "Landing Page",
-                  path: `/sites/${websiteId}`,
-                  pro: false,
-                  new: false,
-                  external: true,
-                },
-              ]
-            : []),
-        ],
-      };
-    }
-    return item;
-  });
+      if (item.name === "Pages") {
+        return {
+          ...item,
+          subItems: [
+            ...(item.subItems || []),
+            ...(websiteId
+              ? [
+                  {
+                    name: "Landing Page",
+                    path: `/sites/${websiteId}`,
+                    pro: false,
+                    new: false,
+                    external: true,
+                  },
+                ]
+              : []),
+          ],
+        };
+      }
+      return item;
+    });
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -397,17 +404,42 @@ const AppSidebar = ({}) => {
     type: "main" | "others";
     index: number;
   } | null>(null);
+
+  // Restore from localStorage before first paint so the height effect fires
+  // via a real state transition (lazy initializer skips the effect).
+  useLayoutEffect(() => {
+    try {
+      const stored = localStorage.getItem(SUBMENU_STORAGE_KEY);
+      if (stored) setOpenSubmenu(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+  }, []);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {},
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Persist submenu open state across navigation
+  useEffect(() => {
+    try {
+      if (openSubmenu === null) {
+        localStorage.removeItem(SUBMENU_STORAGE_KEY);
+      } else {
+        localStorage.setItem(SUBMENU_STORAGE_KEY, JSON.stringify(openSubmenu));
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [openSubmenu]);
+
   // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
-    // Check if the current path matches any submenu item
-    let submenuMatched = false;
+    // If a submenu item matches the current route, open its parent.
+    // When no match is found we leave the current state alone so the
+    // user’s manually opened section persists across navigation.
     ["main", "others"].forEach((menuType) => {
       const items = menuType === "main" ? navItems : othersItems;
       items.forEach((nav, index) => {
@@ -418,17 +450,11 @@ const AppSidebar = ({}) => {
                 type: menuType as "main" | "others",
                 index,
               });
-              submenuMatched = true;
             }
           });
         }
       });
     });
-
-    // If no submenu item matches, close the open submenu
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
   }, [pathname, isActive]);
 
   useEffect(() => {
