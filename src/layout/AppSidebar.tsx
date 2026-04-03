@@ -18,17 +18,13 @@ import {
   normalizeEntitlementValues,
 } from "@/lib/entitlements";
 import {
-  BoxCubeIcon,
-  CalenderIcon,
   ChevronDownIcon,
   FileIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
   PageIcon,
-  PieChartIcon,
   PlugInIcon,
-  TableIcon,
   UserCircleIcon,
   VideoIcon,
 } from "../icons/index";
@@ -57,12 +53,6 @@ const navItems: NavItem[] = [
     subItems: [{ name: "Ecommerce", path: "/", pro: false }],
   },
   {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-    requiredModules: ["calendar_appointments"],
-  },
-  {
     icon: <UserCircleIcon />,
     name: "User Profile",
     path: "/profile",
@@ -89,53 +79,27 @@ const navItems: NavItem[] = [
     path: "/assets",
   },
   {
-    icon: <PieChartIcon />,
-    name: "Reliability",
-    path: "/reliability",
-    requiredRoles: ["admin", "platform_admin"],
-  },
-  {
     icon: <UserCircleIcon />,
     name: "Tenants",
     path: "/tenants",
     requiredRoles: ["admin", "platform_admin"],
   },
   {
-    icon: <PlugInIcon />,
-    name: "Billing Ops",
-    path: "/billing",
-    requiredModules: ["checkout_ecommerce"],
-    requiredFeatures: ["commerce.checkout.manage"],
-    requiredRoles: ["admin", "platform_admin"],
-  },
-  {
     icon: <ListIcon />,
     name: "Payment Config",
     path: "/payment-config",
-    requiredRoles: ["admin", "platform_admin", "tenant_owner", "tenant_manager"],
-  },
-  {
-    icon: <FileIcon />,
-    name: "Estimates",
-    path: "/estimates",
-    requiredRoles: ["admin", "platform_admin", "tenant_owner", "tenant_manager"],
-  },
-  {
-    icon: <ListIcon />,
-    name: "Email DLQ",
-    path: "/email-dlq",
-    requiredRoles: ["admin", "platform_admin"],
+    requiredRoles: [
+      "admin",
+      "platform_admin",
+      "tenant_owner",
+      "tenant_manager",
+    ],
   },
   {
     icon: <ListIcon />,
     name: "Onboarding",
     path: "/onboarding",
     requiredRoles: ["admin", "platform_admin"],
-  },
-  {
-    name: "Tables",
-    icon: <TableIcon />,
-    subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
   },
   {
     name: "Pages",
@@ -152,26 +116,6 @@ const navItems: NavItem[] = [
 ];
 
 const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
   {
     icon: <PlugInIcon />,
     name: "Authentication",
