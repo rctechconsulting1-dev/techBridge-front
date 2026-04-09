@@ -403,15 +403,18 @@ const AppSidebar = ({}) => {
       return;
     }
 
+    const targetSubmenu: { type: "main" | "others"; index: number } =
+      matchedSubmenu;
+
     setOpenSubmenu((currentOpenSubmenu) => {
       if (
-        currentOpenSubmenu?.type === matchedSubmenu.type &&
-        currentOpenSubmenu?.index === matchedSubmenu.index
+        currentOpenSubmenu?.type === targetSubmenu.type &&
+        currentOpenSubmenu?.index === targetSubmenu.index
       ) {
         return currentOpenSubmenu;
       }
 
-      return matchedSubmenu;
+      return targetSubmenu;
     });
   }, [computedNavItems, computedOthersItems, isActive]);
 
