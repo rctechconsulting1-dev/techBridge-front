@@ -18,6 +18,30 @@ export type TemplateType =
   | 'contact'       // Contact page template
   | 'home';         // Homepage template
 
+export type PageRole = 'parent' | 'child';
+
+export type PageSource = 'built_in' | 'industry_nav' | 'custom' | 'system' | 'unknown';
+
+export type NavPlacement = 'header' | 'footer' | 'hidden';
+
+export type NavStyle = 'direct' | 'dropdown_parent' | 'dropdown_child';
+
+export interface PageNavigationAssignment {
+  id?: number;
+  page_id?: number;
+  tenant_id?: number;
+  website_id?: number;
+  placement: 'header' | 'footer';
+  style: NavStyle;
+  parent_page_id?: number | null;
+  parent_assignment_id?: number | null;
+  label?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface PageCategory {
   id: number;
   name: string;
@@ -43,8 +67,17 @@ export interface Page {
   page_type: PageType | null;
   parent_id: number | null;
   sort_order: number;
+  nav_order?: number;
   is_published: boolean;
   is_main_nav: boolean;
+  is_enabled?: boolean;
+  is_required?: boolean;
+  nav_placement?: NavPlacement | null;
+  nav_style?: NavStyle | null;
+  nav_parent_id?: number | null;
+  nav_label?: string | null;
+  is_external_link?: boolean;
+  navigation_assignments?: PageNavigationAssignment[];
   template_type: TemplateType | null;
   meta_description: string | null;
   meta_keywords: string | null;
@@ -55,6 +88,9 @@ export interface Page {
   parent_page?: Page | null;
   sub_pages?: Page[];
   categories?: PageCategory[];
+  // Frontend-only derived metadata
+  page_role?: PageRole;
+  page_source?: PageSource;
 }
 
 // Page creation wizard data
@@ -65,12 +101,36 @@ export interface PageCreationData {
   slug: string;
   parent_id?: number | null;
   is_main_nav: boolean;
+  is_enabled?: boolean;
+  is_required?: boolean;
+  nav_placement?: NavPlacement;
+  nav_style?: NavStyle;
+  nav_parent_id?: number | null;
+  nav_order?: number;
+  nav_label?: string;
+  is_external_link?: boolean;
+  navigation_assignments?: PageNavigationAssignment[];
   is_published?: boolean;
   meta_description?: string;
   meta_keywords?: string;
   content?: string; // Added for AI-generated content
   website_id?: number; // Added for API compatibility
   category_ids?: number[]; // Added for category relationships
+}
+
+export interface InitialPageDraft {
+  slug: string;
+  title: string;
+  is_published?: boolean;
+  is_main_nav?: boolean;
+  is_enabled?: boolean;
+  nav_placement?: NavPlacement;
+  nav_style?: NavStyle;
+  nav_parent_id?: number | null;
+  navigation_assignments?: PageNavigationAssignment[];
+  page_type?: PageType;
+  template_type?: TemplateType;
+  parent_id?: number | null;
 }
 
 export interface FormData {

@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { getApiBaseUrl } from "@/lib/api";
+import { buildLatestIntakeAdminPath } from "@/lib/intake-admin";
 import {
   decodeJwtPayload,
   getActiveTenantId,
@@ -12,13 +14,20 @@ import {
 } from "@/lib/auth-context";
 import { useSidebar } from "@/context/SidebarContext";
 import { useGetAssets, type Asset } from "@/hooks/useImage";
+import { useS3Upload } from "@/hooks/useS3Upload";
 import { useContentAgent } from "@/hooks/useContentAgent";
 import type { SiteSettings, FooterNavLink } from "@/lib/cms-types";
+import type { IntakeStoredSubmission } from "@/lib/intake-types";
 import EntitlementGate from "@/components/common/EntitlementGate";
 import {
-  normalizePermissionFlags,
-  type PresetPermissionKey,
-} from "@/lib/onboarding-presets";
+  normalizeContentPermissionFlags,
+  type ContentPermissionKey,
+} from "@/lib/content-permissions";
+import {
+  OPTIONAL_SYSTEM_PAGE_CONFIGS,
+  isOptionalSystemPageSlug,
+  type OptionalSystemPageConfig,
+} from "@/lib/page-management";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -112,8 +121,26 @@ interface TeamMember {
 }
 
 interface CmsPageLite {
+  id: number;
+  title: string | null;
   slug: string | null;
+  parent_id: number | null;
+  is_enabled?: boolean;
   is_published: boolean;
+  is_main_nav?: boolean;
+  nav_placement?: 'header' | 'footer' | 'hidden' | null;
+  nav_style?: 'direct' | 'dropdown_parent' | 'dropdown_child' | null;
+  nav_parent_id?: number | null;
+  page_source?: string | null;
+  navigation_assignments?: Array<{
+    id?: number;
+    placement: 'header' | 'footer';
+    style: 'direct' | 'dropdown_parent' | 'dropdown_child';
+    parent_page_id?: number | null;
+    label?: string | null;
+    sort_order?: number;
+    is_active?: boolean;
+  }>;
 }
 
 type Tab = "settings" | "services" | "team" | "shop";
@@ -129,6 +156,7 @@ type VisualDirection = "bold" | "clean" | "warm";
 type CopyAngle = "results" | "trust" | "community";
 type HeroStyle = "direct" | "question";
 type OfferType = "free-consult" | "trial" | "quote" | "book-now";
+type LaunchOneStatus = "required" | "optional" | "deferred" | "not_applicable";
 
 type TemplateServiceDraft = {
   title: string;
@@ -149,41 +177,41 @@ const HEADER_NAV_TEMPLATES: Record<IndustryTemplate, FooterNavLink[]> = {
   trades: [
     { label: "Home", href: "/" },
     { label: "Services", href: "/services" },
-    { label: "Why Us", href: "#why-us" },
-    { label: "FAQ", href: "#faq" },
-    { label: "Reviews", href: "#reviews" },
-    { label: "Contact", href: "#contact" },
+    { label: "Why Us", href: "/why-us" },
+    { label: "FAQ", href: "/faq" },
+    { label: "Reviews", href: "/reviews" },
+    { label: "Contact", href: "/contact" },
   ],
   services: [
     { label: "Home", href: "/" },
     { label: "Services", href: "/services" },
     { label: "About", href: "/about" },
-    { label: "Case Studies", href: "#case-studies" },
-    { label: "Contact", href: "#contact" },
+    { label: "Case Studies", href: "/case-studies" },
+    { label: "Contact", href: "/contact" },
   ],
   ecommerce: [
     { label: "Home", href: "/" },
     { label: "Shop", href: "/shop" },
-    { label: "New Arrivals", href: "#new-arrivals" },
-    { label: "Best Sellers", href: "#best-sellers" },
+    { label: "New Arrivals", href: "/new-arrivals" },
+    { label: "Best Sellers", href: "/best-sellers" },
     { label: "About", href: "/about" },
-    { label: "Contact", href: "#contact" },
+    { label: "Contact", href: "/contact" },
   ],
   restaurants: [
     { label: "Home", href: "/" },
-    { label: "Browse Menu", href: "#menu" },
-    { label: "Locations", href: "#locations" },
-    { label: "Reservations", href: "#reservations" },
-    { label: "Rewards", href: "#rewards" },
-    { label: "Contact", href: "#contact" },
+    { label: "Browse Menu", href: "/menu" },
+    { label: "Locations", href: "/locations" },
+    { label: "Reservations", href: "/reservations" },
+    { label: "Rewards", href: "/rewards" },
+    { label: "Contact", href: "/contact" },
   ],
   "healthcare-wellness": [
     { label: "Home", href: "/" },
-    { label: "Find a Club", href: "#locations" },
+    { label: "Find a Club", href: "/find-a-club" },
     { label: "Training", href: "/services" },
-    { label: "Membership", href: "#membership" },
-    { label: "Free Pass", href: "#free-pass" },
-    { label: "Contact", href: "#contact" },
+    { label: "Membership", href: "/membership" },
+    { label: "Free Pass", href: "/free-pass" },
+    { label: "Contact", href: "/contact" },
   ],
 };
 
@@ -191,8 +219,16 @@ const DEFAULT_FOOTER_LINKS: FooterNavLink[] = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
   { label: "About", href: "/about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Contact", href: "/contact" },
 ];
+
+const EMPTY_LATEST_INTAKE_EDIT_FORM: LatestIntakeEditForm = {
+  business_name: "",
+  business_phone: "",
+  location: "",
+  google_business_url: "",
+  service_list: "",
+};
 
 type AIContentIdea = {
   idea: string;
@@ -223,6 +259,14 @@ type AIAboutCopyResponse = {
   contactCtaBody?: string;
 };
 
+type LatestIntakeEditForm = {
+  business_name: string;
+  business_phone: string;
+  location: string;
+  google_business_url: string;
+  service_list: string;
+};
+
 // ─── Style constants ──────────────────────────────────────────────────────────
 
 const INPUT =
@@ -233,6 +277,44 @@ const SECTION =
   "rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900";
 const SECTION_TITLE =
   "mb-4 text-base font-semibold text-gray-800 dark:text-white";
+
+const LAUNCH_ONE_STATUS_META: Record<
+  LaunchOneStatus,
+  {
+    label: string;
+    badgeClassName: string;
+    panelClassName: string;
+  }
+> = {
+  required: {
+    label: "Required Now",
+    badgeClassName:
+      "border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/20 dark:text-green-300",
+    panelClassName:
+      "border-green-200 bg-green-50/70 dark:border-green-900/40 dark:bg-green-950/10",
+  },
+  optional: {
+    label: "Optional",
+    badgeClassName:
+      "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-300",
+    panelClassName:
+      "border-sky-200 bg-sky-50/70 dark:border-sky-900/40 dark:bg-sky-950/10",
+  },
+  deferred: {
+    label: "Deferred",
+    badgeClassName:
+      "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300",
+    panelClassName:
+      "border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/10",
+  },
+  not_applicable: {
+    label: "Not Applicable",
+    badgeClassName:
+      "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300",
+    panelClassName:
+      "border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-800/30",
+  },
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -267,7 +349,97 @@ function hasPlatformAdminOverride() {
   return session.role === "admin" || session.role === "platform_admin";
 }
 
-const DEFAULT_CONTENT_PERMISSION_FLAGS: Record<PresetPermissionKey, boolean> = {
+function asString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function pickFirstText(
+  answers: Record<string, unknown>,
+  ...keys: string[]
+): string {
+  for (const key of keys) {
+    const value = asString(answers[key]);
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function buildLatestIntakeEditForm(
+  submission: IntakeStoredSubmission | null,
+): LatestIntakeEditForm {
+  if (!submission) {
+    return { ...EMPTY_LATEST_INTAKE_EDIT_FORM };
+  }
+
+  const answers = submission.answers as Record<string, unknown>;
+
+  return {
+    business_name: pickFirstText(answers, "business_name"),
+    business_phone: pickFirstText(answers, "business_phone"),
+    location: pickFirstText(answers, "location"),
+    google_business_url: pickFirstText(answers, "google_business_url"),
+    service_list: pickFirstText(
+      answers,
+      "service_list",
+      "appointment_types",
+      "product_list",
+      "reservation_types",
+      "service_product_list",
+    ),
+  };
+}
+
+function parseSocialMediaLinks(raw: string): {
+  facebook?: string;
+  instagram?: string;
+  linkedin?: string;
+  x?: string;
+} {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const next: {
+    facebook?: string;
+    instagram?: string;
+    linkedin?: string;
+    x?: string;
+  } = {};
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    const candidate = line.includes(":")
+      ? line.slice(line.indexOf(":") + 1).trim()
+      : line;
+
+    if (!next.facebook && lower.includes("facebook")) {
+      next.facebook = candidate;
+      continue;
+    }
+
+    if (!next.instagram && lower.includes("instagram")) {
+      next.instagram = candidate;
+      continue;
+    }
+
+    if (!next.linkedin && lower.includes("linkedin")) {
+      next.linkedin = candidate;
+      continue;
+    }
+
+    if (!next.x && (lower.startsWith("x") || lower.includes("twitter") || lower.includes(" x:"))) {
+      next.x = candidate;
+    }
+  }
+
+  return next;
+}
+
+const DEFAULT_CONTENT_PERMISSION_FLAGS: Record<ContentPermissionKey, boolean> = {
   edit_homepage: true,
   edit_services: true,
   edit_team: true,
@@ -700,12 +872,19 @@ type LaunchChecklistItem = {
 const SAFE_ANCHORS = new Set([
   "#hero",
   "#services",
-  "#faq",
   "#testimonials",
-  "#contact",
   "#team",
   "#why-us",
   "#reviews",
+  "#case-studies",
+  "#new-arrivals",
+  "#best-sellers",
+  "#menu",
+  "#locations",
+  "#reservations",
+  "#rewards",
+  "#membership",
+  "#free-pass",
 ]);
 
 const BUILT_IN_PATHS = new Set(["/", "/services", "/about", "/shop"]);
@@ -740,7 +919,7 @@ function getNavLinkStatus(
     }
     return {
       tone: "warn",
-      message: "Unknown anchor. Use #services, #faq, #testimonials, or #contact.",
+      message: "Unknown anchor. Use section anchors like #services or #reviews. Use /faq and /contact for real pages.",
     };
   }
 
@@ -760,9 +939,16 @@ function getNavLinkStatus(
     return { tone: "ok", message: `Custom page exists: /${slug}` };
   }
 
+  if (isOptionalSystemPageSlug(slug)) {
+    return {
+      tone: "warn",
+      message: `Missing managed page /${slug}. Enable it in Site Settings or create it in Custom Pages.`,
+    };
+  }
+
   return {
     tone: "warn",
-    message: `Missing page /${slug}. Create and publish it in Main Pages.`,
+    message: `Missing page /${slug}. Create and publish it in Custom Pages.`,
   };
 }
 
@@ -773,6 +959,8 @@ export default function SiteSettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [websiteId, setWebsiteId] = useState<number | null>(null);
+  const selectedTenantId =
+    Number(selectedClient?.tenant_id || selectedClient?.id || 0) || null;
   const toastShown = useRef(false);
   const [tab, setTab] = useState<Tab>("settings");
 
@@ -783,7 +971,7 @@ export default function SiteSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [contentPermissions, setContentPermissions] = useState<
-    Record<PresetPermissionKey, boolean>
+    Record<ContentPermissionKey, boolean>
   >(DEFAULT_CONTENT_PERMISSION_FLAGS);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [permissionsError, setPermissionsError] = useState<string | null>(null);
@@ -857,6 +1045,8 @@ export default function SiteSettingsPage() {
   const [launchModeMessage, setLaunchModeMessage] = useState<string | null>(null);
   const [emailProfileLoading, setEmailProfileLoading] = useState(false);
   const [emailProfileSaving, setEmailProfileSaving] = useState(false);
+  const [emailDeliveryOpen, setEmailDeliveryOpen] = useState(false);
+  const [showDeferredSettings, setShowDeferredSettings] = useState(false);
   const [emailProfileVerifying, setEmailProfileVerifying] = useState(false);
   const [emailProfileTesting, setEmailProfileTesting] = useState(false);
   const [emailProfileMessage, setEmailProfileMessage] = useState<string | null>(
@@ -906,6 +1096,16 @@ export default function SiteSettingsPage() {
   const [templateForceReplace, setTemplateForceReplace] = useState(false);
   const [templateApplying, setTemplateApplying] = useState(false);
   const [templateMessage, setTemplateMessage] = useState<string | null>(null);
+  const [intakePrefillLoading, setIntakePrefillLoading] = useState(false);
+  const [intakePrefillMessage, setIntakePrefillMessage] = useState<string | null>(null);
+  const [latestIntakeSubmission, setLatestIntakeSubmission] =
+    useState<IntakeStoredSubmission | null>(null);
+  const [latestIntakeLoading, setLatestIntakeLoading] = useState(false);
+  const [latestIntakeError, setLatestIntakeError] = useState<string | null>(null);
+  const [latestIntakeEditForm, setLatestIntakeEditForm] =
+    useState<LatestIntakeEditForm>(EMPTY_LATEST_INTAKE_EDIT_FORM);
+  const [latestIntakeSaving, setLatestIntakeSaving] = useState(false);
+  const [latestIntakeSaveMessage, setLatestIntakeSaveMessage] = useState<string | null>(null);
   const [headerNavTemplateIndustry, setHeaderNavTemplateIndustry] =
     useState<IndustryTemplate>("trades");
   const [footerNavTemplateIndustry, setFooterNavTemplateIndustry] =
@@ -914,17 +1114,28 @@ export default function SiteSettingsPage() {
   const [templateCompetitorUrl, setTemplateCompetitorUrl] = useState("");
   const [templateServicesInput, setTemplateServicesInput] = useState("");
   const [aboutContextInput, setAboutContextInput] = useState("");
+  const [sitePages, setSitePages] = useState<CmsPageLite[]>([]);
   const [publishedPageSlugs, setPublishedPageSlugs] = useState<Set<string>>(
     new Set(),
   );
+  const [pageAssignmentSavingId, setPageAssignmentSavingId] = useState<number | null>(null);
+  const [managedSystemPageSavingSlug, setManagedSystemPageSavingSlug] = useState<string | null>(null);
   const [aiIdeas, setAiIdeas] = useState<AIContentIdea[]>([]);
   const [aiSelectedIdea, setAiSelectedIdea] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const intakePrefillAttemptedRef = useRef(false);
+  const logoUploadInputRef = useRef<HTMLInputElement>(null);
   const {
     trigger: triggerContentAgent,
     isLoading: isAIApplying,
   } = useContentAgent();
-  const { assets: clientAssets, isLoading: assetsLoading } = useGetAssets(
+  const { uploadToS3 } = useS3Upload();
+  const {
+    assets: clientAssets,
+    isLoading: assetsLoading,
+    refetchAssets,
+  } = useGetAssets(
     websiteId,
     0,
     200,
@@ -935,6 +1146,219 @@ export default function SiteSettingsPage() {
       setTemplateBusinessName(selectedClient?.name ?? "");
     }
   }, [selectedClient?.name, templateBusinessName]);
+
+  const fetchLatestIntakeSubmission = useCallback(async (wid?: number | null) => {
+    const requestPath = buildLatestIntakeAdminPath({
+      websiteId: wid,
+      tenantId: selectedTenantId,
+    });
+
+    if (!requestPath) {
+      return null;
+    }
+
+    const response = await fetch(requestPath, {
+      headers: authHeaders(),
+      cache: "no-store",
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? `Failed to load intake (${response.status})`);
+    }
+
+    return (await response.json()) as IntakeStoredSubmission;
+  }, [selectedTenantId]);
+
+  useEffect(() => {
+    if (!websiteId && !selectedTenantId) {
+      setLatestIntakeSubmission(null);
+      setLatestIntakeError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadLatestIntakeSubmission = async () => {
+      setLatestIntakeLoading(true);
+      setLatestIntakeError(null);
+
+      try {
+        const submission = await fetchLatestIntakeSubmission(websiteId);
+        if (cancelled) {
+          return;
+        }
+
+        setLatestIntakeSubmission(submission);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setLatestIntakeSubmission(null);
+        setLatestIntakeError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load latest intake submission.",
+        );
+      } finally {
+        if (!cancelled) {
+          setLatestIntakeLoading(false);
+        }
+      }
+    };
+
+    void loadLatestIntakeSubmission();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchLatestIntakeSubmission, selectedTenantId, websiteId]);
+
+  useEffect(() => {
+    setLatestIntakeEditForm(buildLatestIntakeEditForm(latestIntakeSubmission));
+    setLatestIntakeSaveMessage(null);
+  }, [latestIntakeSubmission]);
+
+  const applyIntakeToSiteSettings = useCallback(
+    (submission: IntakeStoredSubmission) => {
+      const answers = submission.answers as Record<string, unknown>;
+      const socialLinks = parseSocialMediaLinks(asString(answers.social_media));
+      const businessName = pickFirstText(answers, "business_name") || selectedClient?.name || "";
+      const city = pickFirstText(answers, "location");
+      const phone = pickFirstText(answers, "business_phone");
+      const ownerEmail = submission.email.trim();
+      const googleBusinessUrl = pickFirstText(answers, "google_business_url");
+      const servicesText = pickFirstText(
+        answers,
+        "service_list",
+        "appointment_types",
+        "product_list",
+        "reservation_types",
+        "service_product_list",
+      );
+      const intakeLogoFile = submission.files.find((file) => file.questionId === "logo");
+      const aboutContext = [
+        pickFirstText(answers, "ideal_client"),
+        pickFirstText(answers, "differentiator"),
+        pickFirstText(answers, "credentials"),
+        pickFirstText(answers, "years_in_business"),
+        pickFirstText(answers, "has_insurance"),
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      setForm((prev) =>
+        normalizeNavFields({
+          ...prev,
+          contact_email: prev.contact_email || ownerEmail || null,
+          contact_phone: prev.contact_phone || phone || null,
+          address: prev.address || city || null,
+          google_maps_url: prev.google_maps_url || googleBusinessUrl || null,
+          footer_social_facebook: prev.footer_social_facebook || socialLinks.facebook || null,
+          footer_social_instagram: prev.footer_social_instagram || socialLinks.instagram || null,
+          footer_social_linkedin: prev.footer_social_linkedin || socialLinks.linkedin || null,
+          footer_social_x: prev.footer_social_x || socialLinks.x || null,
+          logo_url: prev.logo_url || intakeLogoFile?.url || null,
+        }) as FormData,
+      );
+
+      setTemplateBusinessName((prev) => prev || businessName);
+      setTemplateCity((prev) => prev || city);
+      setTemplatePhone((prev) => prev || phone);
+      setTemplateEmail((prev) => prev || ownerEmail);
+      setTemplateServicesInput((prev) => prev || servicesText);
+      setAboutContextInput((prev) => prev || aboutContext);
+      setTab("settings");
+      setIntakePrefillMessage(
+        "Latest intake answers and any uploaded questionnaire logo were staged into Site Settings and template inputs. Review them, then click Save Changes to persist site settings.",
+      );
+    },
+    [selectedClient?.name],
+  );
+
+  const prefillFromLatestIntake = useCallback(async () => {
+    if (!websiteId && !selectedTenantId) {
+      return;
+    }
+
+    setIntakePrefillLoading(true);
+    setIntakePrefillMessage(null);
+
+    try {
+      const submission = await fetchLatestIntakeSubmission(websiteId);
+      if (!submission) {
+        setIntakePrefillMessage(
+          "No intake submission exists for this tenant yet.",
+        );
+        return;
+      }
+
+      setLatestIntakeSubmission(submission);
+      applyIntakeToSiteSettings(submission);
+    } catch (error) {
+      setIntakePrefillMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to apply latest intake answers.",
+      );
+    } finally {
+      setIntakePrefillLoading(false);
+    }
+  }, [applyIntakeToSiteSettings, fetchLatestIntakeSubmission, selectedTenantId, websiteId]);
+
+  const saveLatestIntakeAnswers = useCallback(async () => {
+    const requestPath = buildLatestIntakeAdminPath({
+      websiteId,
+      tenantId: selectedTenantId,
+    });
+
+    if (!requestPath || !latestIntakeSubmission) {
+      return;
+    }
+
+    setLatestIntakeSaving(true);
+    setLatestIntakeSaveMessage(null);
+
+    try {
+      const response = await fetch(requestPath, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          answers: {
+            business_name: latestIntakeEditForm.business_name,
+            business_phone: latestIntakeEditForm.business_phone,
+            location: latestIntakeEditForm.location,
+            google_business_url: latestIntakeEditForm.google_business_url,
+            service_list: latestIntakeEditForm.service_list,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? `Failed to update intake (${response.status})`);
+      }
+
+      const updatedSubmission = (await response.json()) as IntakeStoredSubmission;
+      setLatestIntakeSubmission(updatedSubmission);
+      setLatestIntakeSaveMessage(
+        "Latest intake answers updated. Click Apply Latest Intake if you want to restage those edits into Site Settings.",
+      );
+    } catch (error) {
+      setLatestIntakeSaveMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update latest intake answers.",
+      );
+    } finally {
+      setLatestIntakeSaving(false);
+    }
+  }, [latestIntakeEditForm, latestIntakeSubmission, selectedTenantId, websiteId]);
 
   // ── Load settings ──
   const loadSettings = useCallback(async (wid: number) => {
@@ -995,7 +1419,7 @@ export default function SiteSettingsPage() {
 
       const data = (await res.json()) as { permissions?: Record<string, unknown> };
       setContentPermissions(
-        normalizePermissionFlags(
+        normalizeContentPermissionFlags(
           data.permissions,
           DEFAULT_CONTENT_PERMISSION_FLAGS,
         ),
@@ -1026,6 +1450,16 @@ export default function SiteSettingsPage() {
       setTab(requestedTab);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const shouldPrefill = searchParams.get("prefillFromIntake") === "1";
+    if (!shouldPrefill || !websiteId || loading || intakePrefillAttemptedRef.current) {
+      return;
+    }
+
+    intakePrefillAttemptedRef.current = true;
+    void prefillFromLatestIntake();
+  }, [loading, prefillFromLatestIntake, searchParams, websiteId]);
 
   // ── Load services ──
   const loadServices = useCallback(async (wid: number) => {
@@ -1267,6 +1701,7 @@ export default function SiteSettingsPage() {
       });
       if (!res.ok) return;
       const pages = (await res.json()) as CmsPageLite[];
+      setSitePages(pages);
       const slugs = new Set(
         pages
           .filter((p) => p?.is_published)
@@ -1275,6 +1710,7 @@ export default function SiteSettingsPage() {
       );
       setPublishedPageSlugs(slugs);
     } catch {
+      setSitePages([]);
       setPublishedPageSlugs(new Set());
     }
   }, []);
@@ -1903,6 +2339,85 @@ export default function SiteSettingsPage() {
       setSaving(false);
     }
   };
+
+  const createClientAssetRecord = useCallback(async (url: string, label: string) => {
+    if (!websiteId) {
+      return;
+    }
+
+    const imageResponse = await fetch(`${getApiBaseUrl()}/image`, {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        url,
+        alt_text: label,
+        caption: "branding",
+      }),
+    });
+
+    if (!imageResponse.ok) {
+      throw new Error("Failed to create image record for uploaded logo.");
+    }
+
+    const imagePayload = (await imageResponse.json()) as
+      | { id?: number }
+      | Array<{ id?: number }>;
+    const imageId = Array.isArray(imagePayload)
+      ? imagePayload[0]?.id
+      : imagePayload.id;
+
+    if (!imageId) {
+      throw new Error("Uploaded logo did not return an image id.");
+    }
+
+    const assetResponse = await fetch(`${getApiBaseUrl()}/asset`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        website_id: websiteId,
+        image_id: imageId,
+      }),
+    });
+
+    if (!assetResponse.ok) {
+      throw new Error("Failed to attach uploaded logo to client assets.");
+    }
+  }, [websiteId]);
+
+  const handleLogoUpload = useCallback(async (file: File) => {
+    if (!websiteId) {
+      setSettingsError("Select a tenant before uploading a logo.");
+      return;
+    }
+
+    setLogoUploading(true);
+    setSettingsError(null);
+
+    try {
+      const endpointUrl = `/api/s3-upload?scope=branding&websiteId=${websiteId}`;
+      const { url } = await uploadToS3(file, {
+        endpoint: {
+          request: {
+            url: endpointUrl,
+          },
+        },
+      });
+
+      await createClientAssetRecord(url, "Brand Logo");
+      setForm((prev) => ({ ...prev, logo_url: url }));
+      await refetchAssets();
+      toast.success("Logo uploaded. Click Save Changes to persist it in Site Settings.");
+    } catch (error) {
+      setSettingsError(
+        error instanceof Error ? error.message : "Failed to upload logo.",
+      );
+    } finally {
+      setLogoUploading(false);
+    }
+  }, [createClientAssetRecord, refetchAssets, uploadToS3, websiteId]);
 
   const set = (field: keyof FormData, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -2810,15 +3325,201 @@ export default function SiteSettingsPage() {
 
   const headerNavLinks = coerceNavLinks(form.header_nav_links as FooterNavLink[] | null);
   const footerNavLinks = coerceNavLinks(form.footer_nav_links as FooterNavLink[] | null);
+  const routeSlugFromHref = (href: string) => {
+    const trimmed = href.trim().toLowerCase();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return null;
+    }
+    const [pathOnly] = trimmed.split(/[?#]/);
+    const normalized = pathOnly.replace(/^\/+|\/+$/g, '');
+    if (!normalized || normalized.includes('/')) {
+      return null;
+    }
+    return normalized;
+  };
   const headerLinkStatuses = headerNavLinks.map((link) =>
     getNavLinkStatus(link.href ?? "", publishedPageSlugs),
   );
   const missingHeaderLinks = headerNavLinks
     .map((link, idx) => ({ link, status: headerLinkStatuses[idx] }))
-    .filter(({ status }) => status.tone === "warn");
+    .filter(({ link, status }) => {
+      if (status.tone !== "warn") {
+        return false;
+      }
+
+      const slug = routeSlugFromHref(link.href ?? "");
+      return !slug || !isOptionalSystemPageSlug(slug);
+    });
   const footerLinkStatuses = footerNavLinks.map((link) =>
     getNavLinkStatus(link.href ?? "", publishedPageSlugs),
   );
+  const managedHeaderSlugs = Array.from(
+    new Set(
+      headerNavLinks
+        .map((link) => routeSlugFromHref(link.href ?? ''))
+        .filter((slug): slug is string => Boolean(slug)),
+    ),
+  );
+  const managedPagesBySlug = new Map(
+    sitePages
+      .filter((page) => page.slug)
+      .map((page) => [String(page.slug).toLowerCase(), page]),
+  );
+  const managedHeaderPages = managedHeaderSlugs
+    .map((slug) => managedPagesBySlug.get(slug))
+    .filter((page): page is CmsPageLite => Boolean(page))
+    .filter((page) => !isOptionalSystemPageSlug(String(page.slug ?? "").toLowerCase()));
+  const optionalSystemPages = OPTIONAL_SYSTEM_PAGE_CONFIGS.map((config) => ({
+    config,
+    page: managedPagesBySlug.get(config.slug) ?? null,
+  }));
+  const dropdownParentCandidates = sitePages.filter(
+    (page) => !page.parent_id && (
+      (page.navigation_assignments ?? []).some((assignment) => assignment.placement === 'header' && assignment.style === 'dropdown_parent') ||
+      page.nav_placement === 'header' ||
+      page.nav_style === 'dropdown_parent'
+    ),
+  );
+
+  const updateManagedHeaderPage = useCallback(async (
+    page: CmsPageLite,
+    updates: Partial<CmsPageLite>,
+  ) => {
+    if (!websiteId) return;
+
+    const nextNavPlacement = updates.nav_placement ?? page.nav_placement ?? (page.is_main_nav ? 'header' : 'hidden');
+    const nextNavStyle = updates.nav_style ?? page.nav_style ?? (page.parent_id ? 'dropdown_child' : 'direct');
+    const nextParentId = updates.parent_id ?? page.parent_id ?? null;
+    const navigationAssignments = nextNavPlacement === 'hidden'
+      ? []
+      : [{
+          placement: nextNavPlacement,
+          style: nextNavStyle,
+          parent_page_id: nextNavStyle === 'dropdown_child'
+            ? updates.nav_parent_id ?? page.nav_parent_id ?? nextParentId
+            : null,
+          sort_order: 0,
+          label: page.title,
+          is_active: updates.is_enabled ?? page.is_enabled ?? true,
+        }];
+    const payload = {
+      title: page.title,
+      slug: page.slug,
+      parent_id: nextParentId,
+      is_enabled: updates.is_enabled ?? page.is_enabled ?? true,
+      is_published: updates.is_published ?? page.is_published,
+      is_main_nav: nextNavPlacement === 'header' && nextNavStyle !== 'dropdown_child' && !nextParentId,
+      nav_placement: nextNavPlacement,
+      nav_style: nextNavStyle,
+      nav_parent_id: nextNavStyle === 'dropdown_child'
+        ? updates.nav_parent_id ?? page.nav_parent_id ?? nextParentId
+        : null,
+      nav_label: page.title,
+      is_external_link: false,
+      navigation_assignments: navigationAssignments,
+    };
+
+    setPageAssignmentSavingId(page.id);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/pages/${page.id}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update page navigation settings.');
+      }
+
+      await loadPageSlugs(websiteId);
+      toast.success('Page navigation settings updated.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update page navigation settings.');
+    } finally {
+      setPageAssignmentSavingId(null);
+    }
+  }, [loadPageSlugs, websiteId]);
+
+  const upsertOptionalSystemPage = useCallback(async (
+    config: OptionalSystemPageConfig,
+    updates: Partial<CmsPageLite>,
+  ) => {
+    if (!websiteId) return;
+
+    const existingPage = sitePages.find(
+      (page) => String(page.slug ?? "").toLowerCase() === config.slug,
+    );
+
+    if (existingPage) {
+      await updateManagedHeaderPage(existingPage, updates);
+      return;
+    }
+
+    const nextNavPlacement = updates.nav_placement ?? "hidden";
+    const nextNavStyle = updates.nav_style ?? "direct";
+    const nextParentId = updates.parent_id ?? null;
+    const nextNavParentId =
+      nextNavStyle === "dropdown_child" ? updates.nav_parent_id ?? null : null;
+    const isEnabled = updates.is_enabled ?? true;
+    const isPublished = updates.is_published ?? true;
+    const navigationAssignments =
+      nextNavPlacement === "hidden"
+        ? []
+        : [
+            {
+              placement: nextNavPlacement,
+              style: nextNavStyle,
+              parent_page_id: nextNavParentId,
+              sort_order: 0,
+              label: config.title,
+              is_active: isEnabled,
+            },
+          ];
+
+    setManagedSystemPageSavingSlug(config.slug);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/pages`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          title: config.title,
+          slug: config.slug,
+          website_id: websiteId,
+          page_type: "main-page",
+          template_type: config.templateType,
+          parent_id: nextParentId,
+          is_enabled: isEnabled,
+          is_published: isPublished,
+          is_main_nav:
+            nextNavPlacement === "header" &&
+            nextNavStyle !== "dropdown_child" &&
+            !nextParentId,
+          nav_placement: nextNavPlacement,
+          nav_style: nextNavStyle,
+          nav_parent_id: nextNavParentId,
+          nav_label: config.title,
+          is_external_link: false,
+          navigation_assignments: navigationAssignments,
+          content: "",
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to create /${config.slug} page.`);
+      }
+
+      await loadPageSlugs(websiteId);
+      toast.success(`${config.title} page created.`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to create /${config.slug} page.`,
+      );
+    } finally {
+      setManagedSystemPageSavingSlug(null);
+    }
+  }, [loadPageSlugs, sitePages, updateManagedHeaderPage, websiteId]);
 
   const setNavLinksForLocation = useCallback(
     (location: "header" | "footer", nextLinks: FooterNavLink[]) => {
@@ -3071,6 +3772,31 @@ export default function SiteSettingsPage() {
       : launchReadinessTone === "blocked"
         ? "text-amber-800 dark:text-amber-300"
         : "text-sky-800 dark:text-sky-300";
+  const latestIntakeLogoFile =
+    latestIntakeSubmission?.files.find((file) => file.questionId === "logo") ?? null;
+  const domainsSectionStatus: LaunchOneStatus =
+    selectedLaunchMode === "final_domain" ? "required" : "deferred";
+  const emailSectionStatus: LaunchOneStatus =
+    selectedLaunchMode === "final_domain" ? "required" : "deferred";
+  const ecommerceSectionStatus: LaunchOneStatus = form.ecommerce_enabled
+    ? "optional"
+    : "not_applicable";
+  const shouldShowDeferredSettings =
+    selectedLaunchMode === "final_domain" || showDeferredSettings;
+  const launchOneFocus = [
+    "Review intake and stage the usable answers into saved tenant settings.",
+    "Save business identity, phone, service area, core navigation, and temporary-launch intent.",
+    "Use a workable logo and brand colors so Home, Services, About, and Contact can be reviewed.",
+  ];
+  const laterPhaseFocus = [
+    selectedLaunchMode === "final_domain"
+      ? "Final-domain DNS and branded sender setup are active launch requirements now."
+      : "Final-domain DNS and branded sender setup stay deferred while this tenant remains in temporary launch.",
+    "Optional system pages, review signals, and footer polish should not block tenant one.",
+    form.ecommerce_enabled
+      ? "Shop is enabled, so commerce settings are optional follow-up work instead of launch-one blockers."
+      : "E-commerce is not part of this tenant's launch-one path unless you explicitly enable Shop.",
+  ];
 
   const isTabLocked = (tabId: Tab) => {
     if (tabId === "settings") return !canEditSiteSettings;
@@ -3127,9 +3853,212 @@ export default function SiteSettingsPage() {
         </p>
       ) : null}
 
+      {tab === "settings" && (
+        <div className={`grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-2 ${LAUNCH_ONE_STATUS_META.required.panelClassName}`}>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                Launch-One Focus for {selectedClient?.name ?? "This Tenant"}
+              </p>
+              <LaunchOneBadge status="required" />
+            </div>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Treat this page as tenant-foundation setup for the first live launch. Only the controls that unblock a credible lead-gen site should drive decisions here.
+            </p>
+            <div className="mt-3 space-y-2 text-xs text-gray-600 dark:text-gray-300">
+              {launchOneFocus.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+          </div>
+          <div className={`rounded-lg border p-4 ${LAUNCH_ONE_STATUS_META.deferred.panelClassName}`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Later or Conditional</p>
+              <LaunchOneBadge status="deferred" />
+            </div>
+            <div className="mt-3 space-y-2 text-xs text-gray-600 dark:text-gray-300">
+              {laterPhaseFocus.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "settings" && selectedLaunchMode === "temporary_launch" && (
+        <div className={`rounded-xl border p-4 ${LAUNCH_ONE_STATUS_META.deferred.panelClassName}`}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                Deferred Controls Hidden For Temporary Launch
+              </p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                Domain setup, email delivery hardening, and optional parent-page controls are collapsed until you explicitly need them.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeferredSettings((prev) => !prev)}
+              className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/30"
+            >
+              {showDeferredSettings ? "Hide Later-Phase Controls" : "Show Later-Phase Controls"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Settings tab ── */}
       {tab === "settings" && (
         <>
+          <div className={SECTION}>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={SECTION_TITLE}>Latest Intake Answers</p>
+                  <LaunchOneBadge status="required" />
+                </div>
+                <p className="text-sm text-gray-500">
+                  Use the tenant questionnaire to stage contact details, service context, and branding inputs into this page.
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Launch-one requirement: confirm business identity, phone, location, logo state, and any usable service context before you save this page.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={prefillFromLatestIntake}
+                disabled={intakePrefillLoading || !websiteId || latestIntakeLoading}
+                className="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                {intakePrefillLoading ? "Applying Intake..." : "Apply Latest Intake"}
+              </button>
+            </div>
+
+            {intakePrefillMessage ? (
+              <div className="mb-4 rounded-lg border border-[#CD7F32]/30 bg-[#CD7F32]/5 px-4 py-3 text-xs text-gray-700 dark:border-[#CD7F32]/40 dark:bg-[#CD7F32]/10 dark:text-gray-200">
+                {intakePrefillMessage}
+              </div>
+            ) : null}
+
+            {latestIntakeSaveMessage ? (
+              <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200">
+                {latestIntakeSaveMessage}
+              </div>
+            ) : null}
+
+            {latestIntakeSubmission?.adminEditedAt ? (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+                Latest intake answers were admin-edited
+                {latestIntakeSubmission.adminEditedByName || latestIntakeSubmission.adminEditedByEmail
+                  ? ` by ${latestIntakeSubmission.adminEditedByName ?? latestIntakeSubmission.adminEditedByEmail}`
+                  : ""}
+                {" · "}
+                {new Date(latestIntakeSubmission.adminEditedAt).toLocaleString()}
+              </div>
+            ) : null}
+
+            {latestIntakeLoading ? (
+              <p className="text-sm text-gray-500">Loading latest intake submission...</p>
+            ) : latestIntakeError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">{latestIntakeError}</p>
+            ) : !latestIntakeSubmission ? (
+              <p className="text-sm text-gray-500">No intake questionnaire has been submitted for this tenant yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 md:col-span-2 dark:border-gray-700 dark:bg-gray-800/40">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Intake Logo</p>
+                      <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                        {latestIntakeLogoFile?.filename ?? "No logo uploaded in the questionnaire."}
+                      </p>
+                    </div>
+                    {latestIntakeLogoFile?.url ? (
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, logo_url: latestIntakeLogoFile.url }))}
+                        className="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                      >
+                        Use Intake Logo
+                      </button>
+                    ) : null}
+                  </div>
+                  {latestIntakeLogoFile?.url ? (
+                    <div className="mt-3 flex min-h-24 items-center justify-center rounded-lg bg-white px-4 py-6 dark:bg-gray-900/50">
+                      <Image
+                        src={latestIntakeLogoFile.url}
+                        alt="Intake Logo"
+                        width={180}
+                        height={72}
+                        className="h-auto max-h-20 w-auto"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Business Name</p>
+                  <input
+                    value={latestIntakeEditForm.business_name}
+                    onChange={(e) => setLatestIntakeEditForm((prev) => ({ ...prev, business_name: e.target.value }))}
+                    className={`${INPUT} mt-2`}
+                    placeholder="Business name"
+                  />
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Business Phone</p>
+                  <input
+                    value={latestIntakeEditForm.business_phone}
+                    onChange={(e) => setLatestIntakeEditForm((prev) => ({ ...prev, business_phone: e.target.value }))}
+                    className={`${INPUT} mt-2`}
+                    placeholder="Business phone"
+                  />
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Location</p>
+                  <input
+                    value={latestIntakeEditForm.location}
+                    onChange={(e) => setLatestIntakeEditForm((prev) => ({ ...prev, location: e.target.value }))}
+                    className={`${INPUT} mt-2`}
+                    placeholder="City or service area"
+                  />
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Google Business</p>
+                  <input
+                    value={latestIntakeEditForm.google_business_url}
+                    onChange={(e) => setLatestIntakeEditForm((prev) => ({ ...prev, google_business_url: e.target.value }))}
+                    className={`${INPUT} mt-2`}
+                    placeholder="Google Business URL or note"
+                  />
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 md:col-span-2 dark:border-gray-700 dark:bg-gray-800/40">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Services / Offerings</p>
+                  <textarea
+                    value={latestIntakeEditForm.service_list}
+                    onChange={(e) => setLatestIntakeEditForm((prev) => ({ ...prev, service_list: e.target.value }))}
+                    className={`${INPUT} mt-2 min-h-28`}
+                    placeholder="Primary services, offerings, or launch-one scope"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={saveLatestIntakeAnswers}
+                      disabled={latestIntakeSaving}
+                      className="rounded-md bg-[#CD7F32] px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {latestIntakeSaving ? "Saving Intake..." : "Save Latest Intake Answers"}
+                    </button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      These edits update the latest intake record used by onboarding, Site Settings staging, and built-in page helpers.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className={`${SECTION} ${launchReadinessClass}`}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -3170,11 +4099,20 @@ export default function SiteSettingsPage() {
             ) : null}
           </div>
 
+          {shouldShowDeferredSettings ? (
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Domains (Phase 5)</p>
-            <p className="mb-4 text-sm text-gray-500">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>Domains (Phase 5)</p>
+              <LaunchOneBadge status={domainsSectionStatus} />
+            </div>
+            <p className="text-sm text-gray-500">
               Onboard custom domains for this tenant. Add DNS records, then run
               verification until status becomes <strong>active</strong>.
+            </p>
+            <p className="mb-4 mt-2 text-xs text-gray-500">
+              {selectedLaunchMode === "final_domain"
+                ? "Final-domain launch is selected, so domain setup is now a real launch blocker."
+                : "This is intentionally later-phase work while the tenant stays on a stable RC-controlled temporary host."}
             </p>
 
             <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
@@ -3475,19 +4413,51 @@ export default function SiteSettingsPage() {
               </p>
             )}
           </div>
+          ) : null}
 
+          {shouldShowDeferredSettings ? (
           <div className="rounded-lg border border-stroke bg-white p-6 shadow-sm dark:border-strokedark dark:bg-boxdark">
-            <div className="mb-4 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setEmailDeliveryOpen((v) => !v)}
+              className="flex w-full items-center justify-between text-left"
+            >
               <div>
-                <h3 className="text-lg font-semibold text-black dark:text-white">
-                  Email Delivery (Phase 5)
-                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-semibold text-black dark:text-white">
+                    Email Delivery
+                  </h3>
+                  <LaunchOneBadge status={emailSectionStatus} />
+                  {detectedWebsiteMode !== "final_domain" && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                      Complete after domain setup
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-body-color dark:text-bodydark">
-                  Configure per-tenant sender profile, SPF/DKIM status, and lead notification routing.
+                  Controls how the platform sends emails on behalf of this tenant — things like lead alerts, booking confirmations, and invoices.
                 </p>
                 <p className="mt-2 text-xs text-body-color dark:text-bodydark">
-                  Use this before launch when the tenant needs branded outbound email and clear routing for new lead alerts.
-                  The sender fields control how email appears to clients, and the recipient list controls who gets notified when leads arrive.
+                  {selectedLaunchMode === "final_domain"
+                    ? "Because final-domain launch is selected, branded sender setup is part of the real go-live gate."
+                    : "For temporary launch, this section is informational and should not distract from site/content completion."}
+                </p>
+              </div>
+              <span className="ml-4 shrink-0 text-gray-400">
+                {emailDeliveryOpen ? "▲" : "▼"}
+              </span>
+            </button>
+
+            {emailDeliveryOpen && (
+              <div className="mt-4">
+                <p className="mb-3 text-xs text-body-color dark:text-bodydark">
+                  This is <strong>not</strong> the tenant&apos;s personal inbox. It&apos;s the outbound notification system the platform uses to contact their customers.
+                  Even if the tenant brings their own email for day-to-day communication, you still need to configure this so lead alerts and confirmations go out correctly.
+                </p>
+                <p className="mb-4 text-xs text-body-color dark:text-bodydark">
+                  <strong>Platform sender</strong> — use RC&apos;s shared sending domain. Works immediately, no DNS setup needed. Best for temporary launch.
+                  <br />
+                  <strong>Tenant branded</strong> — use the tenant&apos;s own domain (e.g. <code>mg.acmeplumbing.com</code>) so emails show their brand. Requires DNS verification before going live.
                 </p>
                 <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-3 text-xs text-body-color dark:border-strokedark dark:bg-meta-4 dark:text-bodydark">
                   <p>
@@ -3507,31 +4477,29 @@ export default function SiteSettingsPage() {
                     Operational rule: saved tenant email profile values are configuration state. Do not claim branded outbound email is live until a real outbound test confirms the expected sender identity.
                   </p>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => websiteId && loadEmailProfile(websiteId)}
-                  disabled={emailProfileLoading || !websiteId}
-                  className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-black hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-strokedark dark:text-white dark:hover:bg-meta-4"
-                >
-                  {emailProfileLoading ? "Refreshing..." : "Refresh"}
-                </button>
-                <button
-                  type="button"
-                  onClick={verifyEmailDomain}
-                  disabled={
-                    emailProfileVerifying ||
-                    !websiteId ||
-                    !emailProfile.available ||
-                    !emailProfile.sendingDomain.trim()
-                  }
-                  className="rounded-md border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {emailProfileVerifying ? "Checking..." : "Verify SPF/DKIM"}
-                </button>
-              </div>
-            </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => websiteId && loadEmailProfile(websiteId)}
+                    disabled={emailProfileLoading || !websiteId}
+                    className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-black hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-strokedark dark:text-white dark:hover:bg-meta-4"
+                  >
+                    {emailProfileLoading ? "Refreshing..." : "Refresh"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={verifyEmailDomain}
+                    disabled={
+                      emailProfileVerifying ||
+                      !websiteId ||
+                      !emailProfile.available ||
+                      !emailProfile.sendingDomain.trim()
+                    }
+                    className="rounded-md border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {emailProfileVerifying ? "Checking..." : "Verify SPF/DKIM"}
+                  </button>
+                </div>
 
             <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-strokedark dark:bg-meta-4">
               <p className="text-sm font-medium text-black dark:text-white">
@@ -3578,6 +4546,11 @@ export default function SiteSettingsPage() {
             </div>
 
             <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {detectedWebsiteMode !== "final_domain" ? (
+                <div className="col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+                  <strong>No custom domain yet.</strong> The sender fields below are only needed when the tenant has a real domain set up. Skip these for now — come back after the domain is purchased and added in the Domains section above.
+                </div>
+              ) : null}
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-black dark:text-white">
                   From Name
@@ -3592,8 +4565,9 @@ export default function SiteSettingsPage() {
                     }))
                   }
                   className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
-                  placeholder="TechBridge Team"
+                  placeholder="Acme Plumbing"
                 />
+                <span className="mt-1 block text-xs text-body-color dark:text-bodydark">The name customers see in their inbox, e.g. &quot;Acme Plumbing&quot;.</span>
               </label>
 
               <label className="block">
@@ -3610,8 +4584,9 @@ export default function SiteSettingsPage() {
                     }))
                   }
                   className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
-                  placeholder="hello@yourdomain.com"
+                  placeholder="hello@acmeplumbing.com"
                 />
+                <span className="mt-1 block text-xs text-body-color dark:text-bodydark">The address emails are sent from. Must match the sending domain below.</span>
               </label>
 
               <label className="block">
@@ -3628,8 +4603,9 @@ export default function SiteSettingsPage() {
                     }))
                   }
                   className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
-                  placeholder="support@yourdomain.com"
+                  placeholder="owner@acmeplumbing.com"
                 />
+                <span className="mt-1 block text-xs text-body-color dark:text-bodydark">Where customer replies go — usually the tenant owner&apos;s inbox.</span>
               </label>
 
               <label className="block">
@@ -3646,8 +4622,9 @@ export default function SiteSettingsPage() {
                     }))
                   }
                   className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
-                  placeholder="mg.yourdomain.com"
+                  placeholder="mg.acmeplumbing.com"
                 />
+                <span className="mt-1 block text-xs text-body-color dark:text-bodydark">A subdomain used by Resend to send email. Add DNS records from Resend, then click Verify SPF/DKIM. Leave blank if using platform sender.</span>
               </label>
             </div>
 
@@ -3660,10 +4637,10 @@ export default function SiteSettingsPage() {
                 value={leadRoutingInput}
                 onChange={(e) => setLeadRoutingInput(e.target.value)}
                 className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
-                placeholder="sales@yourdomain.com, ops@yourdomain.com"
+                placeholder="owner@acmeplumbing.com, manager@acmeplumbing.com"
               />
               <span className="mt-1 block text-xs text-body-color dark:text-bodydark">
-                Comma-separated email addresses used for tenant lead routing.
+                Who gets notified when a new lead or booking request comes in. Comma-separated. Usually the tenant owner and/or office manager.
               </span>
             </label>
 
@@ -3692,7 +4669,7 @@ export default function SiteSettingsPage() {
                     value={emailTestRecipient}
                     onChange={(e) => setEmailTestRecipient(e.target.value)}
                     className="w-full rounded-md border border-stroke px-3 py-2 text-sm outline-none focus:border-primary dark:border-strokedark dark:bg-boxdark"
-                    placeholder="qa@clientdomain.com"
+                    placeholder="cesar@rctechbridge.com"
                   />
                 </label>
                 <button
@@ -3763,17 +4740,43 @@ export default function SiteSettingsPage() {
                 </span>
               ) : null}
             </div>
+              </div>
+            )}
           </div>
+          ) : null}
 
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Template Library (V1)</p>
-            <p className="mb-4 text-sm text-gray-500">
-              Quick-start copy for new client onboarding. This will seed Home,
-              About, Contact, and 3 starter services.
-            </p>
-            <p className="mb-4 text-xs text-gray-500">
-              Prefill actions only stage values in this form. Nothing is saved until you click <strong>Save Changes</strong>.
-            </p>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={SECTION_TITLE}>Template Library (V1)</p>
+                  <LaunchOneBadge status="optional" />
+                </div>
+                <p className="mb-2 text-sm text-gray-500">
+                  Quick-start copy for new client onboarding. This will seed Home,
+                  About, Contact, and 3 starter services.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Prefill actions only stage values in this form. Nothing is saved until you click <strong>Save Changes</strong>.
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Helpful for speed, but not a completion requirement for launch one.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={prefillFromLatestIntake}
+                disabled={intakePrefillLoading || !websiteId}
+                className="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                {intakePrefillLoading ? "Applying Intake..." : "Apply Latest Intake"}
+              </button>
+            </div>
+            {intakePrefillMessage ? (
+              <div className="mb-4 rounded-lg border border-[#CD7F32]/30 bg-[#CD7F32]/5 px-4 py-3 text-xs text-gray-700 dark:border-[#CD7F32]/40 dark:bg-[#CD7F32]/10 dark:text-gray-200">
+                {intakePrefillMessage}
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={LABEL}>Industry Template</label>
@@ -3907,14 +4910,300 @@ export default function SiteSettingsPage() {
           </div>
 
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Header Navigation Templates (Phase A)</p>
-            <p className="mb-4 text-sm text-gray-500">
-              Configure top navbar links by industry. You can edit, delete, or
-              add custom links.
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>Header Navigation Presets and Manual Links</p>
+              <LaunchOneBadge status="required" />
+            </div>
+            <p className="text-sm text-gray-500">
+              Manage route-backed header pages first, then use presets or manual links for bootstrap coverage and ordering.
             </p>
-            <p className="mb-4 text-xs text-gray-500">
-              For anchor links use <code>#services</code>, <code>#faq</code>, <code>#testimonials</code>, or <code>#contact</code>. For a new page, set href like <code>/why-us</code> and create/publish that slug in <code>Custom Pages</code>.
+            <p className="mt-2 text-xs text-gray-500">
+              Launch-one requirement: keep the core routes sane. Home, Services, About, and Contact matter now; optional parent pages do not.
             </p>
+            <p className="mb-4 mt-2 text-xs text-gray-500">
+              Industry navbar links should use real page routes like <code>/contact</code>, <code>/faq</code>, or <code>/reviews</code>. Use the managed controls below to enable a page, show it in the header, or assign it into a dropdown.
+            </p>
+            {shouldShowDeferredSettings ? (
+            <div className={`mb-4 space-y-3 rounded-lg border p-4 ${LAUNCH_ONE_STATUS_META.deferred.panelClassName}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                      Optional System Parent Pages
+                    </p>
+                    <LaunchOneBadge status="deferred" />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    These route-backed parent pages should be enabled only when the tenant actually needs them. They are not part of the minimum launch-one path for this trades site.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href="/managed-pages"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Open Managed Pages
+                  </Link>
+                  <Link
+                    href="/built-in-pages"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Open Built-in Pages
+                  </Link>
+                </div>
+              </div>
+              {optionalSystemPages.map(({ config, page }) => {
+                const showInHeader =
+                  (page?.nav_placement ?? (page?.is_main_nav ? "header" : "hidden")) ===
+                  "header";
+                const navStyle = page?.nav_style ?? "direct";
+                const isEnabled = page ? (page.is_enabled ?? true) : false;
+                const isPublished = page?.is_published ?? false;
+                const isSaving =
+                  managedSystemPageSavingSlug === config.slug ||
+                  (page ? pageAssignmentSavingId === page.id : false);
+
+                return (
+                  <div
+                    key={config.slug}
+                    className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          {config.title}
+                        </p>
+                        <p className="text-xs text-gray-500">/{config.slug}</p>
+                        <p className="mt-1 text-xs text-gray-500">{config.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {page ? (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                            Page exists
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
+                            Missing page
+                          </span>
+                        )}
+                        {isSaving && (
+                          <span className="text-xs font-semibold text-amber-700">Saving…</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={(e) => void upsertOptionalSystemPage(config, e.target.checked
+                            ? {
+                                is_enabled: true,
+                                is_published: page?.is_published ?? true,
+                              }
+                            : {
+                                is_enabled: false,
+                                is_published: false,
+                                nav_placement: "hidden",
+                                nav_style: "direct",
+                                nav_parent_id: null,
+                              })}
+                        />
+                        Enable Page
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={isPublished}
+                          disabled={!isEnabled && !page}
+                          onChange={(e) => void upsertOptionalSystemPage(config, {
+                            is_enabled: e.target.checked ? true : isEnabled,
+                            is_published: e.target.checked,
+                            nav_placement: e.target.checked ? (page?.nav_placement ?? "hidden") : "hidden",
+                            nav_style: page?.nav_style ?? "direct",
+                            nav_parent_id: page?.nav_parent_id ?? null,
+                          })}
+                        />
+                        Publish Page
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={showInHeader}
+                          onChange={(e) => void upsertOptionalSystemPage(config, e.target.checked
+                            ? {
+                                is_enabled: true,
+                                is_published: true,
+                                nav_placement: "header",
+                                nav_style:
+                                  page?.nav_style === "dropdown_parent"
+                                    ? "dropdown_parent"
+                                    : "direct",
+                              }
+                            : {
+                                nav_placement: "hidden",
+                                nav_style: "direct",
+                                nav_parent_id: null,
+                              })}
+                        />
+                        Show in Header
+                      </label>
+                      <div>
+                        <label className={LABEL}>Header Display</label>
+                        <select
+                          className={INPUT}
+                          value={navStyle}
+                          disabled={!showInHeader}
+                          onChange={(e) => void upsertOptionalSystemPage(config, {
+                            is_enabled: true,
+                            is_published: true,
+                            nav_placement: "header",
+                            nav_style: e.target.value as CmsPageLite["nav_style"],
+                            nav_parent_id: null,
+                          })}
+                        >
+                          <option value="direct">Direct link</option>
+                          {config.supportsDropdownParent !== false && (
+                            <option value="dropdown_parent">Dropdown parent</option>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link
+                        href={`/managed-pages/${config.slug}`}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                      >
+                        Open Managed Editor
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="text-xs text-gray-500">
+                Shop stays tied to the ecommerce toggle and Built-in Pages editor. Home, Services, and About remain built-in core routes.
+              </p>
+            </div>
+            ) : (
+              <div className={`mb-4 rounded-lg border p-4 ${LAUNCH_ONE_STATUS_META.deferred.panelClassName}`}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Optional System Parent Pages Hidden
+                    </p>
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                      FAQ, Reviews, Locations, Blog, Menu, and Reservations controls are deferred for temporary launch unless strategy requires them now.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeferredSettings(true)}
+                    className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                  >
+                    Show Deferred Nav Controls
+                  </button>
+                </div>
+              </div>
+            )}
+            {managedHeaderPages.length > 0 && (
+              <div className="mb-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                    Header-Managed Custom Pages
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    These are additional non-system header pages from the current navigation links. Use them for client-specific routes beyond the optional system pages above.
+                  </p>
+                </div>
+                {managedHeaderPages.map((page) => {
+                  const showInHeader = (page.nav_placement ?? (page.is_main_nav ? 'header' : 'hidden')) === 'header';
+                  const navStyle = page.nav_style ?? (page.parent_id ? 'dropdown_child' : 'direct');
+                  return (
+                    <div
+                      key={page.id}
+                      className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                            {page.title || page.slug || `Page ${page.id}`}
+                          </p>
+                          <p className="text-xs text-gray-500">/{page.slug}</p>
+                        </div>
+                        {pageAssignmentSavingId === page.id && (
+                          <span className="text-xs font-semibold text-amber-700">Saving…</span>
+                        )}
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            checked={page.is_enabled ?? true}
+                            onChange={(e) => void updateManagedHeaderPage(page, {
+                              is_enabled: e.target.checked,
+                              is_published: e.target.checked ? page.is_published : false,
+                            })}
+                          />
+                          Enable Page
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            checked={showInHeader}
+                            onChange={(e) => void updateManagedHeaderPage(page, {
+                              nav_placement: e.target.checked ? 'header' : 'hidden',
+                              nav_style: e.target.checked ? (page.parent_id ? 'dropdown_child' : navStyle) : 'direct',
+                              nav_parent_id: e.target.checked
+                                ? (navStyle === 'dropdown_child' ? page.nav_parent_id ?? page.parent_id ?? null : null)
+                                : null,
+                            })}
+                          />
+                          Show in Header
+                        </label>
+                        <div>
+                          <label className={LABEL}>Header Display</label>
+                          <select
+                            className={INPUT}
+                            value={navStyle}
+                            disabled={!showInHeader}
+                            onChange={(e) => void updateManagedHeaderPage(page, {
+                              nav_style: e.target.value as CmsPageLite['nav_style'],
+                              nav_parent_id: e.target.value === 'dropdown_child'
+                                ? page.nav_parent_id ?? page.parent_id ?? null
+                                : null,
+                            })}
+                          >
+                            {!page.parent_id && <option value="direct">Direct link</option>}
+                            {!page.parent_id && <option value="dropdown_parent">Dropdown parent</option>}
+                            <option value="dropdown_child">Dropdown child</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className={LABEL}>Dropdown Parent</label>
+                          <select
+                            className={INPUT}
+                            value={page.nav_parent_id ?? page.parent_id ?? ''}
+                            disabled={!showInHeader || navStyle !== 'dropdown_child'}
+                            onChange={(e) => void updateManagedHeaderPage(page, {
+                              nav_parent_id: e.target.value ? Number(e.target.value) : null,
+                            })}
+                          >
+                            <option value="">Select parent</option>
+                            {dropdownParentCandidates
+                              .filter((candidate) => candidate.id !== page.id)
+                              .map((candidate) => (
+                                <option key={candidate.id} value={candidate.id}>
+                                  {candidate.title || candidate.slug || `Page ${candidate.id}`}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {missingHeaderLinks.length > 0 && (
               <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 <p className="font-semibold">Potential 404s detected in Header Navigation</p>
@@ -3931,7 +5220,7 @@ export default function SiteSettingsPage() {
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <div>
-                <label className={LABEL}>Industry Navbar Template</label>
+                <label className={LABEL}>Industry Navbar Preset</label>
                 <select
                   className={INPUT}
                   value={headerNavTemplateIndustry}
@@ -3980,7 +5269,7 @@ export default function SiteSettingsPage() {
                       onChange={(e) =>
                         updateNavLink("header", idx, "href", e.target.value)
                       }
-                      placeholder="Href (e.g. /services or #contact)"
+                      placeholder="Href (e.g. /contact or /reviews)"
                     />
                     <button
                       type="button"
@@ -4075,7 +5364,7 @@ export default function SiteSettingsPage() {
                       onChange={(e) =>
                         updateNavLink("footer", idx, "href", e.target.value)
                       }
-                      placeholder="Href (e.g. /about or #contact)"
+                      placeholder="Href (e.g. /about or /contact)"
                     />
                     <button
                       type="button"
@@ -4114,38 +5403,18 @@ export default function SiteSettingsPage() {
             </button>
           </div>
 
+          {/* Theme tokens */}
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Home Page Hero</p>
-            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-              <p>
-                Built-in page copy now lives in dedicated page editors. Edit the
-                homepage hero in <strong>Built-in Pages</strong> instead of
-                Global Site Settings.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href="/built-in-pages/home"
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-                >
-                  Open Home Editor
-                </Link>
-                <Link
-                  href="/branding"
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-                >
-                  Open Branding
-                </Link>
-              </div>
-              <p className="text-xs text-gray-500">
-                Global Site Settings still owns cross-cutting branding, contact,
-                footer, and shared CTA configuration.
-              </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>Theme & Brand Tokens</p>
+              <LaunchOneBadge status="required" />
             </div>
-          </div>
-
-          {/* Branding */}
-          <div className={SECTION}>
-            <p className={SECTION_TITLE}>Branding</p>
+            <p className="text-sm text-gray-500">
+              These settings are global visual tokens used across the tenant site. Page-specific copy and section messaging belong in Built-in Pages.
+            </p>
+            <p className="mb-4 mt-2 text-xs text-gray-500">
+              Launch-one requirement: logo plus a workable primary and accent color. Secondary color and font overrides are optional polish.
+            </p>
             <div className="grid grid-cols-3 gap-4">
               <ColorField
                 label="Primary Color"
@@ -4164,22 +5433,89 @@ export default function SiteSettingsPage() {
               />
             </div>
             <div className="mt-4">
+              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                Logo
+              </p>
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+                <div className="flex min-h-24 items-center justify-center rounded-lg bg-white px-4 py-6 dark:bg-gray-950/40">
+                  {form.logo_url ? (
+                    <Image
+                      src={form.logo_url}
+                      alt="Brand Logo"
+                      width={180}
+                      height={72}
+                      className="h-auto max-h-20 w-auto"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No logo uploaded yet.
+                    </p>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <input
+                    ref={logoUploadInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        void handleLogoUpload(file);
+                      }
+                      event.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoUploadInputRef.current?.click()}
+                    disabled={logoUploading || !websiteId}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    {logoUploading
+                      ? "Uploading..."
+                      : form.logo_url
+                        ? "Replace Logo"
+                        : "Upload Logo"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAssetPicker("Select Brand Logo", (url) =>
+                        set("logo_url", url),
+                      )
+                    }
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Select from Client Assets
+                  </button>
+                  {form.logo_url ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({ ...prev, logo_url: null }))
+                      }
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      Clear Logo
+                    </button>
+                  ) : null}
+                  <Link
+                    href="/branding"
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Open Branding
+                  </Link>
+                </div>
+                <p className="mt-3 text-xs text-gray-500">
+                  Use this shortcut during onboarding when the client has not uploaded a logo yet. Branding still holds the fuller logo, favicon, and intake-logo workflow.
+                </p>
+              </div>
               <Field
                 label="Logo URL (optional)"
                 value={form.logo_url ?? ""}
                 onChange={(v) => set("logo_url", v)}
               />
-              <button
-                type="button"
-                onClick={() =>
-                  openAssetPicker("Select Brand Logo", (url) =>
-                    set("logo_url", url),
-                  )
-                }
-                className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                Select from Client Assets
-              </button>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field
@@ -4199,30 +5535,21 @@ export default function SiteSettingsPage() {
 
           {/* CTA Section */}
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>CTA Section</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>CTA Theme Token</p>
+              <LaunchOneBadge status="optional" />
+            </div>
             <div className="space-y-4">
-              <Field
-                label="Headline"
-                value={form.cta_headline ?? ""}
-                onChange={(v) => set("cta_headline", v)}
-              />
-              <Field
-                label="Body Text"
-                value={form.cta_body ?? ""}
-                onChange={(v) => set("cta_body", v)}
-                textarea
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <Field
-                  label="Button Text"
-                  value={form.cta_button_text ?? ""}
-                  onChange={(v) => set("cta_button_text", v)}
-                />
-                <Field
-                  label="Button URL"
-                  value={form.cta_button_url ?? ""}
-                  onChange={(v) => set("cta_button_url", v)}
-                />
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                CTA section copy and button text now belong to the <strong>Home</strong> built-in page editor. Keep only the reusable background color token here.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/built-in-pages/home"
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Open Home Editor
+                </Link>
               </div>
               <div>
                 <ColorField
@@ -4248,7 +5575,13 @@ export default function SiteSettingsPage() {
 
           {/* Footer */}
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Footer</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>Footer</p>
+              <LaunchOneBadge status="optional" />
+            </div>
+            <p className="mb-4 text-xs text-gray-500">
+              Footer copy and social links are nice-to-have polish, not launch-one blockers.
+            </p>
             <div className="space-y-4">
               <Field
                 label="Tagline"
@@ -4287,7 +5620,13 @@ export default function SiteSettingsPage() {
 
           {/* Contact */}
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>Contact Info</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>Contact Info</p>
+              <LaunchOneBadge status="required" />
+            </div>
+            <p className="mb-4 text-xs text-gray-500">
+              Launch-one requirement: phone and service area are the minimum. Email and Google Maps embed are helpful, but optional if the main lead path already works.
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <Field
                 label="Email"
@@ -4317,9 +5656,48 @@ export default function SiteSettingsPage() {
             </div>
           </div>
 
+          {/* Review Signals */}
+          <div className={SECTION}>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>Review Signals</p>
+              <LaunchOneBadge status="optional" />
+            </div>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+              Used by the Star Rating Bar section on the Home page. Copy these values from your Google Business profile.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field
+                label="Average Rating (e.g. 4.9)"
+                value={form.average_rating != null ? String(form.average_rating) : ""}
+                onChange={(v) => {
+                  const parsed = parseFloat(v);
+                  set("average_rating", !v.trim() || isNaN(parsed) ? "" : String(Math.min(5, Math.max(0, parsed))));
+                }}
+                hint="Between 0 and 5. One decimal place, e.g. 4.9"
+              />
+              <Field
+                label="Total Review Count (e.g. 312)"
+                value={form.review_count != null ? String(form.review_count) : ""}
+                onChange={(v) => {
+                  const parsed = parseInt(v, 10);
+                  set("review_count", !v.trim() || isNaN(parsed) ? "" : String(Math.max(0, parsed)));
+                }}
+                hint="Total number of Google reviews"
+              />
+            </div>
+          </div>
+
           {/* E-commerce */}
           <div className={SECTION}>
-            <p className={SECTION_TITLE}>E-commerce</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={SECTION_TITLE}>E-commerce</p>
+              <LaunchOneBadge status={ecommerceSectionStatus} />
+            </div>
+            <p className="mb-4 text-xs text-gray-500">
+              {form.ecommerce_enabled
+                ? "Shop is enabled, so keep this aligned with the tenant's actual offer, but it should still not block the core site launch path."
+                : "For this tenant's current launch-one path, Shop is not part of the required setup."}
+            </p>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-800 dark:text-white">
@@ -5269,6 +6647,16 @@ function Field({
       )}
       {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
     </div>
+  );
+}
+
+function LaunchOneBadge({ status }: { status: LaunchOneStatus }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${LAUNCH_ONE_STATUS_META[status].badgeClassName}`}
+    >
+      {LAUNCH_ONE_STATUS_META[status].label}
+    </span>
   );
 }
 

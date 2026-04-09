@@ -3,7 +3,12 @@ import { Page } from '@/types/page';
 import Button from '@/components/ui/button/Button';
 
 interface PageOrganizerProps {
-  mainNavPages: Page[];
+  headerDirectPages: Page[];
+  dropdownParentPages: Page[];
+  dropdownChildPages: Page[];
+  standaloneParentPages: Page[];
+  hiddenChildPages: Page[];
+  parentPages: Page[];
   servicePages: Page[];
   blogPosts: Page[];
   galleryPages: Page[];
@@ -14,7 +19,12 @@ interface PageOrganizerProps {
 }
 
 const PageOrganizer: React.FC<PageOrganizerProps> = ({
-  mainNavPages,
+  headerDirectPages,
+  dropdownParentPages,
+  dropdownChildPages,
+  standaloneParentPages,
+  hiddenChildPages,
+  parentPages,
   servicePages,
   blogPosts,
   galleryPages,
@@ -23,6 +33,8 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
   onCreatePage,
   selectedPageId,
 }) => {
+  const pageById = new Map(parentPages.map((page) => [page.id, page]));
+
   const PageGroup = ({ 
     title, 
     pages, 
@@ -59,6 +71,11 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
             >
               <div className="font-medium text-sm">{page.title || 'Untitled'}</div>
               <div className="text-xs text-gray-500">/{page.slug}</div>
+              {page.parent_id ? (
+                <div className="text-xs text-gray-500">
+                  Child of {pageById.get(page.parent_id)?.title || 'Parent page'}
+                </div>
+              ) : null}
               {'is_published' in page && page.is_published === false && (
                 <span className="text-xs bg-yellow-100 text-yellow-700 px-1 rounded">Draft</span>
               )}
@@ -80,10 +97,38 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PageGroup
-          title="Main Navigation"
-          pages={mainNavPages}
-          emptyMessage="No main navigation pages. Create Home, About, or Contact pages."
+          title="Header Direct Pages"
+          pages={headerDirectPages}
+          emptyMessage="No direct header pages. Enable pages and place them directly in the header."
           icon="🏠"
+        />
+
+        <PageGroup
+          title="Header Dropdown Parents"
+          pages={dropdownParentPages}
+          emptyMessage="No dropdown parent pages. Create a parent page and assign dropdown children to it."
+          icon="▾"
+        />
+
+        <PageGroup
+          title="Header Dropdown Children"
+          pages={dropdownChildPages}
+          emptyMessage="No dropdown child pages. Add child pages and assign them under a header dropdown."
+          icon="↳"
+        />
+
+        <PageGroup
+          title="Standalone Parent Pages"
+          pages={standaloneParentPages}
+          emptyMessage="No standalone parent pages. Create top-level pages like Blog, Resources, or Reviews."
+          icon="🧭"
+        />
+
+        <PageGroup
+          title="Hidden Child Pages"
+          pages={hiddenChildPages}
+          emptyMessage="No hidden child pages. Use these for detail pages that should not appear in header navigation."
+          icon="↳"
         />
         
         <PageGroup
@@ -118,7 +163,11 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
         <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Page Structure Guide</h4>
         <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-          <p><strong>Main Navigation:</strong> Primary pages like Home, About, Contact, Services overview</p>
+          <p><strong>Header Direct Pages:</strong> Top-level pages shown directly in the header, such as Contact or Reviews</p>
+          <p><strong>Header Dropdown Parents:</strong> Top-level pages that exist to group child pages in a header dropdown</p>
+          <p><strong>Header Dropdown Children:</strong> Pages assigned under a dropdown parent and shown inside that header menu</p>
+          <p><strong>Standalone Parent Pages:</strong> Top-level custom hubs like Blog, Resources, or Campaigns that do not need to be in the header</p>
+          <p><strong>Hidden Child Pages:</strong> Nested pages like blog posts, support articles, or detail pages that stay out of header navigation</p>
           <p><strong>Services:</strong> Individual service pages that can be organized under Services</p>
           <p><strong>Blog Posts:</strong> Articles, news, and content pieces</p>
           <p><strong>Galleries:</strong> Photo collections and portfolio showcases</p>

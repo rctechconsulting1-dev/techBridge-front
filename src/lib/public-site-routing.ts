@@ -37,7 +37,13 @@ export const isPlatformHost = (host: string | null | undefined): boolean => {
   }
 
   const normalized = host.toLowerCase();
-  return PLATFORM_HOSTS.includes(normalized);
+  return (
+    PLATFORM_HOSTS.includes(normalized) ||
+    normalized === "localhost" ||
+    normalized.startsWith("localhost:") ||
+    normalized === "127.0.0.1" ||
+    normalized.startsWith("127.0.0.1:")
+  );
 };
 
 export const getPublicSiteApiBase = (): string =>

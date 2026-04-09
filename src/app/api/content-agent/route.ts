@@ -172,12 +172,14 @@ const RequestSchema = z.object({
       "about_copy",
       "page_nav_copy",
       "site_settings_orchestrator",
+      "built_in_page_seo",
     ])
     .optional(),
   ourUrl: z.string().optional(),
   city: z.string().optional(),
   industry: z.string().optional(),
   keyword: z.string().optional(),
+  pageKey: z.enum(["home", "services", "about", "shop"]).optional(),
   competitor1Url: z.string().optional(),
   competitor2Url: z.string().optional(),
   service: z.string().optional(),
@@ -286,6 +288,35 @@ const AboutCopyPack = z.object({
   contactCtaHeadline: z.string(),
   contactCtaBody: z.string(),
 });
+
+const BuiltInPageSeoPack = z.object({
+  primaryKeyword: z.string(),
+  supportingTerms: z.array(z.string()),
+  recommendedFields: z.record(z.string(), z.string()),
+  seoTitle: z.string(),
+  seoDescription: z.string(),
+  missingInputs: z.array(z.string()),
+  rationale: z.array(z.string()),
+});
+
+const BUILT_IN_PAGE_FIELDS: Record<
+  "home" | "services" | "about" | "shop",
+  string[]
+> = {
+  home: [
+    "heroTitle",
+    "heroBody",
+    "heroPrimaryCtaText",
+    "heroPrimaryCtaUrl",
+    "ctaHeadline",
+    "ctaBody",
+    "ctaButtonText",
+    "ctaButtonUrl",
+  ],
+  services: ["heroTitle", "heroBody", "emptyStateTitle", "emptyStateBody"],
+  about: ["heroTitle", "heroBody", "missionTitle", "missionBody"],
+  shop: ["heroTitle", "heroBody", "emptyStateTitle", "emptyStateBody"],
+};
 
 type JsonSchema = {
   name: string;
@@ -948,6 +979,110 @@ const generateAboutCopyPack = async ({
   });
 };
 
+const generateBuiltInPageSeoPack = async ({
+  pageKey,
+  city,
+  industry,
+  keyword,
+  businessName,
+  recipe,
+  conversionMode,
+  themePack,
+  servicesOffered,
+  context,
+}: {
+  pageKey: "home" | "services" | "about" | "shop";
+  city: string;
+  industry: string;
+  keyword: string;
+  businessName?: string;
+  recipe?: string;
+  conversionMode?: string;
+  themePack?: string;
+  servicesOffered: string[];
+  context?: string;
+}) => {
+  const fieldList = BUILT_IN_PAGE_FIELDS[pageKey];
+
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a built-in page SEO specialist for local business websites. Return field-by-field copy only for the allowed CMS fields. Optimize for ranking and conversion without inventing facts.",
+      },
+      {
+        role: "user",
+        content: `Generate SEO-first built-in page copy for this page:
+
+Page key: ${pageKey}
+Business name: ${businessName || "Unknown business"}
+Business context/site profile: ${industry}
+City/service area: ${city}
+Target keyword: ${keyword}
+Recipe: ${recipe || "not provided"}
+Conversion mode: ${conversionMode || "not provided"}
+Theme pack: ${themePack || "not provided"}
+Services offered: ${servicesOffered.join(", ") || "not provided"}
+
+Allowed CMS fields for this page: ${fieldList.join(", ")}
+
+Additional trusted context:
+${context || "No additional context provided."}
+
+Requirements:
+- Return concise, implementation-ready copy for the allowed fields only.
+- Match local intent and conversion intent.
+- Do not invent licenses, awards, years in business, review counts, or neighborhoods.
+- If facts are missing, reflect that in missingInputs instead of fabricating them.
+- SEO title and SEO description must be specific and usable.
+- heroPrimaryCtaUrl and ctaButtonUrl may use #contact, /contact, /services, or /shop when appropriate.
+- For services/shop empty states, write only if useful for this page type.
+`,
+      },
+    ],
+    responseSchema: {
+      name: "built_in_page_seo_pack",
+      schema: {
+        type: "object",
+        properties: {
+          primaryKeyword: { type: "string" },
+          supportingTerms: {
+            type: "array",
+            items: { type: "string" },
+          },
+          recommendedFields: {
+            type: "object",
+            additionalProperties: { type: "string" },
+          },
+          seoTitle: { type: "string" },
+          seoDescription: { type: "string" },
+          missingInputs: {
+            type: "array",
+            items: { type: "string" },
+          },
+          rationale: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: [
+          "primaryKeyword",
+          "supportingTerms",
+          "recommendedFields",
+          "seoTitle",
+          "seoDescription",
+          "missingInputs",
+          "rationale",
+        ],
+      },
+    },
+    parser: (raw) => BuiltInPageSeoPack.parse(raw),
+    maxCompletionTokens: 1500,
+    timeoutMs: AI_TIMEOUT_CONTENT_MS,
+  });
+};
+
 export async function POST(request: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -1050,6 +1185,57 @@ export async function POST(request: Request) {
       .map((s) => s.trim())
       .filter(Boolean)
       .slice(0, 12);
+    const pageKey = body.pageKey;
+    const normalizedBusinessName = trimToCap(body.businessName, 120) || undefined;
+
+    if (mode === "built_in_page_seo") {
+      if (!pageKey) {
+        return new Response(
+          JSON.stringify({
+            error: "Built-in page SEO mode requires pageKey.",
+          }),
+          { status: 400 },
+        );
+      }
+
+      const normalizedCity = city || "your service area";
+      const normalizedIndustry = industry || "local business";
+      const normalizedKeyword =
+        keyword || `${normalizedBusinessName || normalizedIndustry} ${normalizedCity}`;
+      const context = [
+        body.aboutContext ? `Trusted context:\n${body.aboutContext}` : null,
+        content ? `Existing draft content:\n${content}` : null,
+        pageIntent ? `Page intent: ${pageIntent}` : null,
+        pageGoal ? `Page goal: ${pageGoal}` : null,
+        targetAudience ? `Target audience: ${targetAudience}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const pack = await generateBuiltInPageSeoPack({
+        pageKey,
+        city: normalizedCity,
+        industry: normalizedIndustry,
+        keyword: normalizedKeyword,
+        businessName: normalizedBusinessName,
+        recipe: pageIntent || undefined,
+        conversionMode: primaryCta || undefined,
+        themePack: pageGoal || undefined,
+        servicesOffered,
+        context: context || undefined,
+      });
+
+      return new Response(
+        JSON.stringify({
+          role: "assistant",
+          step: "built_in_page_seo_generated",
+          message: "Built-in page SEO draft generated.",
+          usage,
+          ...pack,
+        }),
+        { status: 200 },
+      );
+    }
 
     if (mode === "service_copy") {
       if (!city || !industry || servicesOffered.length === 0) {

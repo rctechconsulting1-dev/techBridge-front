@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import EditableImage from "@/components/ui/EditableImage";
-import { getWebsite, getSiteSettings, getProductBySlug } from "@/lib/cms-api";
+import { getWebsite, getSiteSettings, getProductBySlug, getPages } from "@/lib/cms-api";
 import NavBar from "@/components/sections/NavBar";
 import FooterSection from "@/components/sections/FooterSection";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
@@ -40,9 +40,10 @@ export async function generateStaticParams() {
 export default async function ProductDetailPage({ params }: Props) {
   const { websiteId, productSlug } = await params;
 
-  const [website, settings, product] = await Promise.all([
+  const [website, settings, pages, product] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getPages(websiteId),
     getProductBySlug(websiteId, productSlug),
   ]);
 
@@ -65,7 +66,7 @@ export default async function ProductDetailPage({ params }: Props) {
       style={cssVars}
       className="flex min-h-screen flex-col bg-white font-sans"
     >
-      <NavBar websiteId={websiteId} website={website} settings={settings} />
+      <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
@@ -153,7 +154,7 @@ export default async function ProductDetailPage({ params }: Props) {
         </div>
       </main>
 
-      <FooterSection website={website} settings={settings} />
+      <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} />
     </div>
   );
 }

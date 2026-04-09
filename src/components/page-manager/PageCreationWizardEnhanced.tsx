@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PageType, TemplateType, PageCreationData } from '@/types/page';
+import { InitialPageDraft, Page, PageType, TemplateType, PageCreationData } from '@/types/page';
 import Button from '@/components/ui/button/Button';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
@@ -61,13 +61,15 @@ interface PageCreationWizardProps {
   onCancel: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
-  initialPageDraft?: { slug: string; title: string; is_published?: boolean };
+  initialPageDraft?: InitialPageDraft;
   suggestedSlugs?: string[];
+  availableParentPages?: Page[];
 }
 
 const pageTypeOptions = [
-  { value: 'main-page', label: 'Main Navigation Page' },
+  { value: 'main-page', label: 'Top-Level Parent Page' },
   { value: 'service', label: 'Service Page' },
+  { value: 'blog-category', label: 'Blog Parent Page' },
   { value: 'blog-post', label: 'Blog Post' },
   { value: 'gallery', label: 'Gallery' },
   { value: 'landing', label: 'Landing Page' },
@@ -204,6 +206,21 @@ function scoreIdeaRelevance(idea: ContentItem, context: { pageIntent: string; pa
   return Math.max(0, Math.min(100, score));
 }
 
+function getLegacyMainNavFlag(values: {
+  nav_placement?: PageCreationData['nav_placement'] | null;
+  nav_style?: PageCreationData['nav_style'] | null;
+  parent_id?: number | null;
+  is_main_nav?: boolean;
+}) {
+  if (values.nav_placement || values.nav_style || values.parent_id) {
+    return values.nav_placement === 'header'
+      && values.nav_style !== 'dropdown_child'
+      && !values.parent_id;
+  }
+
+  return values.is_main_nav ?? false;
+}
+
 const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   onCreatePage,
   onCancel,
@@ -211,13 +228,19 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   enableAIContent = false,
   initialPageDraft,
   suggestedSlugs = [],
+  availableParentPages = [],
 }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<PageCreationData>>({
     page_type: 'main-page',
     template_type: 'standard',
     is_main_nav: false,
+    is_enabled: true,
     is_published: false,
+    nav_placement: 'hidden',
+    nav_style: 'direct',
+    nav_parent_id: null,
+    parent_id: null,
   });
 
   // State management
@@ -256,9 +279,20 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       ...prev,
       title: prev.title || initialPageDraft.title,
       slug: prev.slug || initialPageDraft.slug,
-      page_type: prev.page_type || "custom",
-      template_type: prev.template_type || "standard",
+      page_type: prev.page_type || initialPageDraft.page_type || "custom",
+      template_type: prev.template_type || initialPageDraft.template_type || "standard",
       is_published: initialPageDraft.is_published ?? prev.is_published ?? false,
+      is_main_nav: getLegacyMainNavFlag({
+        nav_placement: initialPageDraft.nav_placement ?? prev.nav_placement ?? 'hidden',
+        nav_style: initialPageDraft.nav_style ?? prev.nav_style ?? 'direct',
+        parent_id: initialPageDraft.parent_id ?? prev.parent_id ?? null,
+        is_main_nav: initialPageDraft.is_main_nav ?? prev.is_main_nav ?? false,
+      }),
+      is_enabled: initialPageDraft.is_enabled ?? prev.is_enabled ?? true,
+      nav_placement: initialPageDraft.nav_placement ?? prev.nav_placement ?? 'hidden',
+      nav_style: initialPageDraft.nav_style ?? prev.nav_style ?? 'direct',
+      nav_parent_id: initialPageDraft.nav_parent_id ?? prev.nav_parent_id ?? null,
+      parent_id: initialPageDraft.parent_id ?? prev.parent_id ?? null,
     }));
 
     setAiFormData((prev) => ({
@@ -421,7 +455,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
     });
   };
 
-  const handleInputChange = (field: keyof PageCreationData, value: string | boolean | number) => {
+  const handleInputChange = (field: keyof PageCreationData, value: string | boolean | number | null) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -434,7 +468,90 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       ...prev,
       page_type: pageType,
       template_type: defaultTemplate,
-      is_main_nav: pageType === 'main-page',
+      is_enabled: true,
+      nav_placement: pageType === 'main-page' ? 'header' : 'hidden',
+      nav_style: pageType === 'main-page' ? 'direct' : 'direct',
+      nav_parent_id: null,
+      parent_id: pageType === 'main-page' ? null : prev.parent_id ?? null,
+    }));
+  };
+
+  const parentPageOptions = availableParentPages
+    .filter((page) => !!page.id && !!page.slug)
+    .map((page) => ({
+      value: String(page.id),
+      label: `${page.title || 'Untitled'} (/${page.slug})`,
+    }));
+
+  const selectedParentPage = availableParentPages.find(
+    (page) => page.id === Number(formData.parent_id || 0),
+  );
+  const dropdownParentOptions = availableParentPages
+    .filter((page) => !page.parent_id)
+    .map((page) => ({
+      value: String(page.id),
+      label: `${page.title || 'Untitled'} (/${page.slug})`,
+    }));
+
+  const showInHeader = formData.nav_placement === 'header';
+  const selectedNavStyle = formData.nav_style || (formData.parent_id ? 'dropdown_child' : 'direct');
+  const selectedDropdownParent = availableParentPages.find(
+    (page) => page.id === Number(formData.nav_parent_id || 0),
+  );
+
+  const canHaveParent = formData.page_type !== 'main-page';
+
+  const handleParentPageChange = (value: string) => {
+    const parentId = value ? Number(value) : null;
+    setFormData((prev) => ({
+      ...prev,
+      parent_id: parentId,
+      nav_style: parentId && prev.nav_placement === 'header' ? 'dropdown_child' : prev.nav_style,
+      nav_parent_id: parentId && prev.nav_placement === 'header'
+        ? prev.nav_parent_id ?? parentId
+        : prev.nav_style === 'dropdown_child'
+          ? prev.nav_parent_id
+          : null,
+    }));
+  };
+
+  const handleEnabledChange = (enabled: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      is_enabled: enabled,
+      is_published: enabled ? prev.is_published : false,
+    }));
+  };
+
+  const handleHeaderVisibilityChange = (showHeader: boolean) => {
+    setFormData((prev) => {
+      const nextPlacement = showHeader ? 'header' : 'hidden';
+      const nextStyle = showHeader
+        ? prev.parent_id
+          ? 'dropdown_child'
+          : prev.nav_style === 'dropdown_parent' || prev.nav_style === 'dropdown_child'
+            ? prev.nav_style
+            : 'direct'
+        : 'direct';
+
+      return {
+        ...prev,
+        nav_placement: nextPlacement,
+        nav_style: nextStyle,
+        nav_parent_id: showHeader && nextStyle === 'dropdown_child'
+          ? prev.nav_parent_id ?? prev.parent_id ?? null
+          : null,
+      };
+    });
+  };
+
+  const handleNavStyleChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      nav_style: value as PageCreationData['nav_style'],
+      nav_parent_id: value === 'dropdown_child'
+        ? prev.nav_parent_id ?? prev.parent_id ?? null
+        : null,
     }));
   };
 
@@ -499,7 +616,29 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
           title: formData.title,
           slug: formData.slug,
           parent_id: formData.parent_id || null,
-          is_main_nav: formData.is_main_nav || false,
+          is_main_nav: getLegacyMainNavFlag({
+            nav_placement: formData.nav_placement || 'hidden',
+            nav_style: formData.nav_style || 'direct',
+            parent_id: formData.parent_id || null,
+            is_main_nav: formData.is_main_nav,
+          }),
+          is_enabled: formData.is_enabled ?? true,
+          nav_placement: formData.nav_placement || 'hidden',
+          nav_style: formData.nav_style || 'direct',
+          nav_parent_id: formData.nav_style === 'dropdown_child' ? formData.nav_parent_id || null : null,
+          nav_order: formData.nav_order || 0,
+          nav_label: formData.title,
+          is_external_link: false,
+          navigation_assignments: formData.nav_placement && formData.nav_placement !== 'hidden'
+            ? [{
+                placement: formData.nav_placement,
+                style: formData.nav_style || 'direct',
+                parent_page_id: formData.nav_style === 'dropdown_child' ? formData.nav_parent_id || null : null,
+                sort_order: formData.nav_order || 0,
+                label: formData.title,
+                is_active: formData.is_enabled ?? true,
+              }]
+            : [],
           is_published: formData.is_published || false,
           meta_description: formData.meta_description,
           meta_keywords: formData.meta_keywords,
@@ -900,17 +1039,98 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
             </p>
           </div>
 
-          {formData.page_type !== 'main-page' && (
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="mainNav"
-                checked={formData.is_main_nav || false}
-                onChange={(e) => handleInputChange('is_main_nav', e.target.checked)}
+          {canHaveParent && (
+            <div>
+              <Label>Parent Page (Optional)</Label>
+              <Select
+                options={parentPageOptions}
+                defaultValue={formData.parent_id ? String(formData.parent_id) : ''}
+                onChange={handleParentPageChange}
+                placeholder="Top-level page (no parent)"
               />
-              <Label htmlFor="mainNav">Show in main navigation</Label>
+              <p className="text-sm text-gray-500 mt-1">
+                Leave blank to create a standalone parent page. Select a parent to create a child page.
+              </p>
+              {selectedParentPage && (
+                <p className="text-sm text-blue-600 mt-1">
+                  This page will be created under {selectedParentPage.title || 'Untitled'}.
+                </p>
+              )}
             </div>
           )}
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="isEnabled"
+              checked={formData.is_enabled ?? true}
+              onChange={(e) => handleEnabledChange(e.target.checked)}
+            />
+            <Label htmlFor="isEnabled">Enable page</Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showInHeader"
+              checked={showInHeader}
+              onChange={(e) => handleHeaderVisibilityChange(e.target.checked)}
+            />
+            <Label htmlFor="showInHeader">Show in header</Label>
+          </div>
+
+          {showInHeader && (
+            <div>
+              <Label>Header Display</Label>
+              <Select
+                options={[
+                  { value: 'direct', label: 'Direct link in header' },
+                  { value: 'dropdown_parent', label: 'Dropdown parent in header' },
+                  { value: 'dropdown_child', label: 'Child inside a dropdown' },
+                ].filter((option) => !(formData.parent_id && option.value !== 'dropdown_child'))}
+                defaultValue={selectedNavStyle}
+                onChange={handleNavStyleChange}
+                placeholder="Select header display"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Choose whether this page appears directly in the header, acts as a dropdown parent, or lives inside a dropdown.
+              </p>
+            </div>
+          )}
+
+          {showInHeader && selectedNavStyle === 'dropdown_child' && (
+            <div>
+              <Label>Dropdown Parent</Label>
+              <Select
+                options={dropdownParentOptions}
+                defaultValue={formData.nav_parent_id ? String(formData.nav_parent_id) : ''}
+                onChange={(value) => handleInputChange('nav_parent_id', value ? Number(value) : null)}
+                placeholder="Select dropdown parent"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Assign this page under a header dropdown parent.
+              </p>
+              {selectedDropdownParent && (
+                <p className="text-sm text-blue-600 mt-1">
+                  This page will appear under {selectedDropdownParent.title || 'Untitled'} in the header.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
+            {!formData.is_enabled
+              ? 'This page will be disabled until you re-enable it.'
+              : showInHeader && selectedNavStyle === 'dropdown_child'
+                ? 'This page will appear inside a header dropdown while keeping its own route and publishing state.'
+                : showInHeader && selectedNavStyle === 'dropdown_parent'
+                  ? 'This page will anchor a dropdown in the header for grouped navigation.'
+                  : showInHeader
+                    ? 'This page will appear as a direct header link.'
+                    : formData.parent_id
+                      ? 'This page will stay nested under its parent without appearing in the header.'
+                      : 'This page will be enabled but hidden from the header.'}
+          </div>
 
           <div className="flex items-center space-x-2">
             <input
@@ -918,6 +1138,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               id="publishNow"
               checked={formData.is_published || false}
               onChange={(e) => handleInputChange('is_published', e.target.checked)}
+              disabled={formData.is_enabled === false}
             />
             <Label htmlFor="publishNow">Publish now (avoid draft)</Label>
           </div>

@@ -100,3 +100,9 @@ Admin view to list, review, approve/reject, and manage incoming booking requests
 - [ ] Webhook event log viewer (admin)
 - [ ] Stripe Connect onboarding status in site-settings
 - [ ] Service pricing management (price_cents, duration_minutes) in site-settings services tab
+
+### Intake Questionnaire — Enhancements
+- [ ] **Persist answers to DB** — store intake submissions in a dedicated table (tenant_id, answers JSONB, files JSONB, submitted_at) instead of email-only
+- [ ] **Admin review UI** — dashboard page to view/search intake submissions, mark reviewed, export answers
+- [ ] **Reminder emails** — automated 3-day and 6-day reminders for tenants who haven't completed intake before the 7-day token expires
+- [ ] **Progress saving** — auto-save answers to localStorage (or DB) so users don't lose progress if they navigate away or close the tab

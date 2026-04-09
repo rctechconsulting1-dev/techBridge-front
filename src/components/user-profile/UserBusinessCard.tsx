@@ -14,7 +14,7 @@ import { toast } from "react-toastify";
 
 export default function UserBusinessCard() {
   // Context
-  const { selectedClient, setSelectedClient } = useSidebar();
+  const { selectedClient } = useSidebar();
   // SWR
   const { business } = useBusinessByWebsiteId(
     selectedClient?.website_id ?? null,

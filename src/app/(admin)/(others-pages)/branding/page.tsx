@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useS3Upload } from "next-s3-upload";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useS3Upload } from "@/hooks/useS3Upload";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import ComponentCard from "@/components/common/ComponentCard";
 import Button from "@/components/ui/button/Button";
@@ -11,6 +13,8 @@ import { mutateUpdate } from "@/hooks/useMutateUpdate";
 import { useGetAssets } from "@/hooks/useImage";
 import { getApiBaseUrl } from "@/lib/api";
 import { getActiveTenantId } from "@/lib/auth-context";
+import { buildLatestIntakeAdminPath } from "@/lib/intake-admin";
+import type { IntakeStoredSubmission } from "@/lib/intake-types";
 
 type BrandField = "logo_url" | "favicon_url";
 type ExtraBrandField = "small_logo_url" | "large_logo_url";
@@ -37,6 +41,9 @@ const getAuthHeaders = () => {
 
 export default function BrandingPage() {
   const { selectedClient } = useSidebar();
+  const searchParams = useSearchParams();
+  const selectedTenantId =
+    Number(selectedClient?.tenant_id || selectedClient?.id || 0) || null;
   const selectedWebsiteId = selectedClient?.website_id ?? null;
   const hasSelectedClient = Boolean(selectedWebsiteId);
 
@@ -51,6 +58,13 @@ export default function BrandingPage() {
     small_logo_url: null,
     large_logo_url: null,
   });
+  const [intakeLogoUrl, setIntakeLogoUrl] = useState<string | null>(null);
+  const [intakeLogoFilename, setIntakeLogoFilename] = useState<string | null>(null);
+  const [latestIntakeSubmission, setLatestIntakeSubmission] =
+    useState<IntakeStoredSubmission | null>(null);
+  const [intakeLogoLoading, setIntakeLogoLoading] = useState(false);
+  const [intakeLogoMessage, setIntakeLogoMessage] = useState<string | null>(null);
+  const intakeLogoAppliedRef = useRef(false);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +112,8 @@ export default function BrandingPage() {
         small_logo_url: null,
         large_logo_url: null,
       });
+      setIntakeLogoUrl(null);
+      setIntakeLogoFilename(null);
       return;
     }
 
@@ -140,6 +156,58 @@ export default function BrandingPage() {
       };
     });
   }, [brandingAssets]);
+
+  const loadLatestIntakeLogo = useCallback(async (websiteId?: number | null) => {
+    setIntakeLogoLoading(true);
+    setIntakeLogoMessage(null);
+
+    const requestPath = buildLatestIntakeAdminPath({
+      websiteId,
+      tenantId: selectedTenantId,
+    });
+
+    if (!requestPath) {
+      setLatestIntakeSubmission(null);
+      setIntakeLogoUrl(null);
+      setIntakeLogoFilename(null);
+      setIntakeLogoLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(requestPath, {
+        headers: getAuthHeaders(),
+        cache: "no-store",
+      });
+
+      if (response.status === 404) {
+        setLatestIntakeSubmission(null);
+        setIntakeLogoUrl(null);
+        setIntakeLogoFilename(null);
+        return;
+      }
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? `Failed to load intake (${response.status})`);
+      }
+
+      const data = (await response.json()) as IntakeStoredSubmission;
+      setLatestIntakeSubmission(data);
+      const logoFile = data.files.find((file) => file.questionId === "logo");
+      setIntakeLogoUrl(logoFile?.url ?? null);
+      setIntakeLogoFilename(logoFile?.filename ?? null);
+    } catch (error) {
+      setLatestIntakeSubmission(null);
+      setIntakeLogoMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to load intake branding assets.",
+      );
+    } finally {
+      setIntakeLogoLoading(false);
+    }
+  }, [selectedTenantId]);
 
   const saveBrandField = useCallback(async (field: BrandField, value: string | null) => {
     if (!selectedWebsiteId) {
@@ -246,6 +314,34 @@ export default function BrandingPage() {
     }
   }, [saveBrandField]);
 
+  const applyIntakeLogo = useCallback(async () => {
+    if (!intakeLogoUrl) {
+      return;
+    }
+
+    if (settings.logo_url === intakeLogoUrl) {
+      setIntakeLogoMessage("The intake logo is already set as the current brand logo.");
+      return;
+    }
+
+    setIsUploadingField("logo_url");
+    setIntakeLogoMessage(null);
+
+    try {
+      await saveBrandField("logo_url", intakeLogoUrl);
+      await createBrandAssetRecord(intakeLogoUrl, "Brand Logo");
+      setSettings((prev) => ({ ...prev, logo_url: intakeLogoUrl }));
+      await refetchAssets();
+      setIntakeLogoMessage("Intake logo applied. Review it below.");
+    } catch (error) {
+      setIntakeLogoMessage(
+        error instanceof Error ? error.message : "Failed to apply intake logo.",
+      );
+    } finally {
+      setIsUploadingField(null);
+    }
+  }, [createBrandAssetRecord, intakeLogoUrl, refetchAssets, saveBrandField, settings.logo_url]);
+
   const handleInputChange = (field: BrandField, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
@@ -255,6 +351,29 @@ export default function BrandingPage() {
     void handleUploadBrandField(field, file);
     event.currentTarget.value = "";
   };
+
+  useEffect(() => {
+    if (!selectedWebsiteId) {
+      return;
+    }
+
+    void loadLatestIntakeLogo(selectedWebsiteId);
+  }, [loadLatestIntakeLogo, selectedWebsiteId]);
+
+  useEffect(() => {
+    const shouldPrefill = searchParams.get("prefillFromIntake") === "1";
+    if (
+      !shouldPrefill ||
+      !intakeLogoUrl ||
+      !!settings.logo_url ||
+      intakeLogoAppliedRef.current
+    ) {
+      return;
+    }
+
+    intakeLogoAppliedRef.current = true;
+    void applyIntakeLogo();
+  }, [applyIntakeLogo, intakeLogoUrl, searchParams, settings.logo_url]);
 
   const handleUploadExtraBrandField = useCallback(async (field: ExtraBrandField, file: File) => {
     if (!selectedWebsiteId) {
@@ -321,6 +440,81 @@ export default function BrandingPage() {
                 <p className="text-xs text-gray-500">
                   Recommended: logo as SVG/PNG and favicon as square PNG/ICO.
                 </p>
+              </div>
+
+              {latestIntakeSubmission ? (
+                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                        Intake brand direction
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Use these tenant preferences while choosing logos, colors, and visual tone.
+                      </p>
+                    </div>
+                    <Link
+                      href="/site-settings?prefillFromIntake=1"
+                      className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Open Color Settings
+                    </Link>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/50">
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Color Preference
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-900 dark:text-white">
+                        {typeof latestIntakeSubmission.answers.brand_colors === "string" && latestIntakeSubmission.answers.brand_colors.trim()
+                          ? latestIntakeSubmission.answers.brand_colors
+                          : "No color preference submitted."}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/50">
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Brand Words
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-900 dark:text-white">
+                        {typeof latestIntakeSubmission.answers.brand_words === "string" && latestIntakeSubmission.answers.brand_words.trim()
+                          ? latestIntakeSubmission.answers.brand_words
+                          : "No brand words submitted."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      Intake logo
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {intakeLogoLoading
+                        ? "Checking latest intake submission..."
+                        : intakeLogoUrl
+                          ? `Latest upload: ${intakeLogoFilename ?? "logo file"}`
+                          : "No logo was uploaded in the latest intake submission."}
+                    </p>
+                  </div>
+                  {intakeLogoUrl ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => void applyIntakeLogo()}
+                      disabled={isUploadingField !== null || isLoadingSettings}
+                    >
+                      Use Intake Logo
+                    </Button>
+                  ) : null}
+                </div>
+                {intakeLogoMessage ? (
+                  <p className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                    {intakeLogoMessage}
+                  </p>
+                ) : null}
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">

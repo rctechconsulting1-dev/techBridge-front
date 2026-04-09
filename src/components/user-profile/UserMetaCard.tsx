@@ -5,8 +5,8 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import Image from "next/image";
 import { useSidebar } from "@/context/SidebarContext";
+import AvatarText from "@/components/ui/avatar/AvatarText";
 
 
 export default function UserMetaCard() {
@@ -23,11 +23,9 @@ export default function UserMetaCard() {
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
             <div className="w-20 h-20 overflow-hidden border border-gray-200 rounded-full dark:border-gray-800">
-              <Image
-                width={80}
-                height={80}
-                src="/images/user/owner.jpg"
-                alt="user"
+              <AvatarText
+                name={selectedClient?.name || "User"}
+                className="h-20 w-20 text-2xl"
               />
             </div>
             <div className="order-3 xl:order-2">

@@ -392,8 +392,16 @@ export type Database = {
           page_type: string | null
           parent_id: number | null
           sort_order: number
+          nav_order: number
           is_published: boolean
           is_main_nav: boolean
+          is_enabled: boolean
+          is_required: boolean
+          nav_placement: string | null
+          nav_style: string | null
+          nav_parent_id: number | null
+          nav_label: string | null
+          is_external_link: boolean
           template_type: string | null
           meta_description: string | null
           meta_keywords: string | null
@@ -412,8 +420,16 @@ export type Database = {
           page_type?: string | null
           parent_id?: number | null
           sort_order?: number
+          nav_order?: number
           is_published?: boolean
           is_main_nav?: boolean
+          is_enabled?: boolean
+          is_required?: boolean
+          nav_placement?: string | null
+          nav_style?: string | null
+          nav_parent_id?: number | null
+          nav_label?: string | null
+          is_external_link?: boolean
           template_type?: string | null
           meta_description?: string | null
           meta_keywords?: string | null
@@ -432,8 +448,16 @@ export type Database = {
           page_type?: string | null
           parent_id?: number | null
           sort_order?: number
+          nav_order?: number
           is_published?: boolean
           is_main_nav?: boolean
+          is_enabled?: boolean
+          is_required?: boolean
+          nav_placement?: string | null
+          nav_style?: string | null
+          nav_parent_id?: number | null
+          nav_label?: string | null
+          is_external_link?: boolean
           template_type?: string | null
           meta_description?: string | null
           meta_keywords?: string | null
@@ -452,6 +476,13 @@ export type Database = {
           {
             foreignKeyName: "page_parent_id_fkey"
             columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "page"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_nav_parent_id_fkey"
+            columns: ["nav_parent_id"]
             isOneToOne: false
             referencedRelation: "page"
             referencedColumns: ["id"]

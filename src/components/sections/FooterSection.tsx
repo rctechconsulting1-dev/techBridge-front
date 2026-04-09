@@ -1,32 +1,29 @@
 import Link from "next/link";
-import type { SiteSettings, Website } from "@/lib/cms-types";
+import type { Page, SiteSettings, Website } from "@/lib/cms-types";
+import type { FooterSectionVariant } from "@/components/sections/sectionVariants";
+import { buildNavigationItems } from "@/lib/navigation";
 
 interface Props {
+  websiteId?: string | number;
   website: Website | null;
   settings: SiteSettings | null;
+  pages?: Page[] | null;
+  variant?: FooterSectionVariant;
 }
 
-export default function FooterSection({ website, settings }: Props) {
+export default function FooterSection({ websiteId, website, settings, pages = [], variant = "classic_dark" }: Props) {
   const siteName = website?.name ?? "Your Business";
   const tagline = settings?.footer_tagline ?? website?.tagline ?? "";
   const copyright =
     settings?.footer_copyright ??
     `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
-  const configuredFooterLinks = (settings?.footer_nav_links ?? []).filter(
-    (link) =>
-      !!link?.label &&
-      !!link?.href &&
-      link.location !== "header" &&
-      (settings?.ecommerce_enabled || !link.href.includes("/shop")),
-  );
-  const legacyFooterLinks = (settings?.footer_nav_links ?? []).filter(
-    (link) =>
-      link.location !== "header" &&
-      (settings?.ecommerce_enabled || !link.href.includes("/shop")),
-  );
-  const navLinks =
-    configuredFooterLinks.length > 0 ? configuredFooterLinks : legacyFooterLinks;
   const primary = settings?.primary_color ?? "#CD7F32";
+  const footerNavItems = buildNavigationItems({
+    websiteId: websiteId ?? website?.id ?? "",
+    settings,
+    pages,
+    placement: "footer",
+  }).filter((item) => item.type === "link");
 
   const socials = [
     { href: settings?.footer_social_facebook, label: "Facebook" },
@@ -34,6 +31,98 @@ export default function FooterSection({ website, settings }: Props) {
     { href: settings?.footer_social_x, label: "X" },
     { href: settings?.footer_social_linkedin, label: "LinkedIn" },
   ].filter((s) => !!s.href);
+
+  if (variant === "grid_contact") {
+    return (
+      <footer className="bg-[#111827] text-gray-300">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.1fr_0.8fr_0.8fr] lg:px-8">
+          <div>
+            <h3 className="text-3xl font-bold" style={{ color: primary }}>{siteName}</h3>
+            {tagline ? <p className="mt-4 max-w-md text-sm leading-relaxed text-gray-400">{tagline}</p> : null}
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Navigation</p>
+            {footerNavItems.length > 0 ? (
+              <ul className="mt-4 space-y-3 text-sm">
+                {footerNavItems.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className="transition-colors hover:text-white">{link.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Contact</p>
+            <div className="mt-4 space-y-3 text-sm">
+              {settings?.contact_email ? <a href={`mailto:${settings.contact_email}`} className="block transition-colors hover:text-white">{settings.contact_email}</a> : null}
+              {settings?.contact_phone ? <a href={`tel:${settings.contact_phone}`} className="block transition-colors hover:text-white">{settings.contact_phone}</a> : null}
+              {settings?.address ? <p>{settings.address}</p> : null}
+            </div>
+            {socials.length > 0 ? (
+              <div className="mt-6 flex flex-wrap gap-3">
+                {socials.map((s) => (
+                  <a key={s.label} href={s.href!} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:border-white/40">
+                    {s.label}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="border-t border-white/10 py-6 text-center text-xs text-gray-500">{copyright}</div>
+        {settings?.google_maps_url && (
+          <div className="h-64 w-full border-t border-white/10">
+            <iframe src={settings.google_maps_url} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Location map" />
+          </div>
+        )}
+      </footer>
+    );
+  }
+
+  if (variant === "brand_strip") {
+    return (
+      <footer className="bg-[#F8F2EA] text-gray-700">
+        <div className="border-b border-gray-200">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900">{siteName}</h3>
+              {tagline ? <p className="mt-2 text-sm text-gray-600">{tagline}</p> : null}
+            </div>
+            {footerNavItems.length > 0 ? (
+              <nav aria-label="Footer navigation">
+                <ul className="flex flex-wrap gap-4 text-sm font-medium text-gray-600">
+                  {footerNavItems.map((link) => (
+                    <li key={link.href}><Link href={link.href} className="transition-colors hover:text-gray-900">{link.label}</Link></li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
+          </div>
+        </div>
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 text-sm sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <div className="flex flex-wrap gap-4">
+            {settings?.contact_email ? <a href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a> : null}
+            {settings?.contact_phone ? <a href={`tel:${settings.contact_phone}`}>{settings.contact_phone}</a> : null}
+            {settings?.address ? <span>{settings.address}</span> : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            {socials.map((s) => (
+              <a key={s.label} href={s.href!} target="_blank" rel="noopener noreferrer" className="font-semibold uppercase tracking-wide" style={{ color: primary }}>
+                {s.label}
+              </a>
+            ))}
+            <span className="text-xs text-gray-500">{copyright}</span>
+          </div>
+        </div>
+        {settings?.google_maps_url && (
+          <div className="h-64 w-full border-t border-gray-200">
+            <iframe src={settings.google_maps_url} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Location map" />
+          </div>
+        )}
+      </footer>
+    );
+  }
 
   return (
     <footer style={{ backgroundColor: "#111" }} className="text-gray-400">
@@ -69,10 +158,10 @@ export default function FooterSection({ website, settings }: Props) {
         </div>
 
         {/* Nav links */}
-        {navLinks.length > 0 && (
+        {footerNavItems.length > 0 && (
           <nav aria-label="Footer navigation" className="mb-8">
             <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-              {navLinks.map((link) => (
+              {footerNavItems.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
