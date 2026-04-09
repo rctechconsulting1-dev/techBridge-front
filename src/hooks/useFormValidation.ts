@@ -17,6 +17,8 @@ const initialErrors: FormErrors = {
   slug: "",
 };
 
+type FormFieldValue = string | number | boolean | null;
+
 export const useFormValidation = () => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>(initialErrors);
@@ -53,9 +55,11 @@ export const useFormValidation = () => {
     return error === "";
   }, []);
 
-  const handleInputChange = useCallback((name: string, value: string) => {
+  const handleInputChange = useCallback((name: string, value: FormFieldValue) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
-    validateField(name as keyof FormData, value);
+    if (typeof value === 'string') {
+      validateField(name as keyof FormData, value);
+    }
   }, [validateField]);
 
   const validateAllFields = useCallback((): boolean => {

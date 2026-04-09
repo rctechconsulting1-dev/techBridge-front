@@ -4,10 +4,9 @@ import Image from "next/image";
 import ComponentCard from "../../common/ComponentCard";
 import FileInput from "../input/FileInput";
 import Label from "../Label";
-import { imageCompressor } from '@mbs-dev/react-image-compressor';
-import * as piexifjs from 'piexifjs';
-import { useS3Upload } from "next-s3-upload";
+import { useS3Upload } from "@/hooks/useS3Upload";
 import Input from "../input/InputField";
+import { compressImage, addGeolocationExif } from "@/lib/image-processing";
 import { mutateUpdate } from "../../../hooks/useMutateUpdate";
 
 interface ImageData {
@@ -145,133 +144,6 @@ export default forwardRef<MultipleFileInputRef, MultipleFileInputProps>(function
     setFormData({ ...formData, [field]: value });
   };
 
-  // Function to convert image to JPEG if needed
-  const convertToJpeg = (file: File): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
-        resolve(file);
-        return;
-      }
-
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = document.createElement("img");
-
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx?.drawImage(img, 0, 0);
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const jpegFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
-              type: 'image/jpeg'
-            });
-            resolve(jpegFile);
-          } else {
-            reject(new Error('Failed to convert image to JPEG'));
-          }
-        }, 'image/jpeg', 0.9);
-      };
-
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  // Function to add EXIF geolocation data
-  const addGeolocationExif = async (file: File, latitude: number, longitude: number): Promise<File> => {
-    const jpegFile = await convertToJpeg(file);
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const arrayBuffer = reader.result as ArrayBuffer;
-          const uint8Array = new Uint8Array(arrayBuffer);
-          let binary = '';
-          const chunkSize = 8192;
-
-          for (let i = 0; i < uint8Array.length; i += chunkSize) {
-            const chunk = uint8Array.subarray(i, i + chunkSize);
-            binary += String.fromCharCode.apply(null, Array.from(chunk));
-          }
-
-          const base64 = btoa(binary);
-          const dataUrl = `data:image/jpeg;base64,${base64}`;
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const gpsIfd: Record<number | string, any> = {};
-          gpsIfd[piexifjs.GPSIFD.GPSLatitude] = piexifjs.GPSHelper.degToDmsRational(Math.abs(latitude));
-          gpsIfd[piexifjs.GPSIFD.GPSLatitudeRef] = latitude >= 0 ? 'N' : 'S';
-          gpsIfd[piexifjs.GPSIFD.GPSLongitude] = piexifjs.GPSHelper.degToDmsRational(Math.abs(longitude));
-          gpsIfd[piexifjs.GPSIFD.GPSLongitudeRef] = longitude >= 0 ? 'E' : 'W';
-
-          const exifDict = {
-            'GPS': gpsIfd,
-            '0th': {},
-            'Exif': {},
-            '1st': {},
-            'thumbnail': undefined
-          };
-
-          const exifBytes = piexifjs.dump(exifDict);
-          const newDataUrl = piexifjs.insert(exifBytes, dataUrl);
-
-          fetch(newDataUrl)
-            .then(res => res.blob())
-            .then(blob => {
-              const newFile = new File([blob], jpegFile.name, { type: 'image/jpeg' });
-              resolve(newFile);
-            })
-            .catch(error => reject(error));
-        } catch (error) {
-          console.error('Error in addGeolocationExif:', error);
-          reject(error);
-        }
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsArrayBuffer(jpegFile);
-    });
-  };
-
-  // Function to compress image progressively until under target size
-  const compressImageUnder1MB = async (file: File): Promise<File> => {
-    const targetSize = 500 * 1024; // 500KB in bytes
-    const exifOverhead = 50 * 1024; // Reserve ~50KB for EXIF data
-    const compressionTarget = targetSize - exifOverhead;
-
-    let quality = 0.8;
-    let compressed: File | null = await imageCompressor(file, quality) as File | null;
-
-    // Handle case where compression fails
-    if (!compressed) {
-      console.warn('Image compression failed, using original file');
-      return file;
-    }
-
-    if (compressed.size <= compressionTarget) {
-      return compressed;
-    }
-
-    while (compressed && compressed.size > compressionTarget && quality > 0.1) {
-      const sizeRatio = compressed.size / compressionTarget;
-      const qualityStep = sizeRatio > 2 ? 0.2 : 0.1;
-
-      quality = Math.max(0.1, quality - qualityStep);
-      const newCompressed = await imageCompressor(file, quality) as File | null;
-      
-      if (!newCompressed) {
-        console.warn('Image compression failed at quality', quality, 'using previous result');
-        break;
-      }
-      
-      compressed = newCompressed;
-    }
-
-    return compressed || file; // Fallback to original file if compression completely fails
-  };
-
   const handleFileChange = async (imageId: number, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -288,7 +160,7 @@ export default forwardRef<MultipleFileInputRef, MultipleFileInputProps>(function
 
     try {
       // Compress the image
-      const compressed = await compressImageUnder1MB(file);
+      const compressed = await compressImage(file);
 
       // Add geolocation EXIF data
       const latitude = formData.latitude ? parseFloat(formData.latitude) : 34.0522; // Default to LA

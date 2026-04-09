@@ -104,7 +104,7 @@ const ChatInterface = ({
                 <div className="flex-1 overflow-y-auto space-y-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
                     {messages.length === 0 && (
                         <div className="text-center text-gray-500 dark:text-gray-400">
-                            Fill out the form and click &quot;Start Conversation&quot; to begin
+                            Fill out the workspace and click &quot;Generate Ideas&quot; to start a content strategy run.
                         </div>
                     )}
                     
@@ -117,7 +117,7 @@ const ChatInterface = ({
                             }`}>
                                 {message.type === 'assistant' && message.ideas && message.ideas.length > 0 ? (
                                     <div>
-                                        <p className="mb-3 font-medium">Here are 3 content ideas for your business:</p>
+                                        <p className="mb-3 font-medium">Here are three content directions based on your inputs:</p>
                                         <div className="space-y-2">
                                             {message.ideas.map((idea, idx) => (
                                                 <button
@@ -126,7 +126,7 @@ const ChatInterface = ({
                                                     onClick={() => onChooseIdea(idea.idea)}
                                                 >
                                                     <div className="font-medium text-blue-600 dark:text-blue-400 mb-1">
-                                                        💡 Idea #{idx + 1} - Click to Select
+                                                        Idea #{idx + 1} - Select This Direction
                                                     </div>
                                                     <div className="text-sm text-gray-700 dark:text-gray-200 font-medium">
                                                         {idea.idea}
@@ -144,14 +144,14 @@ const ChatInterface = ({
                                             ))}
                                         </div>
                                         <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                                            👆 <strong>Click any idea above</strong> to automatically generate the complete content strategy (outline + competitor analysis + SEO metadata)
+                                            Select one idea above to generate the full strategy: outline, competitor analysis, markdown draft, and SEO metadata.
                                         </div>
                                         
                                         {/* Raw Response Collapsible */}
                                         {message.data && (
                                             <details className="mt-4 cursor-pointer">
                                                 <summary className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-                                                    View Raw Response
+                                                    View API Payload
                                                 </summary>
                                                 <pre className="mt-2 bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-40 text-gray-600 dark:text-gray-300">
                                                     {JSON.stringify(message.data, null, 2)}
@@ -174,7 +174,7 @@ const ChatInterface = ({
                                                     }}
                                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                                                 >
-                                                    🏷️ Generate SEO Metadata
+                                                    Generate SEO Metadata
                                                 </button>
                                             </div>
                                         )}
@@ -201,7 +201,7 @@ const ChatInterface = ({
                                                             }}
                                                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                                                         >
-                                                            📄 Copy Markdown Content
+                                                            Copy Markdown Draft
                                                         </button>
                                                     )}
                                                     {message.data?.metadata && (
@@ -224,7 +224,7 @@ const ChatInterface = ({
                                                             }}
                                                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                                                         >
-                                                            🏷️ Copy SEO Metadata
+                                                            Copy SEO Metadata
                                                         </button>
                                                     )}
                                                 </div>
@@ -235,7 +235,7 @@ const ChatInterface = ({
                                                         }}
                                                         className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
                                                     >
-                                                        🔄 Create Another Strategy
+                                                        Start Another Strategy
                                                     </button>
                                                     <button
                                                         onClick={() => {
@@ -243,7 +243,7 @@ const ChatInterface = ({
                                                         }}
                                                         className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
                                                     >
-                                                        ⚡ Optimize Further
+                                                        Refine This Draft
                                                     </button>
                                                 </div>
                                             </div>
@@ -258,7 +258,7 @@ const ChatInterface = ({
                                                     }}
                                                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm mr-2"
                                                 >
-                                                    🔄 Create Another Strategy
+                                                    Start Another Strategy
                                                 </button>
                                                 <button
                                                     onClick={() => {
@@ -266,7 +266,7 @@ const ChatInterface = ({
                                                     }}
                                                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
                                                 >
-                                                    ⚡ Optimize Further
+                                                    Refine This Draft
                                                 </button>
                                             </div>
                                         )}
@@ -274,7 +274,7 @@ const ChatInterface = ({
                                         {message.data && (
                                             <details className="mt-3 cursor-pointer">
                                                 <summary className="text-sm opacity-70 hover:opacity-100">
-                                                    View Raw Response
+                                                    View API Payload
                                                 </summary>
                                                 <pre className="mt-2 bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-40 opacity-70">
                                                     {JSON.stringify(message.data, null, 2)}
@@ -295,7 +295,7 @@ const ChatInterface = ({
                             <div className="bg-white dark:bg-gray-700 border p-3 rounded-lg">
                                 <div className="flex items-center space-x-2">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                    <span className="text-gray-600 dark:text-gray-300">AI is thinking...</span>
+                                    <span className="text-gray-600 dark:text-gray-300">Generating content strategy...</span>
                                 </div>
                             </div>
                         </div>
@@ -308,7 +308,7 @@ const ChatInterface = ({
                         type="text"
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
-                        placeholder="Continue the conversation..."
+                        placeholder="Ask a follow-up, request revisions, or type 'idea #1'..."
                         className="flex-1 p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600"
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                         disabled={isLoading}
@@ -390,7 +390,7 @@ const ChatGPTPage = () => {
                 
                 if (data.metadata) {
                     const metadata = typeof data.metadata === 'string' ? JSON.parse(data.metadata) : data.metadata;
-                    content += `**🏷️ SEO Metadata:**\n`;
+                    content += `**SEO Metadata:**\n`;
                     content += `• **Title:** ${metadata.title}\n`;
                     content += `• **Description:** ${metadata.description}\n`;
                     content += `• **Keywords:** ${metadata.keywords.join(', ')}\n\n`;
@@ -413,7 +413,7 @@ const ChatGPTPage = () => {
                     content += `\n\n**Competitor Analysis:**\n${data.competitorAnalysis}`;
                 }
                 
-                content += `\n\n*You can now ask me to generate SEO metadata for this content, or continue the conversation.*`;
+                content += `\n\n*You can now generate SEO metadata, refine the angle, or continue the conversation.*`;
                 
                 setChatMessages(prev => [...prev, {
                     id: messageId,
@@ -424,7 +424,7 @@ const ChatGPTPage = () => {
                 }]);
             } else if (data.step === 'metadata_generated') {
                 // Metadata was generated
-                const content = `**SEO Metadata Generated:**\n\n${data.content}`;
+                const content = `**SEO Metadata Ready:**\n\n${data.content}`;
                 
                 setChatMessages(prev => [...prev, {
                     id: messageId,
@@ -465,7 +465,7 @@ const ChatGPTPage = () => {
         e.preventDefault();
         
         // Add user message to chat
-        const userMessage = `Starting content generation for ${formData.industry} business in ${formData.city}, targeting "${formData.keyword}"`;
+        const userMessage = `Build a content strategy for a ${formData.industry} business in ${formData.city}, targeting "${formData.keyword}".`;
         setChatMessages(prev => [...prev, {
             id: Date.now().toString(),
             type: 'user',
@@ -482,7 +482,7 @@ const ChatGPTPage = () => {
         setChatMessages(prev => [...prev, {
             id: Date.now().toString(),
             type: 'user',
-            content: `I choose this idea: "${idea}"\n\nPlease continue with competitor analysis and content development.`,
+            content: `Use this direction: "${idea}"\n\nContinue with competitor analysis and draft development.`,
             timestamp: new Date()
         }]);
         
@@ -496,7 +496,7 @@ const ChatGPTPage = () => {
         setChatMessages(prev => [...prev, {
             id: Date.now().toString(),
             type: 'user',
-            content: "Generate SEO metadata for this content outline",
+            content: "Generate SEO metadata for this draft.",
             timestamp: new Date()
         }]);
         
@@ -530,7 +530,7 @@ const ChatGPTPage = () => {
                 setChatMessages(prev => [...prev, {
                     id: Date.now().toString(),
                     type: 'assistant',
-                    content: `Perfect! You've selected: "${selectedIdea}"\n\nLet me create the complete content strategy for you...`,
+                    content: `Selected: "${selectedIdea}"\n\nI’m building the full strategy now.`,
                     timestamp: new Date()
                 }]);
                 
@@ -560,7 +560,7 @@ const ChatGPTPage = () => {
                 setChatMessages(prev => [...prev, {
                     id: Date.now().toString(),
                     type: 'assistant',
-                    content: `Great! To create another content strategy, please fill out the form above with new parameters and click "Start Conversation" again. 
+                    content: `To run another strategy, update the workspace above and click "Generate Ideas" again.
 
 You can modify:
 - Target city
@@ -569,7 +569,7 @@ You can modify:
 - Competitor URLs
 - Our website URL
 
-This will give you fresh content ideas tailored to your new parameters.`,
+This will generate a fresh set of content directions based on the new inputs.`,
                     timestamp: new Date()
                 }]);
             }, 1000);
@@ -581,13 +581,13 @@ This will give you fresh content ideas tailored to your new parameters.`,
             setChatMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 type: 'assistant',
-                content: `I received your message: "${message}". 
+                content: `I received: "${message}".
 
 Here's what I can help you with:
 - Select an idea by clicking the buttons above or typing "idea #1", "idea #2", etc.
 - Generate new content strategies with different parameters
-- Answer questions about SEO and content marketing
-- Provide guidance on implementing your content strategy
+- Refine outlines, metadata, and positioning
+- Answer workflow questions about the draft
 
 What would you like to explore?`,
                 timestamp: new Date()
@@ -599,62 +599,62 @@ What would you like to explore?`,
 
     return (
         <div>
-            <PageBreadcrumb pageTitle="Prompts" />
+            <PageBreadcrumb pageTitle="AI Tools" />
             <EntitlementGate
                 requiredModules={["custom_ai_agent"]}
                 requiredFeatures={["ai.agent.generate"]}
-                pageTitle="AI Content Prompts"
+                pageTitle="Content Strategy Assistant"
             >
-            <ComponentCard title="Ask ChatGPT">
+            <ComponentCard title="Content Strategy Workspace">
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     <form className="space-y-6 gap-2 grid grid-cols-1 xl:grid-cols-2" onSubmit={handleSubmit}>
                         <div>
-                            <Label>Our Url</Label>
+                            <Label>Our URL</Label>
                             <Input type="text" name="ourUrl" value={formData.ourUrl} onChange={handleChange} />
                         </div>
                         <div>
-                            <Label>City</Label>
+                            <Label>Target City</Label>
                             <Input type="text" name="city" value={formData.city} onChange={handleChange} />
                         </div>
                         <div>
-                            <Label>Industry</Label>
+                            <Label>Primary Industry</Label>
                             <Input type="text" name="industry" value={formData.industry} onChange={handleChange} />
                         </div>
                         <div>
-                            <Label>Keyword</Label>
+                            <Label>Primary Keyword</Label>
                             <Input type="text" name="keyword" value={formData.keyword} onChange={handleChange} />
                         </div>
                         <div>
-                            <Label>Competitor #1 Url</Label>
+                            <Label>Competitor URL 1</Label>
                             <Input type="text" name="competitor1Url" value={formData.competitor1Url} onChange={handleChange} />
                         </div>
                         <div>
-                            <Label>Competitor #2 Url</Label>
+                            <Label>Competitor URL 2</Label>
                             <Input type="text" name="competitor2Url" value={formData.competitor2Url} onChange={handleChange} />
                         </div>
                         <div>
-                            <Label>Service</Label>
+                            <Label>Core Service</Label>
                             <Input type="text" name="service" value={formData.service} onChange={handleChange} />
                         </div>
                         <div className="">
-                        <Button type="submit" className="btn btn-primary">Ai Generate</Button>
+                        <Button type="submit" className="btn btn-primary">Generate Ideas</Button>
                         </div>
                     </form>
                     <div>
-                        <ul>
+                        <ul className="space-y-3">
                             <li className="text-gray-500 dark:text-gray-400">
-                                <span className="font-semibold">Note:</span> This is a demo page to show how to use the ChatGPT.
+                                <span className="font-semibold">Use this workspace to:</span> generate initial content ideas, pick one direction, and produce a usable strategy with markdown copy and SEO metadata.
                             </li>
                             <li className="text-gray-500 dark:text-gray-400">
-                                <span className="font-semibold">Tip:</span> Google competitor by Industry, City, and Keyword to find relevant competitors.
+                                <span className="font-semibold">Tip:</span> Use real local competitors ranking for the same city and keyword combination.
                             </li>
                             <li className="text-gray-500 dark:text-gray-400">
-                                <span className="font-semibold">Tip:</span> Paste it to <Link href="https://www.spyfu.com/" className="underline text-blue-600">https://www.spyfu.com/</Link> Get top Performance and use their URL as Competitor
+                                <span className="font-semibold">Tip:</span> Tools like <Link href="https://www.spyfu.com/" className="underline text-blue-600">SpyFu</Link> can help surface ranking competitors and performance signals.
                             </li>
                             <li className="text-gray-500 dark:text-gray-400">
-                                <span className="font-semibold">Tip:</span> Find Questions and Answers for Blogs
+                                <span className="font-semibold">Tip:</span> Use
                                 <Link href="https://answerthepublic.com/" className="underline text-blue-600">https://answerthepublic.com/</Link>
-                                <span className="text-gray-500 dark:text-gray-400"> to get ideas for your content. Add Keyword and get blog idea</span>
+                                <span className="text-gray-500 dark:text-gray-400"> to collect question-based angles and supporting topics around the main keyword.</span>
                             </li>
                         </ul>
                     </div>
@@ -673,66 +673,66 @@ What would you like to explore?`,
             </div>
 
 
-            <ComponentCard title="SEO & Content ChatGPT Prompts" className="mt-6">
+            <ComponentCard title="Reusable Prompt Library" className="mt-6">
                 <div className="space-y-8">
                     {/* Ideas */}
                     <div>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Ideas Creation</h3>
+                        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Idea Generation</h3>
                         <div className="space-y-3">
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">4. Blog Post Ideas</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Blog Post Ideas</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Based on my niche {formData.industry} and ideal customer give me 10 blog post ideas that would actually attract traffic and help build topical authority</p>
                             </div>
                         </div>
                         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">17. Buyer Journey Content</p>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Buyer Journey Content</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Give me 3 blog post ideas for each stage of the buyer journey (top, middle, bottom) based on the topic {formData.keyword}. These should attract, educate, and convert readers over time.</p>
                         </div>
                         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">8. Competitor Analysis</p>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Competitor Analysis</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Here&apos;s a competitor&apos;s blog post: {formData.competitor2Url} What are they doing well, what could be improved, and how can I write something better that ranks?</p>
                         </div>
                         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">12. Local Content Ideas</p>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Local Content Ideas</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">What are some blog post or service page ideas I could create to rank locally for {formData.industry} in {formData.city}? Make it hyper-local and include potential headlines.</p>
                         </div>
                         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">16. Content Outline</p>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Content Outline</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Using the top 3 results for {formData.keyword} write me an outline using all of the heading tags from those pages. Remove any duplicates and irrelevant tags</p>
                         </div>
                     </div>
                     {/* Blog Content Creation */}
                     <div>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Blog Content Creation</h3>
+                        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Draft Creation</h3>
                         <div className="space-y-3">
                             <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Hints:</span> Base on outcome give me an entire page content that includes seo title, metadata description, keywords, slug in Markdown Format </p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Hints:</span> Base on outcome give me an entire page content that includes seo title, metadata description, keywords, slug in Markdown Format. Make them click-worthy with a clear benefit. </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Prompt pattern:</span> Based on the chosen direction, generate a full page draft with SEO title, meta description, keywords, slug, and markdown formatting.</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Prompt pattern:</span> Make the metadata click-worthy, specific, and aligned with the page benefit and search intent.</p>
 
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">1. Unique Blog Post Questions in Industry</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Unique Industry Blog Input</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Ask me any questions you&apos;d need in order to write a truly unique blog post using my personal experience in {formData.industry}, opinions, customer stories, and real-world examples that no one else could replicate</p>
                                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Next: Answer the questions</p>
                                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Prompt: Now with the above write me a unique blog using the best seo practices</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">2. SEO Blog from Transcript</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SEO Blog From Transcript</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Using this transcript write a helpful SEO-optimized blog post that keeps my tone and includes an intro, key takeaways at the top, headings, and a clear CTA. The main keyword is {formData.keyword}. Use this competitor as example {formData.competitor1Url}</p>
                             </div>
 
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">20. Keyword Analysis</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Keyword Analysis</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Paste:</span> How many times does {formData.keyword} or variations appear on {formData.competitor1Url}. How many times does {formData.city} appear. How many heading tags use either? </p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Paste:</span> How many times does {formData.keyword} or variations appear on {formData.competitor2Url}. How many times does {formData.city} appear. How many heading tags use either? </p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Paste:</span> Now with the above information, write me a blog for my site {formData.ourUrl} in {formData.city}.</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">13. Service Page Creation</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Service Page Creation</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Help me write an SEO optimized service page for {formData.keyword} in {formData.city}. Ask many questions about my unique process, testimonials, pricing, and past client results first.</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">9. FAQ Section</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">FAQ Section</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Based on this blog post {formData.ourUrl} write an SEO-optimized FAQ section using questions real people are asking in Google (People Also Ask, Reddit, and Quora). Keep answers concise and conversational using my expertise and personal experience.</p>
                             </div>
                         </div>
@@ -743,19 +743,19 @@ What would you like to explore?`,
                         <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">SEO Optimization</h3>
                         <div className="space-y-3">
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">2. Internal Linking Opportunities</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Internal Linking Opportunities</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Give me a list of internal linking opportunities for this page {formData.ourUrl} by scanning my sitemap: [our/sitemap.xml]</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">5. Title Tag Variations</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title Tag Variations</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Write 5 SEO-friendly title tag variations for this blog post: {formData.ourUrl} Make them compelling, use the main keyword towards the beginning and keep them under 60 characters.</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">10. SEO Metadata</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SEO Metadata</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Write SEO metadata for following blog {formData.ourUrl}. Following best SEO practices for title, description, slug, and keywords. Make them click-worthy with a clear benefit.</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">14. Schema Markup</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Schema Markup</p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Generate schema markup for this blog post {formData.ourUrl}. Include FAQ schema too based on the content</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">

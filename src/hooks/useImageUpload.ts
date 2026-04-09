@@ -1,11 +1,14 @@
 import { useCallback } from 'react';
 import { mutateUpdate } from './useMutateUpdate';
 import type { Database } from '../../database.types';
+import { getActiveTenantId } from '@/lib/auth-context';
 
 type ImageData = {
   url: string;
   alt_text?: string | null;
   caption?: string | null;
+  scope?: string | null;
+  category?: string | null;
 };
 
 type ImageInsert = Database['public']['Tables']['image']['Insert'];
@@ -13,12 +16,6 @@ type PageImageInsert = Database['public']['Tables']['page_image']['Insert'];
 
 export const useImageUpload = () => {
   
-  /**
-   * Upload images and create page-image relationships
-   * @param pageId - The ID of the page to associate images with
-   * @param imageData - Array of image data to upload
-   * @returns Promise with upload results
-   */
   const uploadImagesForPage = useCallback(async (
     pageId: number, 
     imageData: ImageData[]
@@ -27,12 +24,17 @@ export const useImageUpload = () => {
       return { success: true, imageIds: [] };
     }
 
+    const tenantId = getActiveTenantId() ?? null;
+
     try {
       // Step 1: Create image entries in the image table
       const imagePayload: ImageInsert[] = imageData.map(img => ({
         url: img.url,
         alt_text: img.alt_text || null,
         caption: img.caption || null,
+        ...(tenantId ? { tenant_id: tenantId } : {}),
+        ...(img.scope ? { scope: img.scope } : {}),
+        ...(img.category ? { category: img.category } : {}),
       }));
 
       const imageResponse = await mutateUpdate({
@@ -49,13 +51,14 @@ export const useImageUpload = () => {
         throw new Error(`Failed to create images: ${imageResponse.error}`);
       }
 
-      // Step 2: Create page_image relationships
+      // Step 2: Create page_image relationships with order
       if (imageResponse.response && Array.isArray(imageResponse.response)) {
         const createdImages = imageResponse.response as Array<{ id: number }>;
         
-        const pageImagePayload: PageImageInsert[] = createdImages.map(img => ({
+        const pageImagePayload: PageImageInsert[] = createdImages.map((img, index) => ({
           page_id: pageId,
           image_id: img.id,
+          order: index,
         }));
 
         const relationshipResponse = await mutateUpdate({

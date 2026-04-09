@@ -49,7 +49,7 @@ interface PageCreationWizardProps {
 }
 
 const pageTypeOptions = [
-  { value: 'main-page', label: 'Main Navigation Page' },
+  { value: 'main-page', label: 'Top-Level Parent Page' },
   { value: 'service', label: 'Service Page' },
   { value: 'blog-post', label: 'Blog Post' },
   { value: 'gallery', label: 'Gallery' },
@@ -581,7 +581,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                 checked={formData.is_main_nav || false}
                 onChange={(e) => handleInputChange('is_main_nav', e.target.checked)}
               />
-              <Label htmlFor="mainNav">Show in main navigation</Label>
+              <Label htmlFor="mainNav">Show in header</Label>
             </div>
           )}
 

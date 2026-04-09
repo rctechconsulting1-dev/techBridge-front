@@ -1,17 +1,24 @@
 import type { Metadata } from "next";
 import type React from "react";
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { getLandingPageData } from "@/lib/cms-api";
-import { getHomePageContent } from "@/lib/builtInPageContent";
+import {
+  getHomePageContent,
+  getResolvedBuiltInPresentation,
+} from "@/lib/builtInPageContent";
 import NavBar from "@/components/sections/NavBar";
-import HeroSection from "@/components/sections/HeroSection";
-import FeaturesSection from "@/components/sections/FeaturesSection";
-import TestimonialsSection from "@/components/sections/TestimonialsSection";
 import TeamSection from "@/components/sections/TeamSection";
 import FAQSection from "@/components/sections/FAQSection";
 import BookingSection from "@/components/sections/BookingSection";
-import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import HomeHeroVariants from "@/components/built-in/home/HomeHeroVariants";
+import HomeProofVariants from "@/components/built-in/home/HomeProofVariants";
+import HomeServicesPreviewVariants from "@/components/built-in/home/HomeServicesPreviewVariants";
+import HomeTestimonialsVariants from "@/components/built-in/home/HomeTestimonialsVariants";
+import HomeCtaVariants from "@/components/built-in/home/HomeCtaVariants";
+import HomeOfferSection from "@/components/built-in/home/HomeOfferSection";
+import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 // Revalidate every 60 seconds (ISR). Admin panel can also trigger immediate
@@ -60,8 +67,10 @@ export default async function SiteLandingPage({ params }: Props) {
     notFound();
   }
 
-  const { website, settings, homePageContent, services, testimonials, team, faq } = data;
+  const { website, settings, homePageContent, pages, services, testimonials, team, faq } = data;
   const homeContent = getHomePageContent(homePageContent, website, settings);
+  const homePresentation = getResolvedBuiltInPresentation("home", homePageContent);
+  const chromeVariants = getGenericSectionVariants("home");
   const presentationSettings = settings
     ? {
         ...settings,
@@ -73,6 +82,10 @@ export default async function SiteLandingPage({ params }: Props) {
           homeContent.heroBackgroundImageUrl ?? settings.hero_bg_image_url,
         hero_bg_overlay_color:
           homeContent.heroBackgroundOverlayColor ?? settings.hero_bg_overlay_color,
+        cta_headline: homeContent.ctaHeadline ?? settings.cta_headline,
+        cta_body: homeContent.ctaBody ?? settings.cta_body,
+        cta_button_text: homeContent.ctaButtonText ?? settings.cta_button_text,
+        cta_button_url: homeContent.ctaButtonUrl ?? settings.cta_button_url,
       }
     : null;
 
@@ -87,6 +100,65 @@ export default async function SiteLandingPage({ params }: Props) {
     }),
   } as React.CSSProperties;
 
+  const sectionMap: Record<string, React.ReactNode> = {
+    hero: (
+      <HomeHeroVariants
+        themePack={homePresentation.themePack}
+        website={website}
+        settings={presentationSettings}
+        variant={homePresentation.sectionVariants.hero ?? "service_area_call"}
+        hasServicesPreview={homePresentation.sectionOrder.includes("servicesPreview")}
+      />
+    ),
+    proof: (
+      <HomeProofVariants
+        themePack={homePresentation.themePack}
+        settings={presentationSettings}
+        services={services}
+        testimonials={testimonials}
+        team={team}
+        variant={homePresentation.sectionVariants.proof ?? "badges_and_stats"}
+      />
+    ),
+    servicesPreview: (
+      <HomeServicesPreviewVariants
+        themePack={homePresentation.themePack}
+        services={services}
+        settings={presentationSettings}
+        variant={homePresentation.sectionVariants.servicesPreview ?? "three_card_grid"}
+      />
+    ),
+    aboutPreview: (
+      <TeamSection team={team} settings={presentationSettings} variant={chromeVariants.team} />
+    ),
+    testimonials: (
+      <HomeTestimonialsVariants
+        themePack={homePresentation.themePack}
+        testimonials={testimonials}
+        settings={presentationSettings}
+        variant={homePresentation.sectionVariants.testimonials ?? "review_cards"}
+      />
+    ),
+    faq: <FAQSection faq={faq} settings={presentationSettings} variant={chromeVariants.faq} />,
+    booking: (
+      <BookingSection websiteId={websiteId} settings={presentationSettings} variant={chromeVariants.booking} />
+    ),
+    offer: (
+      <HomeOfferSection
+        themePack={homePresentation.themePack}
+        settings={presentationSettings}
+        content={homeContent}
+      />
+    ),
+    cta: (
+      <HomeCtaVariants
+        themePack={homePresentation.themePack}
+        settings={presentationSettings}
+        variant={homePresentation.sectionVariants.cta ?? "quote_request"}
+      />
+    ),
+  };
+
   return (
     <>
       {presentationSettings?.font_url && (
@@ -97,18 +169,13 @@ export default async function SiteLandingPage({ params }: Props) {
           websiteId={websiteId}
           website={website}
           settings={presentationSettings}
+          pages={pages}
+          variant={chromeVariants.navBar}
         />
-        <HeroSection website={website} settings={presentationSettings} />
-        <FeaturesSection services={services} settings={presentationSettings} />
-        <TestimonialsSection
-          testimonials={testimonials}
-          settings={presentationSettings}
-        />
-        <TeamSection team={team} settings={presentationSettings} />
-        <FAQSection faq={faq} settings={presentationSettings} />
-        <BookingSection websiteId={websiteId} settings={presentationSettings} />
-        <CTASection settings={presentationSettings} />
-        <FooterSection website={website} settings={presentationSettings} />
+        {homePresentation.sectionOrder.map((slot) => (
+          <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
+        ))}
+        <FooterSection websiteId={websiteId} website={website} settings={presentationSettings} pages={pages} variant={chromeVariants.footer} />
       </div>
     </>
   );

@@ -61,7 +61,7 @@ export class GoogleOAuthManager {
       
       return accessToken;
      
-    } catch (error) {
+    } catch {
       // Token is expired, try to refresh
       const newCredentials = await this.refreshAccessToken(refreshToken);
       return newCredentials.access_token;

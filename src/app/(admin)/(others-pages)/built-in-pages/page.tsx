@@ -1,15 +1,22 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import ComponentCard from "@/components/common/ComponentCard";
 import { useSidebar } from "@/context/SidebarContext";
+import { getApiBaseUrl } from "@/lib/api";
+import { getActiveTenantId, getStoredAuthToken } from "@/lib/auth-context";
 import { getBuiltInPagePreviewPath } from "@/lib/builtInPageContent";
 
 type BuiltInPageCard = {
   title: string;
   route: string;
   purpose: string;
+  strategy: string;
+  recipes: string[];
+  sections: string[];
+  previewLabel: string;
   editors: Array<{ label: string; href: string }>;
   notes: string;
 };
@@ -20,6 +27,10 @@ const builtInPageCards: BuiltInPageCard[] = [
     route: "/",
     purpose:
       "Primary tenant landing page with a dedicated page-content model for hero copy and current homepage sections.",
+    strategy: "Guided recipe-based homepage with conversion-mode-aware CTA and theme-pack styling.",
+    recipes: ["Local Lead Gen", "Authority Trust", "Booking First", "Offer Funnel"],
+    sections: ["Hero", "Proof", "Services Preview", "Testimonials", "FAQ", "CTA"],
+    previewLabel: "Homepage preview",
     editors: [
       { label: "Open Home Editor", href: "/built-in-pages/home" },
       { label: "Global Site Settings", href: "/site-settings?tab=settings" },
@@ -33,6 +44,10 @@ const builtInPageCards: BuiltInPageCard[] = [
     route: "/services",
     purpose:
       "Built-in services listing page driven by service records plus a dedicated page intro model.",
+    strategy: "Service overview page with layout variants tuned for scanability, categorization, or problem-solution framing.",
+    recipes: ["Service Grid", "Service Categories", "Problem Solution"],
+    sections: ["Hero", "Services List", "FAQ", "CTA"],
+    previewLabel: "Services route preview",
     editors: [
       { label: "Open Services Editor", href: "/built-in-pages/services" },
       { label: "Services", href: "/site-settings?tab=services" },
@@ -46,6 +61,10 @@ const builtInPageCards: BuiltInPageCard[] = [
     route: "/about",
     purpose:
       "Built-in about page driven by team content plus dedicated story and mission content.",
+    strategy: "Trust-building page that combines founder or team story with proof and a contact path.",
+    recipes: ["Founder Story", "Team Credibility", "Mission Trust"],
+    sections: ["Hero", "Mission", "Team", "Testimonials", "CTA"],
+    previewLabel: "About route preview",
     editors: [
       { label: "Open About Editor", href: "/built-in-pages/about" },
       { label: "Team", href: "/site-settings?tab=team" },
@@ -59,6 +78,10 @@ const builtInPageCards: BuiltInPageCard[] = [
     route: "/shop",
     purpose:
       "Built-in ecommerce page powered by the tenant product catalog plus dedicated shop-page messaging.",
+    strategy: "Merchandising page that balances discovery, featured product visibility, and conversion-focused CTA treatment.",
+    recipes: ["Catalog First", "Featured Products", "Offer First"],
+    sections: ["Hero", "Catalog", "Featured", "CTA"],
+    previewLabel: "Shop route preview",
     editors: [
       { label: "Open Shop Editor", href: "/built-in-pages/shop" },
       { label: "Shop", href: "/site-settings?tab=shop" },
@@ -71,7 +94,63 @@ const builtInPageCards: BuiltInPageCard[] = [
 
 export default function BuiltInPagesPage() {
   const { selectedClient } = useSidebar();
-  const websiteId = selectedClient?.website_id ?? null;
+  const websiteId = Number(selectedClient?.website_id || 0) || null;
+  const selectedTenantId =
+    Number(selectedClient?.tenant_id || getActiveTenantId() || 0) || null;
+  const [ecommerceEnabled, setEcommerceEnabled] = useState<boolean | null>(null);
+
+  const visibleBuiltInPageCards = builtInPageCards.filter((card) => {
+    if (card.route !== "/shop") {
+      return true;
+    }
+
+    return ecommerceEnabled === true;
+  });
+
+  useEffect(() => {
+    if (!websiteId) {
+      setEcommerceEnabled(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSiteSettings = async () => {
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
+          cache: "no-store",
+          headers: {
+            ...(getStoredAuthToken()
+              ? { Authorization: `Bearer ${getStoredAuthToken()}` }
+              : {}),
+            ...(selectedTenantId ? { "x-tenant-id": String(selectedTenantId) } : {}),
+          },
+        });
+
+        if (!response.ok) {
+          if (!cancelled) {
+            setEcommerceEnabled(null);
+          }
+          return;
+        }
+
+        const payload = (await response.json()) as { ecommerce_enabled?: boolean | null };
+        if (!cancelled) {
+          setEcommerceEnabled(payload.ecommerce_enabled === true);
+        }
+      } catch {
+        if (!cancelled) {
+          setEcommerceEnabled(null);
+        }
+      }
+    };
+
+    void loadSiteSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTenantId, websiteId]);
 
   return (
     <div className="space-y-6">
@@ -83,12 +162,18 @@ export default function BuiltInPagesPage() {
       >
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
           <p>
-            Built-in pages are the default MVP page set for a tenant. Different business types may use different built-ins over time, but the current platform-managed routes are <strong>/</strong>, <strong>/services</strong>, <strong>/about</strong>, and <strong>/shop</strong>.
+            Built-in pages are the default core page set for a tenant. The current platform-managed routes are <strong>/</strong>, <strong>/services</strong>, <strong>/about</strong>, and <strong>/shop</strong>.
           </p>
           <p>
             Use <strong>Custom Pages</strong> only for extra slugs beyond those built-ins.
           </p>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href="/managed-pages"
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              Open Managed Pages
+            </Link>
             <Link
               href="/main-page"
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
@@ -107,10 +192,74 @@ export default function BuiltInPagesPage() {
 
       {selectedClient ? (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {builtInPageCards.map((card) => (
+          {visibleBuiltInPageCards.map((card) => {
+            const pageKey =
+              card.route === "/"
+                ? "home"
+                : (card.route.slice(1) as "services" | "about" | "shop");
+            const shopPreviewAvailable = pageKey !== "shop" || ecommerceEnabled === true;
+
+            return (
             <ComponentCard key={card.route} title={`${card.title} ${card.route}`}>
               <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
                 <p>{card.purpose}</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900/30">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Strategy Preview
+                  </p>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{card.strategy}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {card.recipes.map((recipe) => (
+                      <span
+                        key={`${card.route}-${recipe}`}
+                        className="rounded-full border border-gray-200 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:border-gray-700 dark:text-gray-300"
+                      >
+                        {recipe}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {card.sections.map((section) => (
+                      <span
+                        key={`${card.route}-${section}`}
+                        className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-950/60 dark:text-gray-300"
+                      >
+                        {section}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {websiteId && shopPreviewAvailable ? (
+                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950/40">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {card.previewLabel}
+                      </p>
+                      <Link
+                        href={getBuiltInPagePreviewPath(websiteId, pageKey)}
+                        target="_blank"
+                        className="text-[11px] font-semibold uppercase tracking-wide text-[#CD7F32] hover:opacity-80"
+                      >
+                        Open Live
+                      </Link>
+                    </div>
+                    <div className="relative h-56 overflow-hidden bg-[#f6f3ee] dark:bg-gray-900">
+                      <div className="pointer-events-none absolute inset-0 origin-top-left scale-[0.38] overflow-hidden" style={{ width: "263%", height: "263%" }}>
+                        <iframe
+                          title={`${card.title} preview`}
+                          src={getBuiltInPagePreviewPath(websiteId, pageKey)}
+                          className="h-full w-full border-0 bg-white"
+                          loading="lazy"
+                        />
+                      </div>
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/85 to-transparent dark:from-gray-950 dark:via-gray-950/70" />
+                    </div>
+                  </div>
+                ) : websiteId && pageKey === "shop" ? (
+                  <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                    Shop preview is unavailable because ecommerce is not enabled for this tenant. Enable ecommerce in Site Settings to activate the live /shop route.
+                  </div>
+                ) : null}
                 <div>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     Recommended editors
@@ -125,19 +274,18 @@ export default function BuiltInPagesPage() {
                         {editor.label}
                       </Link>
                     ))}
-                    {websiteId ? (
+                    {websiteId && shopPreviewAvailable ? (
                       <Link
-                        href={getBuiltInPagePreviewPath(
-                          websiteId,
-                          card.route === "/"
-                            ? "home"
-                            : (card.route.slice(1) as "services" | "about" | "shop"),
-                        )}
+                        href={getBuiltInPagePreviewPath(websiteId, pageKey)}
                         target="_blank"
                         className="rounded-lg border border-[#CD7F32] px-3 py-1.5 text-xs font-semibold text-[#CD7F32] hover:bg-[#CD7F32]/10"
                       >
                         Preview
                       </Link>
+                    ) : websiteId && pageKey === "shop" ? (
+                      <span className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:border-amber-800 dark:text-amber-200">
+                        Preview disabled until ecommerce is enabled
+                      </span>
                     ) : null}
                   </div>
                 </div>
@@ -146,7 +294,7 @@ export default function BuiltInPagesPage() {
                 </p>
               </div>
             </ComponentCard>
-          ))}
+          )})}
         </div>
       ) : (
         <ComponentCard title="No Active Tenant">

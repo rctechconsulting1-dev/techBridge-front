@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type React from "react";
+import { Fragment } from "react";
 import {
   getBuiltInPageContent,
+  getPages,
   getWebsite,
   getSiteSettings,
   getServices,
   getFAQ,
 } from "@/lib/cms-api";
-import { getServicesPageContent } from "@/lib/builtInPageContent";
+import {
+  getResolvedBuiltInPresentation,
+  getServicesPageContent,
+} from "@/lib/builtInPageContent";
 import NavBar from "@/components/sections/NavBar";
-import FeaturesSection from "@/components/sections/FeaturesSection";
-import FAQSection from "@/components/sections/FAQSection";
 import BookingSection from "@/components/sections/BookingSection";
-import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import ServicesHeroVariants from "@/components/built-in/services/ServicesHeroVariants";
+import ServicesListVariants from "@/components/built-in/services/ServicesListVariants";
+import ServicesFaqVariants from "@/components/built-in/services/ServicesFaqVariants";
+import ServicesCtaVariants from "@/components/built-in/services/ServicesCtaVariants";
+import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
@@ -55,9 +62,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ServicesPage({ params }: Props) {
   const { websiteId } = await params;
-  const [website, settings, pageContentRecord, services, faq] = await Promise.all([
+  const [website, settings, pages, pageContentRecord, services, faq] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getPages(websiteId),
     getBuiltInPageContent(websiteId, "services"),
     getServices(websiteId),
     getFAQ(websiteId),
@@ -67,6 +75,8 @@ export default async function ServicesPage({ params }: Props) {
 
   const primary = settings?.primary_color ?? "#CD7F32";
   const pageContent = getServicesPageContent(pageContentRecord, website, settings);
+  const presentation = getResolvedBuiltInPresentation("services", pageContentRecord);
+  const chromeVariants = getGenericSectionVariants("services");
 
   const cssVars = {
     "--cms-primary": primary,
@@ -75,59 +85,57 @@ export default async function ServicesPage({ params }: Props) {
     ...(settings?.font_family && { fontFamily: settings.font_family }),
   } as React.CSSProperties;
 
+  const sectionMap: Record<string, React.ReactNode> = {
+    hero: (
+      <ServicesHeroVariants
+        variant={presentation.sectionVariants.hero ?? "service_grid_intro"}
+        themePack={presentation.themePack}
+        title={pageContent.heroTitle}
+        body={pageContent.heroBody}
+        services={services}
+        settings={settings}
+      />
+    ),
+    servicesList: (
+      <ServicesListVariants
+        variant={presentation.sectionVariants.servicesList ?? "grid_cards"}
+        themePack={presentation.themePack}
+        services={services}
+        settings={settings}
+        emptyStateTitle={pageContent.emptyStateTitle}
+        emptyStateBody={pageContent.emptyStateBody}
+      />
+    ),
+    faq: (
+      <ServicesFaqVariants
+        variant={presentation.sectionVariants.faq ?? "accordion"}
+        themePack={presentation.themePack}
+        faq={faq}
+        settings={settings}
+      />
+    ),
+    cta: (
+      <ServicesCtaVariants
+        variant={presentation.sectionVariants.cta ?? "quote_request"}
+        themePack={presentation.themePack}
+        settings={settings}
+      />
+    ),
+  };
+
   return (
     <>
       {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
-        <NavBar websiteId={websiteId} website={website} settings={settings} />
+        <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
+        {presentation.sectionOrder.map((slot) => (
+          <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
+        ))}
+        {presentation.conversionMode === "appointment" ? (
+          <BookingSection websiteId={websiteId} settings={settings} variant={chromeVariants.booking} />
+        ) : null}
 
-        {/* Page hero banner */}
-        <section
-          className="border-b border-gray-100 bg-gray-50 py-16 lg:py-20"
-          style={{
-            background: `linear-gradient(135deg, ${primary}12, #f9fafb)`,
-          }}
-        >
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div
-              className="mb-3 h-1 w-12 rounded-full"
-              style={{ backgroundColor: primary }}
-            />
-            <h1 className="mb-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-              {pageContent.heroTitle ?? "Our Services"}
-            </h1>
-            <p className="max-w-2xl text-lg text-gray-600">
-              {pageContent.heroBody}
-            </p>
-          </div>
-        </section>
-
-        {/* Services grid — reuses existing section component */}
-        {services.length > 0 ? (
-          <FeaturesSection services={services} settings={settings} />
-        ) : (
-          <section className="bg-white py-20">
-            <div className="mx-auto max-w-3xl px-4 text-center text-gray-400 sm:px-6 lg:px-8">
-              <p className="text-lg">{pageContent.emptyStateTitle}</p>
-              {pageContent.emptyStateBody && (
-                <p className="mt-3 text-sm text-gray-500">
-                  {pageContent.emptyStateBody}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* FAQ (relevant to services) */}
-        <FAQSection faq={faq} settings={settings} />
-
-        {/* Booking */}
-        <BookingSection websiteId={websiteId} settings={settings} />
-
-        {/* CTA */}
-        <CTASection settings={settings} />
-
-        <FooterSection website={website} settings={settings} />
+        <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} />
       </div>
     </>
   );

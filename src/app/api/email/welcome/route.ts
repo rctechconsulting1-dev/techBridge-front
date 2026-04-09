@@ -7,6 +7,8 @@ const schema = z.object({
   // Accept both undefined and explicit null from JSON to avoid 400s caused by
   // JSON.stringify serialising JS `null` values sent by client code.
   firstName: z.string().nullish(),
+  tenantId: z.number().int().positive().optional(),
+  websiteId: z.number().int().positive().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -25,9 +27,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { to, firstName } = parsed.data;
+  const { to, firstName, tenantId, websiteId } = parsed.data;
 
-  const { data, error } = await sendWelcomeEmail({ to, firstName: firstName ?? undefined });
+  const { data, error } = await sendWelcomeEmail({
+    to,
+    firstName: firstName ?? undefined,
+    tenantId,
+    websiteId,
+  });
 
   if (error) {
     console.error("[email/welcome] Resend error:", JSON.stringify(error));

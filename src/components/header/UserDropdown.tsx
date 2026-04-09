@@ -1,10 +1,10 @@
 "use client";
-import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { apiClient } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
+import AvatarText from "@/components/ui/avatar/AvatarText";
 
 export default function UserDropdown() {
   const router = useRouter();
@@ -41,11 +41,9 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <Image
-            width={44}
-            height={44}
-            src="/images/user/owner.jpg"
-            alt="User"
+          <AvatarText
+            name={displayName || displayEmail || "User"}
+            className="h-11 w-11 text-base"
           />
         </span>
 

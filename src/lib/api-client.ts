@@ -41,6 +41,25 @@ export interface ApiError {
 class ApiClient {
   private token: string | null = null;
 
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private extractErrorMessage(data: unknown, status: number): string {
+    if (data && typeof data === 'object') {
+      const record = data as Record<string, unknown>;
+      if (typeof record.message === 'string' && record.message.trim()) {
+        return record.message;
+      }
+
+      if (typeof record.error === 'string' && record.error.trim()) {
+        return record.error;
+      }
+    }
+
+    return `HTTP ${status}`;
+  }
+
   constructor() {
     // Load token from localStorage on initialization
     if (typeof window !== 'undefined') {
@@ -85,8 +104,8 @@ class ApiClient {
 
     if (!response.ok) {
       const error: ApiError = {
-        message: data?.message || `HTTP ${response.status}`,
-        code: data?.code,
+        message: this.extractErrorMessage(data, response.status),
+        code: data && typeof data === 'object' ? (data as Record<string, unknown>).code as string | undefined : undefined,
         statusCode: response.status,
       };
 
@@ -105,7 +124,12 @@ class ApiClient {
     const response = await fetch(`${API_URL}/auth/signup`, {
       method: 'POST',
       headers: this.getHeaders(false),
-      body: JSON.stringify({ email, password, firstName, lastName }),
+      body: JSON.stringify({
+        email: this.normalizeEmail(email),
+        password,
+        firstName,
+        lastName,
+      }),
     });
 
     const data = await this.handleResponse(response);
@@ -119,7 +143,7 @@ class ApiClient {
     const response = await fetch(`${API_URL}/auth/signin`, {
       method: 'POST',
       headers: this.getHeaders(false),
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: this.normalizeEmail(email), password }),
     });
 
     const data = await this.handleResponse(response);
@@ -279,6 +303,25 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
+  async sendWelcomeEmailForTenant(
+    to: string,
+    firstName: string | undefined,
+    tenantId: number,
+    websiteId?: number,
+  ): Promise<{ id: string }> {
+    const response = await fetch('/api/email/welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        firstName: firstName ?? undefined,
+        tenantId,
+        websiteId: websiteId ?? undefined,
+      }),
+    });
+    return this.handleResponse(response);
+  }
+
   async sendVerifyEmail(to: string, firstName?: string, userId?: string): Promise<{ id: string }> {
     const response = await fetch('/api/email/verify', {
       method: 'POST',
@@ -297,6 +340,27 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
+  async sendResetPasswordEmailForTenant(
+    to: string,
+    firstName: string | undefined,
+    tenantId: number,
+    websiteId?: number,
+    token?: string,
+  ): Promise<{ id: string }> {
+    const response = await fetch('/api/email/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        firstName: firstName ?? undefined,
+        token: token ?? undefined,
+        tenantId,
+        websiteId: websiteId ?? undefined,
+      }),
+    });
+    return this.handleResponse(response);
+  }
+
   async sendNotificationEmail(
     to: string,
     payload: { subject: string; heading: string; body: string; cta?: { label: string; href: string } },
@@ -305,6 +369,29 @@ class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to, ...payload }),
+    });
+    return this.handleResponse(response);
+  }
+
+  async sendIntakeEmail(
+    to: string,
+    tenantId: number,
+    businessType = "universal",
+    firstName?: string,
+    websiteId?: number,
+    tenantName?: string,
+  ): Promise<{ id: string }> {
+    const response = await fetch('/api/email/intake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        firstName: firstName ?? undefined,
+        tenantName: tenantName ?? undefined,
+        tenantId,
+        businessType,
+        websiteId: websiteId ?? undefined,
+      }),
     });
     return this.handleResponse(response);
   }

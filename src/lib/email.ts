@@ -13,6 +13,7 @@ import {
   buildResetPasswordHtml,
   buildNotificationHtml,
   buildBillingInviteHtml,
+  buildTenantIntakeHtml,
   type NotificationPayload,
 } from "@/lib/email-templates";
 import { getApiBaseUrl, getAppBaseUrl } from "@/lib/api";
@@ -147,6 +148,9 @@ const VERIFY_TOKEN_SECRET =
 const RESET_TOKEN_SECRET =
   process.env.EMAIL_RESET_SECRET ?? "change-me-in-production-reset";
 
+const INTAKE_TOKEN_SECRET =
+  process.env.EMAIL_INTAKE_SECRET ?? "change-me-in-production-intake";
+
 async function hmacSign(secret: string, payload: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -257,17 +261,24 @@ export async function verifyPasswordResetToken(
 export interface SendWelcomeEmailOptions {
   to: string;
   firstName?: string;
+  websiteId?: string | number;
+  tenantId?: string | number;
 }
 
 export async function sendWelcomeEmail({
   to,
   firstName,
+  websiteId,
+  tenantId,
 }: SendWelcomeEmailOptions) {
+  const sender = await resolveNotificationSenderForContext({ websiteId, tenantId });
+
   return getResendClient().emails.send({
-    from: FROM_EMAIL,
+    from: sender.from,
     to,
-    subject: "Welcome to RC TechBridge!",
+    subject: "RC TechBridge: Welcome to your account",
     html: buildWelcomeHtml({ firstName }),
+    ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
   });
 }
 
@@ -302,6 +313,8 @@ export interface SendResetPasswordEmailOptions {
   /** Pre-generated token. If omitted, one will be created automatically. */
   token?: string;
   userId?: string;
+  websiteId?: string | number;
+  tenantId?: string | number;
 }
 
 export async function sendResetPasswordEmail({
@@ -309,15 +322,19 @@ export async function sendResetPasswordEmail({
   firstName,
   token,
   userId,
+  websiteId,
+  tenantId,
 }: SendResetPasswordEmailOptions) {
   const resetToken = token ?? (await createPasswordResetToken(to, userId));
   const resetUrl = `${APP_URL}/reset-password/confirm?token=${encodeURIComponent(resetToken)}`;
+  const sender = await resolveNotificationSenderForContext({ websiteId, tenantId });
 
   return getResendClient().emails.send({
-    from: FROM_EMAIL,
+    from: sender.from,
     to,
-    subject: "Reset your password – RC TechBridge",
+    subject: "RC TechBridge: Reset your password",
     html: buildResetPasswordHtml({ firstName, resetUrl }),
+    ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
   });
 }
 
@@ -357,5 +374,74 @@ export async function sendBillingInviteEmail({
     to,
     subject: `Activate your ${planName} subscription – RC TechBridge`,
     html: buildBillingInviteHtml({ firstName, planName, priceFormatted, checkoutUrl }),
+  });
+}
+
+// ─── Tenant intake questionnaire ──────────────────────────────────────────────
+
+/** Build a 7-day intake questionnaire token for a tenant owner. */
+export async function createIntakeToken(
+  email: string,
+  tenantId: number,
+  businessType = "universal",
+  websiteId?: number,
+  tenantName?: string,
+): Promise<string> {
+  return createSignedToken(
+    INTAKE_TOKEN_SECRET,
+    { email, tenantId, businessType, websiteId, tenantName },
+    60 * 60 * 24 * 7, // 7 days
+  );
+}
+
+/** Verify an intake questionnaire token. */
+export async function verifyIntakeToken(
+  token: string,
+): Promise<TokenPayload | null> {
+  return verifySignedToken(INTAKE_TOKEN_SECRET, token);
+}
+
+export interface SendIntakeEmailOptions {
+  to: string;
+  firstName?: string;
+  tenantName?: string;
+  tenantId: number;
+  businessType?: string;
+  websiteId?: number;
+}
+
+export async function sendIntakeEmail({
+  to,
+  firstName,
+  tenantName,
+  tenantId,
+  businessType = "universal",
+  websiteId,
+}: SendIntakeEmailOptions) {
+  const token = await createIntakeToken(
+    to,
+    tenantId,
+    businessType,
+    websiteId,
+    tenantName,
+  );
+  const intakeUrl = `${APP_URL}/intake?token=${encodeURIComponent(token)}`;
+  const sender = await resolveNotificationSenderForContext({ websiteId, tenantId });
+
+  const content = buildTenantIntakeHtml({
+    firstName,
+    tenantName,
+    businessType,
+    intakeUrl,
+  });
+
+  const subjectSuffix = tenantName?.trim() ? ` for ${tenantName.trim()}` : "";
+
+  return getResendClient().emails.send({
+    from: sender.from,
+    to,
+    subject: `RC TechBridge: Complete your business profile${subjectSuffix}`,
+    html: content,
+    ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
   });
 }

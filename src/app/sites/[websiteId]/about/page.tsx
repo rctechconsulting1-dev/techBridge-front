@@ -1,22 +1,30 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type React from "react";
+import { Fragment } from "react";
 import {
   getBuiltInPageContent,
+  getPages,
   getWebsite,
   getSiteSettings,
   getTeamMembers,
   getTestimonials,
   getFAQ,
 } from "@/lib/cms-api";
-import { getAboutPageContent } from "@/lib/builtInPageContent";
+import {
+  getAboutPageContent,
+  getResolvedBuiltInPresentation,
+} from "@/lib/builtInPageContent";
 import NavBar from "@/components/sections/NavBar";
-import TeamSection from "@/components/sections/TeamSection";
-import TestimonialsSection from "@/components/sections/TestimonialsSection";
-import FAQSection from "@/components/sections/FAQSection";
 import BookingSection from "@/components/sections/BookingSection";
-import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import AboutHeroVariants from "@/components/built-in/about/AboutHeroVariants";
+import AboutMissionVariants from "@/components/built-in/about/AboutMissionVariants";
+import AboutTeamVariants from "@/components/built-in/about/AboutTeamVariants";
+import AboutTestimonialsVariants from "@/components/built-in/about/AboutTestimonialsVariants";
+import AboutCtaVariants from "@/components/built-in/about/AboutCtaVariants";
+import FAQSection from "@/components/sections/FAQSection";
+import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
@@ -57,9 +65,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AboutPage({ params }: Props) {
   const { websiteId } = await params;
-  const [website, settings, pageContentRecord, team, testimonials, faq] = await Promise.all([
+  const [website, settings, pages, pageContentRecord, team, testimonials, faq] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getPages(websiteId),
     getBuiltInPageContent(websiteId, "about"),
     getTeamMembers(websiteId),
     getTestimonials(websiteId),
@@ -70,6 +79,8 @@ export default async function AboutPage({ params }: Props) {
 
   const primary = settings?.primary_color ?? "#CD7F32";
   const pageContent = getAboutPageContent(pageContentRecord, website, settings);
+  const presentation = getResolvedBuiltInPresentation("about", pageContentRecord);
+  const chromeVariants = getGenericSectionVariants("about");
 
   const cssVars = {
     "--cms-primary": primary,
@@ -78,74 +89,65 @@ export default async function AboutPage({ params }: Props) {
     ...(settings?.font_family && { fontFamily: settings.font_family }),
   } as React.CSSProperties;
 
+  const sectionMap: Record<string, React.ReactNode> = {
+    hero: (
+      <AboutHeroVariants
+        variant={presentation.sectionVariants.hero ?? "founder_portrait"}
+        themePack={presentation.themePack}
+        title={pageContent.heroTitle}
+        body={pageContent.heroBody}
+        settings={settings}
+        team={team}
+      />
+    ),
+    mission: (
+      <AboutMissionVariants
+        variant={presentation.sectionVariants.mission ?? "story_stack"}
+        themePack={presentation.themePack}
+        title={pageContent.missionTitle}
+        body={pageContent.missionBody}
+        settings={settings}
+      />
+    ),
+    team: (
+      <AboutTeamVariants
+        variant={presentation.sectionVariants.team ?? "founder_focus"}
+        themePack={presentation.themePack}
+        team={team}
+        settings={settings}
+      />
+    ),
+    testimonials: (
+      <AboutTestimonialsVariants
+        variant={presentation.sectionVariants.testimonials ?? "featured_quote"}
+        themePack={presentation.themePack}
+        testimonials={testimonials}
+        settings={settings}
+      />
+    ),
+    cta: (
+      <AboutCtaVariants
+        variant={presentation.sectionVariants.cta ?? "contact_team"}
+        themePack={presentation.themePack}
+        settings={settings}
+      />
+    ),
+  };
+
   return (
     <>
       {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
-        <NavBar websiteId={websiteId} website={website} settings={settings} />
+        <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
+        {presentation.sectionOrder.map((slot) => (
+          <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
+        ))}
+        <FAQSection faq={faq} settings={settings} variant={chromeVariants.faq} />
+        {presentation.conversionMode === "appointment" ? (
+          <BookingSection websiteId={websiteId} settings={settings} variant={chromeVariants.booking} />
+        ) : null}
 
-        {/* Page hero banner */}
-        <section
-          className="border-b border-gray-100 bg-gray-50 py-16 lg:py-20"
-          style={{
-            background: `linear-gradient(135deg, ${primary}12, #f9fafb)`,
-          }}
-        >
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div
-              className="mb-3 h-1 w-12 rounded-full"
-              style={{ backgroundColor: primary }}
-            />
-            <h1 className="mb-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-              {pageContent.heroTitle ?? "About Us"}
-            </h1>
-            <p className="max-w-2xl text-lg text-gray-600">
-              {pageContent.heroBody}
-            </p>
-          </div>
-        </section>
-
-        {/* Mission / company blurb (driven by site settings) */}
-        {pageContent.missionBody && (
-          <section className="bg-white py-16 lg:py-20">
-            <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-              <h2
-                className="mb-6 text-2xl font-bold text-gray-900 sm:text-3xl"
-                style={{ color: primary }}
-              >
-                {pageContent.missionTitle ?? "Our Mission"}
-              </h2>
-              <p className="text-lg leading-relaxed text-gray-600">
-                {pageContent.missionBody}
-              </p>
-            </div>
-          </section>
-        )}
-
-        {/* Team members */}
-        {team.length > 0 ? (
-          <TeamSection team={team} settings={settings} />
-        ) : (
-          <section className="bg-white py-20">
-            <div className="mx-auto max-w-7xl px-4 text-center text-gray-400 sm:px-6 lg:px-8">
-              <p className="text-lg">Team profiles coming soon.</p>
-            </div>
-          </section>
-        )}
-
-        {/* Testimonials */}
-        <TestimonialsSection testimonials={testimonials} settings={settings} />
-
-        {/* FAQ */}
-        <FAQSection faq={faq} settings={settings} />
-
-        {/* Booking */}
-        <BookingSection websiteId={websiteId} settings={settings} />
-
-        {/* CTA */}
-        <CTASection settings={settings} />
-
-        <FooterSection website={website} settings={settings} />
+        <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} />
       </div>
     </>
   );

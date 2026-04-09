@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type React from "react";
+import { Fragment } from "react";
 import {
   getBuiltInPageContent,
+  getPages,
   getWebsite,
   getSiteSettings,
   getProducts,
 } from "@/lib/cms-api";
-import { getShopPageContent } from "@/lib/builtInPageContent";
+import {
+  getResolvedBuiltInPresentation,
+  getShopPageContent,
+} from "@/lib/builtInPageContent";
 import NavBar from "@/components/sections/NavBar";
-import ShopGridSection from "@/components/sections/ShopGridSection";
-import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import ShopHeroVariants from "@/components/built-in/shop/ShopHeroVariants";
+import ShopCatalogVariants from "@/components/built-in/shop/ShopCatalogVariants";
+import ShopFeaturedVariants from "@/components/built-in/shop/ShopFeaturedVariants";
+import ShopCtaVariants from "@/components/built-in/shop/ShopCtaVariants";
+import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
@@ -46,9 +54,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ShopPage({ params }: Props) {
   const { websiteId } = await params;
-  const [website, settings, pageContentRecord, products] = await Promise.all([
+  const [website, settings, pages, pageContentRecord, products] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getPages(websiteId),
     getBuiltInPageContent(websiteId, "shop"),
     getProducts(websiteId),
   ]);
@@ -58,6 +67,8 @@ export default async function ShopPage({ params }: Props) {
   const primary = settings?.primary_color ?? "#CD7F32";
   const publishedProducts = products.filter((p) => p.is_published);
   const pageContent = getShopPageContent(pageContentRecord, website);
+  const presentation = getResolvedBuiltInPresentation("shop", pageContentRecord);
+  const chromeVariants = getGenericSectionVariants("shop");
 
   const cssVars = {
     "--cms-primary": primary,
@@ -66,58 +77,55 @@ export default async function ShopPage({ params }: Props) {
     ...(settings?.font_family && { fontFamily: settings.font_family }),
   } as React.CSSProperties;
 
+  const sectionMap: Record<string, React.ReactNode> = {
+    hero: (
+      <ShopHeroVariants
+        variant={presentation.sectionVariants.hero ?? "catalog_intro"}
+        themePack={presentation.themePack}
+        title={pageContent.heroTitle}
+        body={pageContent.heroBody}
+        productCount={publishedProducts.length}
+        settings={settings}
+      />
+    ),
+    catalog: (
+      <ShopCatalogVariants
+        variant={presentation.sectionVariants.catalog ?? "product_grid"}
+        themePack={presentation.themePack}
+        products={publishedProducts}
+        settings={settings}
+        websiteId={websiteId}
+        emptyStateTitle={pageContent.emptyStateTitle}
+        emptyStateBody={pageContent.emptyStateBody}
+      />
+    ),
+    featured: (
+      <ShopFeaturedVariants
+        variant={presentation.sectionVariants.featured ?? "featured_row"}
+        themePack={presentation.themePack}
+        products={publishedProducts}
+        settings={settings}
+        websiteId={websiteId}
+      />
+    ),
+    cta: (
+      <ShopCtaVariants
+        variant={presentation.sectionVariants.cta ?? "shop_now"}
+        themePack={presentation.themePack}
+        settings={settings}
+      />
+    ),
+  };
+
   return (
     <>
       {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
-        <NavBar websiteId={websiteId} website={website} settings={settings} />
-
-        {/* Page hero */}
-        <section
-          className="border-b border-gray-100 py-12 lg:py-16"
-          style={{
-            background: `linear-gradient(135deg, ${primary}12, #f9fafb)`,
-          }}
-        >
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div
-              className="mb-3 h-1 w-12 rounded-full"
-              style={{ backgroundColor: primary }}
-            />
-            <h1 className="mb-3 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-              {pageContent.heroTitle ?? "Shop"}
-            </h1>
-            <div className="space-y-2 text-lg text-gray-500">
-              {pageContent.heroBody && <p>{pageContent.heroBody}</p>}
-              <p>
-                {publishedProducts.length} product
-                {publishedProducts.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {publishedProducts.length > 0 ? (
-          <ShopGridSection
-            products={products}
-            settings={settings}
-            websiteId={websiteId}
-          />
-        ) : (
-          <section className="bg-white py-20 text-center text-gray-400">
-            <div className="mx-auto max-w-3xl px-4">
-              <p className="text-lg">{pageContent.emptyStateTitle}</p>
-              {pageContent.emptyStateBody && (
-                <p className="mt-3 text-sm text-gray-500">
-                  {pageContent.emptyStateBody}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        <CTASection settings={settings} />
-        <FooterSection website={website} settings={settings} />
+        <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
+        {presentation.sectionOrder.map((slot) => (
+          <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
+        ))}
+        <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} />
       </div>
     </>
   );

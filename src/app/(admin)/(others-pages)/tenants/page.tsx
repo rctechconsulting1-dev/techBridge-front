@@ -11,22 +11,16 @@ import Button from "@/components/ui/button/Button";
 import { useSidebar } from "@/context/SidebarContext";
 import { apiClient } from "@/lib/api-client";
 import { setActiveTenantId } from "@/lib/auth-context";
-
-const BUSINESS_TYPE_OPTIONS = [
-  { value: "lead_gen_services", label: "Lead Gen Services" },
-  { value: "appointments", label: "Appointments" },
-  { value: "ecommerce", label: "Ecommerce" },
-  { value: "reservations", label: "Reservations" },
-  { value: "hybrid_local", label: "Hybrid Local" },
-];
+import {
+  OPTIONAL_SYSTEM_PAGE_CONFIGS,
+  type OptionalSystemPageSlug,
+} from "@/lib/page-management";
 
 const MODULE_OPTIONS = [
   { value: "website_core", label: "Website Core" },
   { value: "seo_content", label: "SEO Content" },
   { value: "lead_capture", label: "Lead Capture" },
   { value: "calendar_appointments", label: "Calendar / Appointments" },
-  { value: "checkout_ecommerce", label: "Checkout / Ecommerce" },
-  { value: "reservations", label: "Reservations" },
   { value: "google_business_management", label: "Google Business" },
   { value: "sms_leads_and_comms", label: "SMS Leads and Comms" },
   { value: "google_ads_optimization", label: "Google Ads Optimization" },
@@ -40,10 +34,24 @@ const PLAN_OPTIONS = [
   { value: "enterprise", label: "Enterprise (Custom)" },
 ];
 
+const OPTIONAL_TENANT_PAGE_OPTIONS = OPTIONAL_SYSTEM_PAGE_CONFIGS.filter(
+  (config) => config.slug !== "contact" && config.slug !== "reservations",
+);
+
+const CORE_PAGE_LABELS = ["Home", "Services", "About", "Contact"];
+
+type TenantFeatureToggleKey = "shop" | "reservations";
+
+type TenantFeatureToggles = Record<TenantFeatureToggleKey, boolean>;
+
+const initialFeatureToggles: TenantFeatureToggles = {
+  shop: false,
+  reservations: false,
+};
+
 type FormState = {
   tenantName: string;
   tenantSlug: string;
-  businessType: string;
   timezone: string;
   defaultCurrency: string;
   domain: string;
@@ -101,14 +109,30 @@ type TenantListItem = {
   last_attempted_at: string | null;
   last_sent_at: string | null;
   last_error: string | null;
+  delivery_results: Record<string, {
+    status: "accepted" | "failed" | "skipped";
+    providerId: string | null;
+    message: string | null;
+    at: string | null;
+  }> | null;
   enabled_modules: string[];
+};
+
+type InviteEmailKey = "welcome" | "reset_password" | "intake";
+
+type InviteDeliveryResultRecord = NonNullable<TenantListItem["delivery_results"]>;
+
+type InviteDeliveryResult = {
+  status: "accepted" | "failed" | "skipped";
+  providerId?: string | null;
+  message?: string | null;
+  at: string;
 };
 
 type EditFormState = {
   tenantId: number;
   tenantName: string;
   tenantSlug: string;
-  businessType: string;
   timezone: string;
   defaultCurrency: string;
   domain: string;
@@ -120,7 +144,6 @@ type EditFormState = {
 const initialState: FormState = {
   tenantName: "",
   tenantSlug: "",
-  businessType: "lead_gen_services",
   timezone: "America/Chicago",
   defaultCurrency: "USD",
   domain: "",
@@ -135,6 +158,8 @@ export default function TenantsPage() {
   const router = useRouter();
   const { setSelectedClient } = useSidebar();
   const [form, setForm] = useState<FormState>(initialState);
+  const [selectedAdditionalPages, setSelectedAdditionalPages] = useState<OptionalSystemPageSlug[]>([]);
+  const [featureToggles, setFeatureToggles] = useState<TenantFeatureToggles>(initialFeatureToggles);
   const [enabledModules, setEnabledModules] = useState<string[]>([
     "website_core",
     "seo_content",
@@ -151,7 +176,6 @@ export default function TenantsPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [businessTypeFilter, setBusinessTypeFilter] = useState("all");
   const [inviteFilter, setInviteFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
   const [rowActionTenantId, setRowActionTenantId] = useState<number | null>(null);
@@ -170,6 +194,7 @@ export default function TenantsPage() {
     primary_domain?: string | null;
     website_domain?: string | null;
   }) => {
+    const resolvedDomain = tenant.primary_domain ?? tenant.website_domain ?? null;
     setActiveTenantId(tenant.id);
     setSelectedClient({
       id: tenant.owner_user_id ?? tenant.id,
@@ -178,7 +203,8 @@ export default function TenantsPage() {
       name: tenant.name,
       email: tenant.owner_email ?? "",
       role: tenant.owner_role ?? "tenant_owner",
-      domain: tenant.primary_domain ?? tenant.website_domain ?? null,
+      domain: resolvedDomain,
+      temporaryDomainAssigned: resolvedDomain?.endsWith(".rctechbridge.com") ?? false,
     });
   };
 
@@ -203,7 +229,6 @@ export default function TenantsPage() {
       tenantId: tenant.id,
       tenantName: tenant.name,
       tenantSlug: tenant.slug,
-      businessType: tenant.business_type,
       timezone: tenant.timezone,
       defaultCurrency: tenant.default_currency,
       domain: tenant.primary_domain ?? tenant.website_domain ?? "",
@@ -235,12 +260,10 @@ export default function TenantsPage() {
       ].some((value) => value.toLowerCase().includes(normalizedSearch));
 
       const matchesStatus = statusFilter === "all" || tenant.status === statusFilter;
-      const matchesBusinessType =
-        businessTypeFilter === "all" || tenant.business_type === businessTypeFilter;
       const inviteStatus = tenant.invite_status ?? "not_sent";
       const matchesInvite = inviteFilter === "all" || inviteStatus === inviteFilter;
 
-      return matchesSearch && matchesStatus && matchesBusinessType && matchesInvite;
+      return matchesSearch && matchesStatus && matchesInvite;
     });
 
     next.sort((left, right) => {
@@ -260,7 +283,7 @@ export default function TenantsPage() {
     });
 
     return next;
-  }, [businessTypeFilter, inviteFilter, searchTerm, sortOrder, statusFilter, tenants]);
+  }, [inviteFilter, searchTerm, sortOrder, statusFilter, tenants]);
 
   const formatTimestamp = (value: string | null) => {
     if (!value) {
@@ -289,14 +312,69 @@ export default function TenantsPage() {
     }
   };
 
+  const deliveryBadgeClasses = (status: InviteDeliveryResult["status"]) => {
+    switch (status) {
+      case "accepted":
+        return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-300";
+      case "failed":
+        return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300";
+      case "skipped":
+      default:
+        return "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
+    }
+  };
+
+  const inviteEmailLabels: Record<InviteEmailKey, string> = {
+    welcome: "Welcome",
+    reset_password: "Reset",
+    intake: "Intake",
+  };
+
+  const buildInviteDeliveryResults = (
+    results: Array<{ key: InviteEmailKey; result: PromiseSettledResult<{ id: string }> }>,
+  ) => {
+    const now = new Date().toISOString();
+
+    return Object.fromEntries(
+      results.map(({ key, result }) => {
+        if (result.status === "fulfilled") {
+          return [
+            key,
+            {
+              status: "accepted",
+              providerId: result.value?.id ?? null,
+              message: result.value?.id
+                ? `Accepted by provider (${result.value.id})`
+                : "Accepted by provider",
+              at: now,
+            },
+          ];
+        }
+
+        return [
+          key,
+          {
+            status: "failed",
+            message:
+              result.reason instanceof Error
+                ? result.reason.message
+                : String(result.reason),
+            at: now,
+          },
+        ];
+      }),
+    );
+  };
+
   const recordInviteAttempt = async (
     tenantId: number,
-    results: PromiseSettledResult<unknown>[],
+    results: Array<{ key: InviteEmailKey; result: PromiseSettledResult<{ id: string }> }>,
   ) => {
-    const rejected = results.filter((result) => result.status === "rejected");
+    const rawResults = results.map((entry) => entry.result);
+    const rejected = rawResults.filter((result) => result.status === "rejected");
     const status = rejected.length === 0
       ? "sent"
-      : rejected.length === results.length
+      : rejected.length === rawResults.length
         ? "failed"
         : "partial_failure";
     const lastError = rejected
@@ -312,6 +390,7 @@ export default function TenantsPage() {
     await apiClient.post(`/tenants/${tenantId}/invite-status`, {
       status,
       lastError: lastError || undefined,
+      deliveryResults: buildInviteDeliveryResults(results),
     });
 
     return { status, lastError };
@@ -361,6 +440,21 @@ export default function TenantsPage() {
     );
   };
 
+  const toggleAdditionalPage = (slug: OptionalSystemPageSlug) => {
+    setSelectedAdditionalPages((current) =>
+      current.includes(slug)
+        ? current.filter((value) => value !== slug)
+        : [...current, slug],
+    );
+  };
+
+  const toggleFeature = (feature: TenantFeatureToggleKey) => {
+    setFeatureToggles((current) => ({
+      ...current,
+      [feature]: !current[feature],
+    }));
+  };
+
   const toggleEditModule = (moduleKey: string) => {
     setEditModules((current) =>
       current.includes(moduleKey)
@@ -379,6 +473,8 @@ export default function TenantsPage() {
       const response = await apiClient.post<ProvisionResponse>("/tenants", {
         ...form,
         enabledModules,
+        pageSlugs: selectedAdditionalPages,
+        featureToggles,
       });
 
       setActiveTenantId(response.tenant.id);
@@ -390,23 +486,57 @@ export default function TenantsPage() {
         email: response.ownerUser.email,
         role: response.ownerUser.role,
         domain: response.website.domain,
+        temporaryDomainAssigned: response.temporaryDomainAssigned ?? false,
       });
 
       const firstName = form.ownerName.trim().split(/\s+/)[0] || undefined;
-      const emailResults = await Promise.allSettled([
-        apiClient.sendWelcomeEmail(response.ownerUser.email, firstName),
-        apiClient.sendResetPasswordEmail(response.ownerUser.email, firstName),
-      ]);
-      const inviteAttempt = await recordInviteAttempt(response.tenant.id, emailResults);
+      const inviteJobs: Array<{ key: InviteEmailKey; promise: Promise<{ id: string }> }> = [
+        {
+          key: "welcome",
+          promise: apiClient.sendWelcomeEmailForTenant(
+            response.ownerUser.email,
+            firstName,
+            response.tenant.id,
+            response.website.id,
+          ),
+        },
+        {
+          key: "reset_password",
+          promise: apiClient.sendResetPasswordEmailForTenant(
+            response.ownerUser.email,
+            firstName,
+            response.tenant.id,
+            response.website.id,
+          ),
+        },
+        {
+          key: "intake",
+          promise: apiClient.sendIntakeEmail(
+            response.ownerUser.email,
+            response.tenant.id,
+            "universal",
+            firstName,
+            response.website.id,
+            response.tenant.name,
+          ),
+        },
+      ];
+      const emailResults = await Promise.allSettled(inviteJobs.map((job) => job.promise));
+      const inviteAttempt = await recordInviteAttempt(
+        response.tenant.id,
+        inviteJobs.map((job, index) => ({ key: job.key, result: emailResults[index] })),
+      );
 
       await loadTenants();
 
       setSuccessMessage(
         inviteAttempt.status === "sent"
-          ? `Tenant ${response.tenant.name} created${response.temporaryDomainAssigned ? ` with temporary domain ${response.website.domain}` : ""}, owner emails sent, redirecting to onboarding...`
-          : `Tenant ${response.tenant.name} created${response.temporaryDomainAssigned ? ` with temporary domain ${response.website.domain}` : ""}, but one or more owner emails failed. Redirecting to onboarding...`,
+          ? `Tenant ${response.tenant.name} created${response.temporaryDomainAssigned ? ` with temporary domain ${response.website.domain}` : ""}, owner emails sent, and the selected site structure was provisioned. Redirecting to onboarding...`
+          : `Tenant ${response.tenant.name} created${response.temporaryDomainAssigned ? ` with temporary domain ${response.website.domain}` : ""}, and the selected site structure was provisioned, but one or more owner emails failed. Redirecting to onboarding...`,
       );
       setForm(initialState);
+      setSelectedAdditionalPages([]);
+      setFeatureToggles(initialFeatureToggles);
       setEnabledModules(["website_core", "seo_content", "lead_capture"]);
       window.setTimeout(() => {
         router.push("/onboarding");
@@ -440,7 +570,6 @@ export default function TenantsPage() {
       await apiClient.put(`/tenants/${editForm.tenantId}`, {
         tenantName: editForm.tenantName,
         tenantSlug: editForm.tenantSlug,
-        businessType: editForm.businessType,
         timezone: editForm.timezone,
         defaultCurrency: editForm.defaultCurrency,
         domain: editForm.domain,
@@ -474,11 +603,42 @@ export default function TenantsPage() {
 
     try {
       const firstName = tenant.owner_name?.trim().split(/\s+/)[0] || undefined;
-      const emailResults = await Promise.allSettled([
-        apiClient.sendWelcomeEmail(tenant.owner_email, firstName),
-        apiClient.sendResetPasswordEmail(tenant.owner_email, firstName),
-      ]);
-      const inviteAttempt = await recordInviteAttempt(tenant.id, emailResults);
+      const inviteJobs: Array<{ key: InviteEmailKey; promise: Promise<{ id: string }> }> = [
+        {
+          key: "welcome",
+          promise: apiClient.sendWelcomeEmailForTenant(
+            tenant.owner_email,
+            firstName,
+            tenant.id,
+            tenant.website_id ?? undefined,
+          ),
+        },
+        {
+          key: "reset_password",
+          promise: apiClient.sendResetPasswordEmailForTenant(
+            tenant.owner_email,
+            firstName,
+            tenant.id,
+            tenant.website_id ?? undefined,
+          ),
+        },
+        {
+          key: "intake",
+          promise: apiClient.sendIntakeEmail(
+            tenant.owner_email,
+            tenant.id,
+            "universal",
+            firstName,
+            tenant.website_id ?? undefined,
+            tenant.name,
+          ),
+        },
+      ];
+      const emailResults = await Promise.allSettled(inviteJobs.map((job) => job.promise));
+      const inviteAttempt = await recordInviteAttempt(
+        tenant.id,
+        inviteJobs.map((job, index) => ({ key: job.key, result: emailResults[index] })),
+      );
 
       await loadTenants();
 
@@ -606,7 +766,7 @@ export default function TenantsPage() {
       <div className="space-y-6">
         <ComponentCard
           title="Create Tenant"
-          desc="Provision a tenant, owner account, website, and initial add-on entitlements in one admin-only workflow."
+          desc="Provision a tenant, owner account, website, default site structure, and initial add-on entitlements in one admin-only workflow."
         >
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error ? (
@@ -640,21 +800,6 @@ export default function TenantsPage() {
                   placeholder="acme-electric"
                   hint={`Slug preview: ${slugPreview || "tenant"}`}
                 />
-              </div>
-              <div>
-                <Label htmlFor="businessType">Business Type</Label>
-                <select
-                  id="businessType"
-                  value={form.businessType}
-                  onChange={(event) => handleChange("businessType", event.target.value)}
-                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                >
-                  {BUSINESS_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
               </div>
               <div>
                 <Label htmlFor="domain">Domain</Label>
@@ -698,6 +843,103 @@ export default function TenantsPage() {
                   onChange={(event) => handleChange("defaultCurrency", event.target.value.toUpperCase())}
                   placeholder="USD"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Site Structure</p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Tenant setup now starts from one universal page model. Core pages are included automatically, and any extra route-backed parent pages below will be created after the tenant is provisioned.
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Core Pages Included
+                </p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {CORE_PAGE_LABELS.map((label) => (
+                    <div
+                      key={label}
+                      className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-300"
+                    >
+                      {label}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Home, Services, and About are platform-managed built-ins. Contact is created as a route-backed page during provisioning.
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Additional Pages Needed
+                </p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {OPTIONAL_TENANT_PAGE_OPTIONS.map((option) => {
+                    const checked = selectedAdditionalPages.includes(option.slug);
+                    return (
+                      <label
+                        key={option.slug}
+                        className="flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-200"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAdditionalPage(option.slug)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                        />
+                        <span>
+                          <span className="block font-medium">{option.title}</span>
+                          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+                            {option.description}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Use the feature toggles below for Shop and Reservations. This checklist is for extra route-backed parent pages only.
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Feature Toggles
+                </p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <label className="flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                    <input
+                      type="checkbox"
+                      checked={featureToggles.shop}
+                      onChange={() => toggleFeature("shop")}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                    />
+                    <span>
+                      <span className="block font-medium">Shop</span>
+                      <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+                        Enables the built-in Shop route and ecommerce checkout settings during tenant provisioning.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                    <input
+                      type="checkbox"
+                      checked={featureToggles.reservations}
+                      onChange={() => toggleFeature("reservations")}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                    />
+                    <span>
+                      <span className="block font-medium">Reservations</span>
+                      <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+                        Creates the Reservations parent page and activates reservation settings for the tenant.
+                      </span>
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -779,6 +1021,8 @@ export default function TenantsPage() {
                 variant="outline"
                 onClick={() => {
                   setForm(initialState);
+                  setSelectedAdditionalPages([]);
+                  setFeatureToggles(initialFeatureToggles);
                   setEnabledModules(["website_core", "seo_content", "lead_capture"]);
                   setError(null);
                   setSuccessMessage(null);
@@ -798,7 +1042,7 @@ export default function TenantsPage() {
           title="Manage Tenants"
           desc="Review existing tenants, select an active tenant context, and jump directly into onboarding or site operations."
         >
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
             <Input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
@@ -813,16 +1057,6 @@ export default function TenantsPage() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="suspended">Suspended</option>
-            </select>
-            <select
-              value={businessTypeFilter}
-              onChange={(event) => setBusinessTypeFilter(event.target.value)}
-              className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-            >
-              <option value="all">All Business Types</option>
-              {BUSINESS_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
             </select>
             <select
               value={inviteFilter}
@@ -902,7 +1136,7 @@ export default function TenantsPage() {
                         <p className="font-medium text-gray-900 dark:text-white">{tenant.name}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">slug: {tenant.slug}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {tenant.business_type} | {tenant.status}
+                          {tenant.status}
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
@@ -950,6 +1184,27 @@ export default function TenantsPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Last sent: {formatTimestamp(tenant.last_sent_at)}
                         </p>
+                        {tenant.delivery_results ? (
+                          <div className="mt-2 space-y-2">
+                            {(Object.entries(tenant.delivery_results) as Array<[InviteEmailKey, InviteDeliveryResultRecord[InviteEmailKey]]>).map(([key, result]) => (
+                              <div key={`${tenant.id}-${key}`} className="rounded-lg border border-gray-200 p-2 dark:border-gray-800">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    {inviteEmailLabels[key]}
+                                  </span>
+                                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${deliveryBadgeClasses(result.status)}`}>
+                                    {result.status}
+                                  </span>
+                                </div>
+                                {result.message ? (
+                                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {result.message}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                         {tenant.last_error ? (
                           <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                             {tenant.last_error}
@@ -1056,29 +1311,16 @@ export default function TenantsPage() {
                     <Input id="editTenantSlug" value={editForm.tenantSlug} onChange={(event) => handleEditChange("tenantSlug", event.target.value)} required />
                   </div>
                   <div>
-                    <Label htmlFor="editBusinessType">Business Type</Label>
-                    <select
-                      id="editBusinessType"
-                      value={editForm.businessType}
-                      onChange={(event) => handleEditChange("businessType", event.target.value)}
-                      className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                    >
-                      {BUSINESS_TYPE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="editDomain">Primary Domain</Label>
-                    <Input id="editDomain" value={editForm.domain} onChange={(event) => handleEditChange("domain", event.target.value)} />
-                  </div>
-                  <div>
                     <Label htmlFor="editTimezone">Timezone</Label>
                     <Input id="editTimezone" value={editForm.timezone} onChange={(event) => handleEditChange("timezone", event.target.value)} />
                   </div>
                   <div>
                     <Label htmlFor="editCurrency">Default Currency</Label>
                     <Input id="editCurrency" value={editForm.defaultCurrency} onChange={(event) => handleEditChange("defaultCurrency", event.target.value.toUpperCase())} />
+                  </div>
+                  <div>
+                    <Label htmlFor="editDomain">Primary Domain</Label>
+                    <Input id="editDomain" value={editForm.domain} onChange={(event) => handleEditChange("domain", event.target.value)} />
                   </div>
                   <div>
                     <Label htmlFor="editOwnerName">Owner Name</Label>

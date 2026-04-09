@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type React from "react";
 import Image from "next/image";
 import {
+  getPages,
   getPageBySlug,
   getPageImages,
   getSiteSettings,
@@ -12,6 +13,7 @@ import NavBar from "@/components/sections/NavBar";
 import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
 import MarkdownContent from "@/components/common/MarkdownContent";
+import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
@@ -55,9 +57,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CustomPage({ params }: Props) {
   const { websiteId, slug } = await params;
-  const [website, settings, page] = await Promise.all([
+  const [website, settings, pages, page] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
+    getPages(websiteId),
     getPageBySlug(websiteId, slug),
   ]);
 
@@ -66,6 +69,7 @@ export default async function CustomPage({ params }: Props) {
   }
 
   const pageImages = await getPageImages(page.id);
+  const chromeVariants = getGenericSectionVariants("custom");
 
   const primary = settings?.primary_color ?? "#CD7F32";
   const cssVars = {
@@ -79,7 +83,7 @@ export default async function CustomPage({ params }: Props) {
     <>
       {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
-        <NavBar websiteId={websiteId} website={website} settings={settings} />
+        <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
 
         <section className="border-b border-gray-100 bg-gray-50 py-16 lg:py-20">
           <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -140,8 +144,8 @@ export default async function CustomPage({ params }: Props) {
           </article>
         </section>
 
-        <CTASection settings={settings} />
-        <FooterSection website={website} settings={settings} />
+        <CTASection settings={settings} variant={chromeVariants.cta} />
+        <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} />
       </div>
     </>
   );

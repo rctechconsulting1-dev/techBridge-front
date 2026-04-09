@@ -2,11 +2,13 @@ import type React from "react";
 import Link from "next/link";
 import EditableImage from "@/components/ui/EditableImage";
 import type { Product, SiteSettings } from "@/lib/cms-types";
+import type { ShopGridSectionVariant } from "@/components/sections/sectionVariants";
 
 interface Props {
   products: Product[];
   settings: SiteSettings | null;
   websiteId: string | number;
+  variant?: ShopGridSectionVariant;
 }
 
 function StarRating({ rating, count }: { rating: number; count: number }) {
@@ -45,11 +47,79 @@ export default function ShopGridSection({
   products,
   settings,
   websiteId,
+  variant = "product_grid",
 }: Props) {
   const primary = settings?.primary_color ?? "#CD7F32";
   const published = products.filter((p) => p.is_published);
 
   if (published.length === 0) return null;
+
+  if (variant === "editorial_cards") {
+    return (
+      <section aria-label="Products" className="bg-[#FBF6F0] py-12 lg:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <ul role="list" className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {published.map((product) => {
+              const price = parseFloat(product.price);
+              return (
+                <li key={product.id}>
+                  <Link href={`/sites/${websiteId}/shop/${product.slug}`} className="block overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white shadow-sm transition-transform hover:-translate-y-1" aria-label={`${product.title}, $${price.toFixed(2)}`}>
+                    <div className="relative aspect-[4/3] bg-gray-100">
+                      {product.image_url ? (
+                        <EditableImage src={product.image_url} alt={product.title} fill className="object-cover" />
+                      ) : null}
+                    </div>
+                    <div className="p-6">
+                      <h2 className="text-2xl font-semibold text-gray-900">{product.title}</h2>
+                      {product.description ? <p className="mt-3 text-sm leading-relaxed text-gray-600">{product.description.slice(0, 160)}</p> : null}
+                      <div className="mt-5 flex items-center justify-between">
+                        <span className="text-sm font-semibold uppercase tracking-[0.18em]" style={{ color: primary }}>${price.toFixed(2)}</span>
+                        {product.review_count > 0 ? <StarRating rating={parseFloat(product.average_rating)} count={product.review_count} /> : null}
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </section>
+    );
+  }
+
+  if (variant === "minimal_rows") {
+    return (
+      <section aria-label="Products" className="bg-white py-12 lg:py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <ul role="list" className="space-y-4">
+            {published.map((product) => {
+              const price = parseFloat(product.price);
+
+              return (
+                <li key={product.id}>
+                  <Link href={`/sites/${websiteId}/shop/${product.slug}`} className="grid gap-4 rounded-[1.5rem] border border-gray-200 px-5 py-5 transition-colors hover:border-gray-300 md:grid-cols-[120px_1fr_auto] md:items-center" aria-label={`${product.title}, $${price.toFixed(2)}`}>
+                    <div className="relative aspect-square overflow-hidden rounded-[1rem] bg-gray-100">
+                      {product.image_url ? (
+                        <EditableImage src={product.image_url} alt={product.title} fill className="object-cover" />
+                      ) : null}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">{product.title}</h2>
+                      {product.description ? <p className="mt-2 text-sm leading-relaxed text-gray-600">{product.description.slice(0, 160)}</p> : null}
+                    </div>
+                    <div className="text-left md:text-right">
+                      <p className="text-sm font-semibold uppercase tracking-[0.18em]" style={{ color: primary }}>${price.toFixed(2)}</p>
+                      {product.review_count > 0 ? <div className="mt-2"><StarRating rating={parseFloat(product.average_rating)} count={product.review_count} /></div> : null}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section aria-label="Products" className="bg-white py-12 lg:py-16">

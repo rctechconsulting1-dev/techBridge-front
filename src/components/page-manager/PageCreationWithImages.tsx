@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PageCreationData } from '@/types/page';
+import { InitialPageDraft, Page, PageCreationData } from '@/types/page';
 import Button from '@/components/ui/button/Button';
 import MultipleFileInputExample, { MultipleFileInputRef } from '@/components/form/form-elements/MultipleFileInputExample';
 import PageCreationWizardEnhanced from './PageCreationWizardEnhanced';
@@ -9,9 +9,10 @@ interface PageCreationWithImagesProps {
   onCancel: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
-  initialPageDraft?: { slug: string; title: string; is_published?: boolean };
+  initialPageDraft?: InitialPageDraft;
   suggestedSlugs?: string[];
   websiteId?: number;
+  availableParentPages?: Page[];
 }
 
 const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
@@ -22,6 +23,7 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
   initialPageDraft,
   suggestedSlugs,
   websiteId,
+  availableParentPages,
 }) => {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [createdPageId, setCreatedPageId] = useState<number | null>(null);
@@ -145,6 +147,7 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
       enableAIContent={enableAIContent}
       initialPageDraft={initialPageDraft}
       suggestedSlugs={suggestedSlugs}
+      availableParentPages={availableParentPages}
     />
   );
 };

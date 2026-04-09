@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Page, FormData, ImageUploadLocation, PageType, TemplateType, PageCreationData } from '@/types/page';
 import { mutateUpdate } from '@/hooks/useMutateUpdate';
 import { useGetPages } from '@/hooks/usePages';
@@ -8,6 +8,21 @@ interface UsePageManagerProps {
   websiteId: number | null;
   onSuccess?: () => void;
 }
+
+const getLegacyMainNavFlag = (values: {
+  nav_placement?: Page['nav_placement'] | PageCreationData['nav_placement'] | null;
+  nav_style?: Page['nav_style'] | PageCreationData['nav_style'] | null;
+  parent_id?: number | null;
+  is_main_nav?: boolean;
+}) => {
+  if (values.nav_placement || values.nav_style || values.parent_id) {
+    return values.nav_placement === 'header'
+      && values.nav_style !== 'dropdown_child'
+      && !values.parent_id;
+  }
+
+  return values.is_main_nav ?? false;
+};
 
 export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) => {
   const [selectedPage, setSelectedPage] = useState<Page | undefined>(undefined);
@@ -20,23 +35,90 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
   const { seoData } = useGetSeo(selectedPage?.id || null);
 
   // Organize pages by hierarchy (using type casting for enhanced fields)
-  const enhancedPages = pages as Page[];
-  
-  const mainNavPages = enhancedPages.filter(page => 
-    page.is_main_nav || page.type === 'main'
+  const enhancedPages = useMemo(() => pages as Page[], [pages]);
+  const getAssignmentsForPlacement = useCallback((page: Page, placement: 'header' | 'footer') => {
+    if (Array.isArray(page.navigation_assignments) && page.navigation_assignments.length > 0) {
+      return page.navigation_assignments.filter((assignment) => assignment.placement === placement);
+    }
+
+    const fallbackPlacement = page.nav_placement ?? (getLegacyMainNavFlag(page) ? 'header' : 'hidden');
+    if (fallbackPlacement !== placement) {
+      return [];
+    }
+
+    return [{
+      placement,
+      style: page.nav_style ?? (page.parent_id ? 'dropdown_child' : 'direct'),
+      parent_page_id: page.nav_parent_id ?? null,
+      sort_order: page.nav_order ?? page.sort_order ?? 0,
+      label: page.nav_label ?? page.title,
+    }];
+  }, []);
+  const getPrimaryHeaderAssignment = useCallback(
+    (page: Page) => getAssignmentsForPlacement(page, 'header')[0] ?? null,
+    [getAssignmentsForPlacement],
   );
-  const servicePages = enhancedPages.filter(page => 
-    page.page_type === 'service' || page.type === 'service'
+  const getNavPlacement = useCallback(
+    (page: Page) => getPrimaryHeaderAssignment(page)?.placement ?? page.nav_placement ?? (getLegacyMainNavFlag(page) ? 'header' : 'hidden'),
+    [getPrimaryHeaderAssignment],
   );
-  const blogPosts = enhancedPages.filter(page => 
-    page.page_type === 'blog-post' || page.type === 'blog'
+  const getNavStyle = useCallback(
+    (page: Page) => getPrimaryHeaderAssignment(page)?.style ?? page.nav_style ?? (page.parent_id ? 'dropdown_child' : 'direct'),
+    [getPrimaryHeaderAssignment],
   );
-  const galleryPages = enhancedPages.filter(page => 
-    page.page_type === 'gallery' || page.type === 'gallery'
-  );
-  const customPages = enhancedPages.filter(page => 
-    page.page_type === 'custom' || (!page.type || page.type === 'custom')
-  );
+  const {
+    parentPages,
+    childPages,
+    headerPages,
+    headerDirectPages,
+    dropdownParentPages,
+    dropdownChildPages,
+    standaloneParentPages,
+    hiddenChildPages,
+    servicePages,
+    blogPosts,
+    galleryPages,
+    customPages,
+    customParentPages,
+  } = useMemo(() => {
+    const parentPages = enhancedPages.filter(page => !page.parent_id);
+    const childPages = enhancedPages.filter(page => !!page.parent_id);
+    const headerPages = enhancedPages.filter((page) => getNavPlacement(page) === 'header');
+    const headerDirectPages = headerPages.filter((page) => !page.parent_id && getNavStyle(page) === 'direct');
+    const dropdownParentPages = headerPages.filter((page) => !page.parent_id && getNavStyle(page) === 'dropdown_parent');
+    const dropdownChildPages = headerPages.filter((page) => getNavStyle(page) === 'dropdown_child');
+    const standaloneParentPages = parentPages.filter((page) => getNavPlacement(page) !== 'header');
+    const hiddenChildPages = childPages.filter((page) => getNavPlacement(page) !== 'header');
+    const servicePages = enhancedPages.filter(page => 
+      page.page_type === 'service' || page.type === 'service'
+    );
+    const blogPosts = enhancedPages.filter(page => 
+      page.page_type === 'blog-post' || page.type === 'blog'
+    );
+    const galleryPages = enhancedPages.filter(page => 
+      page.page_type === 'gallery' || page.type === 'gallery'
+    );
+    const customPages = enhancedPages.filter(page => 
+      page.page_type === 'custom' || (!page.type || page.type === 'custom')
+    );
+    const customParentPages = customPages.filter(page => !page.parent_id);
+
+    return {
+      parentPages,
+      childPages,
+      headerPages,
+      headerDirectPages,
+      dropdownParentPages,
+      dropdownChildPages,
+      standaloneParentPages,
+      hiddenChildPages,
+      servicePages,
+      blogPosts,
+      galleryPages,
+      customPages,
+      customParentPages,
+    };
+  }, [enhancedPages, getNavPlacement, getNavStyle]);
 
   const selectPage = useCallback((pageId: number) => {
     const page = enhancedPages.find((p) => p.id === pageId);
@@ -50,7 +132,17 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
     setPageCreationData({
       page_type: pageType,
       template_type: templateType,
-      is_main_nav: pageType === 'main-page',
+      is_enabled: true,
+      nav_placement: pageType === 'main-page' ? 'header' : 'hidden',
+      nav_style: 'direct',
+      is_main_nav: getLegacyMainNavFlag({
+        nav_placement: pageType === 'main-page' ? 'header' : 'hidden',
+        nav_style: 'direct',
+        parent_id: null,
+      }),
+      navigation_assignments: pageType === 'main-page'
+        ? [{ placement: 'header', style: 'direct', sort_order: 0, is_active: true }]
+        : [],
     });
     setContent("");
   }, []);
@@ -68,7 +160,32 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
       title: data.title,
       slug: data.slug,
       parent_id: data.parent_id || null,
-      is_main_nav: data.is_main_nav,
+      is_main_nav: getLegacyMainNavFlag({
+        nav_placement: data.nav_placement ?? (data.is_main_nav ? 'header' : 'hidden'),
+        nav_style: data.nav_style ?? (data.parent_id ? 'dropdown_child' : 'direct'),
+        parent_id: data.parent_id || null,
+        is_main_nav: data.is_main_nav,
+      }),
+      is_enabled: data.is_enabled ?? data.is_published ?? true,
+      is_required: data.is_required ?? false,
+      nav_placement: data.nav_placement ?? (data.is_main_nav ? 'header' : 'hidden'),
+      nav_style: data.nav_style ?? (data.parent_id ? 'dropdown_child' : 'direct'),
+      nav_parent_id: data.nav_parent_id || null,
+      nav_order: data.nav_order ?? 0,
+      nav_label: data.nav_label ?? data.title,
+      is_external_link: data.is_external_link ?? false,
+      navigation_assignments: data.navigation_assignments ?? (
+        data.nav_placement && data.nav_placement !== 'hidden'
+          ? [{
+              placement: data.nav_placement,
+              style: data.nav_style ?? (data.parent_id ? 'dropdown_child' : 'direct'),
+              parent_page_id: data.nav_parent_id || null,
+              sort_order: data.nav_order ?? 0,
+              label: data.nav_label ?? data.title,
+              is_active: data.is_enabled ?? true,
+            }]
+          : []
+      ),
       meta_description: data.meta_description || null,
       meta_keywords: data.meta_keywords || null,
       website_id: websiteId,
@@ -160,11 +277,19 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
     content,
     imageUploadLocation,
     // Organized page lists
-    mainNavPages,
+    headerPages,
+    headerDirectPages,
+    dropdownParentPages,
+    dropdownChildPages,
+    hiddenChildPages,
+    standaloneParentPages,
+    parentPages,
+    childPages,
     servicePages,
     blogPosts,
     galleryPages,
     customPages,
+    customParentPages,
     // State
     creationMode,
     pageCreationData,

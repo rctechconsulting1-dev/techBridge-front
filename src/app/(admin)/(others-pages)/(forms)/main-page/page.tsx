@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { type MDXEditorMethods } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import ComponentCard from "@/components/common/ComponentCard";
 import Button from "@/components/ui/button/Button";
@@ -16,10 +17,14 @@ import EditorSection from "@/components/page-manager/EditorSection";
 import { useSidebar } from "@/context/SidebarContext";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { usePageManager } from "@/hooks/usePageManager";
-import { PageCreationData } from "@/types/page";
+import { InitialPageDraft, PageCreationData } from "@/types/page";
 import PageBreadcrumb from "../../../../../components/common/PageBreadCrumb";
 import { getApiBaseUrl } from "@/lib/api";
 import { getActiveTenantId } from "@/lib/auth-context";
+import {
+  isOptionalSystemPageSlug,
+  OPTIONAL_SYSTEM_PAGE_CONFIG_BY_SLUG,
+} from "@/lib/page-management";
 
 const DEFAULT_MARKDOWN = `
 Enter Content Here,
@@ -42,6 +47,7 @@ const getAuthHeaders = () => {
 export default function FormMain() {
   // Context
   const { selectedClient } = useSidebar();
+  const searchParams = useSearchParams();
   
   // State
   const [showCreationWizard, setShowCreationWizard] = useState(false);
@@ -49,9 +55,8 @@ export default function FormMain() {
   const [viewMode, setViewMode] = useState<'organizer' | 'editor'>('organizer');
   const [requiredNavSlugs, setRequiredNavSlugs] = useState<string[]>([]);
   const [selectedMissingSlug, setSelectedMissingSlug] = useState<string>("");
-  const [initialPageDraft, setInitialPageDraft] = useState<
-    { slug: string; title: string; is_published?: boolean } | undefined
-  >(undefined);
+  const [isSyncingParentPages, setIsSyncingParentPages] = useState(false);
+  const [initialPageDraft, setInitialPageDraft] = useState<InitialPageDraft | undefined>(undefined);
   
   // Refs
   const editorRef = useRef<MDXEditorMethods>(null);
@@ -63,7 +68,12 @@ export default function FormMain() {
     selectedPage,
     seoData,
     content,
-    mainNavPages,
+    headerDirectPages,
+    dropdownParentPages,
+    dropdownChildPages,
+    hiddenChildPages,
+    standaloneParentPages,
+    parentPages,
     servicePages,
     blogPosts,
     galleryPages,
@@ -137,7 +147,8 @@ export default function FormMain() {
         new Set(
           sourceLinks
             .map((l) => toSlugFromHref(l.href ?? ""))
-            .filter((s): s is string => !!s),
+            .filter((s): s is string => !!s)
+            .filter((slug) => !isOptionalSystemPageSlug(slug)),
         ),
       );
 
@@ -170,6 +181,92 @@ export default function FormMain() {
     }
   }, [seoData, selectedPage, updateFormData]);
 
+  const allPages = useMemo(
+    () => [
+      ...headerDirectPages,
+      ...dropdownParentPages,
+      ...dropdownChildPages,
+      ...standaloneParentPages,
+      ...servicePages,
+      ...blogPosts,
+      ...galleryPages,
+      ...customPages,
+      ...hiddenChildPages,
+    ],
+    [
+      blogPosts,
+      customPages,
+      dropdownChildPages,
+      dropdownParentPages,
+      galleryPages,
+      headerDirectPages,
+      hiddenChildPages,
+      servicePages,
+      standaloneParentPages,
+    ],
+  );
+
+  const pageBySlug = useMemo(
+    () => new Map(
+      allPages
+        .filter((p) => !!p.slug)
+        .map((p) => [String(p.slug).toLowerCase(), p]),
+    ),
+    [allPages],
+  );
+
+  const missingNavPages = requiredNavSlugs.filter((slug) => !pageBySlug.has(slug));
+  const unpublishedNavPages = requiredNavSlugs.filter((slug) => {
+    const page = pageBySlug.get(slug);
+    return !!page && !page.is_published;
+  });
+  const resolvedNavPages = requiredNavSlugs.filter((slug) => {
+    const page = pageBySlug.get(slug);
+    return !!page && !!page.is_published;
+  });
+  const managedPageSlug = searchParams.get("managed")?.trim().toLowerCase() || "";
+  const selectedPageId = selectedPage?.id ?? null;
+  const managedPageConfig = isOptionalSystemPageSlug(managedPageSlug)
+    ? OPTIONAL_SYSTEM_PAGE_CONFIG_BY_SLUG.get(managedPageSlug)
+    : undefined;
+  const hasManagedDraftOpen = initialPageDraft?.slug === managedPageConfig?.slug
+    && initialPageDraft?.template_type === managedPageConfig?.templateType;
+
+  useEffect(() => {
+    if (!managedPageConfig) {
+      return;
+    }
+
+    const existingPage = pageBySlug.get(managedPageConfig.slug);
+    setViewMode("editor");
+
+    if (existingPage) {
+      if (selectedPageId !== existingPage.id) {
+        selectPage(existingPage.id);
+      }
+      setShowCreationWizard(false);
+      setInitialPageDraft(undefined);
+      return;
+    }
+
+    if (showCreationWizard && hasManagedDraftOpen) {
+      return;
+    }
+
+    setInitialPageDraft({
+      slug: managedPageConfig.slug,
+      title: managedPageConfig.title,
+      is_published: true,
+      is_enabled: true,
+      nav_placement: "hidden",
+      nav_style: "direct",
+      page_type: "main-page",
+      template_type: managedPageConfig.templateType,
+      parent_id: null,
+    });
+    setShowCreationWizard(true);
+  }, [hasManagedDraftOpen, initialPageDraft?.slug, managedPageConfig, pageBySlug, selectPage, selectedPageId, showCreationWizard]);
+
   // Handlers
   const handleCreatePage = useCallback(() => {
     setInitialPageDraft(undefined);
@@ -191,10 +288,48 @@ export default function FormMain() {
       slug: selectedMissingSlug,
       title: toTitleFromSlug(selectedMissingSlug),
       is_published: true,
+      is_enabled: true,
+      nav_placement: 'header',
+      nav_style: 'direct',
+      page_type: 'main-page',
+      template_type: selectedMissingSlug === 'contact' ? 'contact' : 'standard',
     });
     setShowCreationWizard(true);
     setViewMode("editor");
   }, [selectedMissingSlug, toTitleFromSlug]);
+
+  const handleSyncMissingParentPages = useCallback(async () => {
+    if (missingNavPages.length === 0) {
+      return;
+    }
+
+    setIsSyncingParentPages(true);
+    try {
+      for (const slug of missingNavPages) {
+        await createNewPage({
+          title: toTitleFromSlug(slug),
+          slug,
+          page_type: 'main-page',
+          template_type: slug === 'contact' ? 'contact' : 'standard',
+          parent_id: null,
+          is_main_nav: true,
+          is_enabled: true,
+          nav_placement: 'header',
+          nav_style: 'direct',
+          is_published: true,
+          meta_description: undefined,
+          meta_keywords: undefined,
+        });
+      }
+
+      await refreshPages();
+      await loadNavRequirements();
+      setShowAlert(true);
+      setTimeout(() => setShowAlert(false), 3000);
+    } finally {
+      setIsSyncingParentPages(false);
+    }
+  }, [createNewPage, loadNavRequirements, missingNavPages, refreshPages, toTitleFromSlug]);
 
   const handleCreatePageSubmit = useCallback(async (data: PageCreationData & { content?: string }) => {
     try {
@@ -268,28 +403,10 @@ export default function FormMain() {
   }, [validateAllFields, content, savePage, formData, selectedClient?.website_id, errors]);
 
   const shouldShowSeoMetadata = showCreationWizard || !!seoData;
-  const allPages = [
-    ...mainNavPages,
-    ...servicePages,
-    ...blogPosts,
-    ...galleryPages,
-    ...customPages,
-  ];
 
-  const pageBySlug = new Map(
-    allPages
-      .filter((p) => !!p.slug)
-      .map((p) => [String(p.slug).toLowerCase(), p]),
-  );
-
-  const missingNavPages = requiredNavSlugs.filter((slug) => !pageBySlug.has(slug));
-  const unpublishedNavPages = requiredNavSlugs.filter((slug) => {
-    const page = pageBySlug.get(slug);
-    return !!page && !page.is_published;
-  });
-  const resolvedNavPages = requiredNavSlugs.filter((slug) => {
-    const page = pageBySlug.get(slug);
-    return !!page && !!page.is_published;
+  const orphanedHeaderParentPages = [...headerDirectPages, ...dropdownParentPages].filter((page) => {
+    const slug = String(page.slug || '').toLowerCase();
+    return !!slug && !isOptionalSystemPageSlug(slug) && !requiredNavSlugs.includes(slug);
   });
 
   useEffect(() => {
@@ -317,6 +434,33 @@ export default function FormMain() {
       )}
       
       <PageBreadcrumb pageTitle="Custom Pages" />
+
+      {managedPageConfig && (
+        <ComponentCard title={`Managed Parent Page: ${managedPageConfig.title}`}>
+          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+            <p>
+              You are editing the managed parent route <strong>/{managedPageConfig.slug}</strong> from the dedicated Managed Pages workflow.
+            </p>
+            <p>
+              Use this screen for page content and SEO. Use <strong>Global Site Settings</strong> for enable, publish, and header placement.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link
+                href="/managed-pages"
+                className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Back to Managed Pages
+              </Link>
+              <Link
+                href="/site-settings"
+                className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Open Global Site Settings
+              </Link>
+            </div>
+          </div>
+        </ComponentCard>
+      )}
       
       {/* View Toggle */}
       <div className="mb-6 flex gap-4">
@@ -337,7 +481,7 @@ export default function FormMain() {
       <ComponentCard title="Custom Nav Page Coverage">
         {requiredNavSlugs.length === 0 ? (
           <p className="text-sm text-gray-500">
-            No custom /slug links found in Header Navigation. Add links like /why-us in Global Site Settings to track required custom pages here.
+            No extra custom /slug links found in Header Navigation. System pages like /contact, /faq, /blog, and /locations are now managed from Global Site Settings.
           </p>
         ) : (
           <div className="space-y-3 text-sm">
@@ -355,9 +499,19 @@ export default function FormMain() {
               >
                 Open Global Site Settings
               </Link>
+              {missingNavPages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void handleSyncMissingParentPages()}
+                  disabled={isSyncingParentPages}
+                  className="rounded-lg border border-emerald-300 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSyncingParentPages ? 'Creating Parent Pages...' : 'Create Missing Parent Pages'}
+                </button>
+              )}
             </div>
             <p className="text-gray-600 dark:text-gray-300">
-              These custom header links require a published page to avoid 404s. Built-in routes like /, /services, /about, and /shop are handled separately.
+              These extra header-managed custom route pages should exist as published parent pages. Built-in routes and optional system pages are handled separately.
             </p>
             <div className="flex flex-wrap gap-2">
               {requiredNavSlugs.map((slug) => {
@@ -406,13 +560,33 @@ export default function FormMain() {
                   </select>
                 </div>
                 <Button size="sm" onClick={handleCreateMissingPage}>
-                  Create Selected Custom Page
+                  Create Selected Parent Page
                 </Button>
+              </div>
+            )}
+            {orphanedHeaderParentPages.length > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                <p className="font-semibold">Header Parent Pages No Longer In Navigation</p>
+                <p className="mt-1">
+                  These custom top-level pages are still marked as header pages but no longer appear in Header Navigation. Review them before unpublishing.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {orphanedHeaderParentPages.map((page) => (
+                    <button
+                      key={page.id}
+                      type="button"
+                      onClick={() => handlePageSelect(page.id)}
+                      className="rounded-full border border-slate-300 px-3 py-1 font-semibold text-slate-700 hover:bg-white"
+                    >
+                      {page.title || page.slug || `Page ${page.id}`}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {resolvedNavPages.length === requiredNavSlugs.length && requiredNavSlugs.length > 0 && (
               <p className="text-xs text-emerald-700">
-                All custom header links are backed by published custom pages.
+                All header-managed route links are backed by published parent pages.
               </p>
             )}
           </div>
@@ -427,7 +601,19 @@ export default function FormMain() {
           <p>
             Use <strong>Custom Pages</strong> here for extra client-specific slugs such as <strong>/why-us</strong>, <strong>/financing</strong>, or <strong>/service-area</strong>.
           </p>
+          <p>
+            Use <strong>Global Site Settings</strong> for optional system parent pages such as <strong>/contact</strong>, <strong>/faq</strong>, <strong>/blog</strong>, and <strong>/locations</strong>.
+          </p>
+          <p>
+            Use <strong>Managed Pages</strong> when you want a direct editor entry for those system parent pages without hunting through the organizer.
+          </p>
           <div className="flex flex-wrap gap-2 pt-1">
+            <Link
+              href="/managed-pages"
+              className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Open Managed Pages
+            </Link>
             <Link
               href="/built-in-pages"
               className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
@@ -446,7 +632,12 @@ export default function FormMain() {
 
       {viewMode === 'organizer' ? (
         <PageOrganizer
-          mainNavPages={mainNavPages}
+          headerDirectPages={headerDirectPages}
+          dropdownParentPages={dropdownParentPages}
+          dropdownChildPages={dropdownChildPages}
+          standaloneParentPages={standaloneParentPages}
+          hiddenChildPages={hiddenChildPages}
+          parentPages={parentPages}
           servicePages={servicePages}
           blogPosts={blogPosts}
           galleryPages={galleryPages}
@@ -470,8 +661,9 @@ export default function FormMain() {
                     }}
                     enableAIContent={true}
                     initialPageDraft={initialPageDraft}
-                    suggestedSlugs={requiredNavSlugs}
+                    suggestedSlugs={missingNavPages}
                     websiteId={selectedClient?.website_id || undefined}
+                    availableParentPages={parentPages}
                   />
                 ) : (
                   <>

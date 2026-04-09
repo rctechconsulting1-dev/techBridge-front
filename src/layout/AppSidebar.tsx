@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
   useCallback,
+  useMemo,
 } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -20,7 +21,6 @@ import {
 import {
   ChevronDownIcon,
   FileIcon,
-  GridIcon,
   HorizontaLDots,
   ListIcon,
   PageIcon,
@@ -48,24 +48,9 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-  {
-    name: "Prompts",
+    name: "AI Tools",
     icon: <FileIcon />,
-    subItems: [{ name: "Chat GPT", path: "/chat-gpt", pro: false }],
-  },
-  {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
+    subItems: [{ name: "Content Prompts", path: "/chat-gpt", pro: false }],
   },
   {
     name: "Google Business",
@@ -102,13 +87,16 @@ const navItems: NavItem[] = [
     requiredRoles: ["admin", "platform_admin"],
   },
   {
-    name: "Pages",
+    name: "Site Content",
     icon: <PageIcon />,
     subItems: [
       { name: "Built-in Pages", path: "/built-in-pages", pro: false },
+      { name: "Managed Pages", path: "/managed-pages", pro: false },
       { name: "Custom Pages", path: "/main-page", pro: false },
       { name: "Branding", path: "/branding", pro: false },
       { name: "Global Site Settings", path: "/site-settings", pro: false },
+      { name: "Testimonials", path: "/content-testimonials", pro: false },
+      { name: "FAQ Content", path: "/content-faq", pro: false },
       { name: "Blank Page", path: "/blank", pro: false },
       { name: "404 Error", path: "/error-404", pro: false },
     ],
@@ -191,30 +179,40 @@ const AppSidebar = ({}) => {
     [currentRole, enabledModules, enabledFeatures, entitlementSnapshot],
   );
 
-  const computedNavItems = navItems
-    .filter((item) => shouldShowNavItem(item))
-    .map((item) => {
-      if (item.name === "Pages") {
-        return {
-          ...item,
-          subItems: [
-            ...(item.subItems || []),
-            ...(websiteId
-              ? [
-                  {
-                    name: "Landing Page",
-                    path: `/sites/${websiteId}`,
-                    pro: false,
-                    new: false,
-                    external: true,
-                  },
-                ]
-              : []),
-          ],
-        };
-      }
-      return item;
-    });
+  const computedNavItems = useMemo(
+    () =>
+      navItems
+        .filter((item) => shouldShowNavItem(item))
+        .map((item) => {
+          if (item.name === "Site Content") {
+            return {
+              ...item,
+              subItems: [
+                ...(item.subItems || []),
+                ...(websiteId
+                  ? [
+                      {
+                        name: "Landing Page",
+                        path: `/sites/${websiteId}`,
+                        pro: false,
+                        new: false,
+                        external: true,
+                      },
+                    ]
+                  : []),
+              ],
+            };
+          }
+
+          return item;
+        }),
+    [shouldShowNavItem, websiteId],
+  );
+
+  const computedOthersItems = useMemo(
+    () => othersItems.filter((item) => shouldShowNavItem(item)),
+    [shouldShowNavItem],
+  );
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -381,25 +379,44 @@ const AppSidebar = ({}) => {
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
+    let matchedSubmenu: { type: "main" | "others"; index: number } | null = null;
     // If a submenu item matches the current route, open its parent.
     // When no match is found we leave the current state alone so the
     // user’s manually opened section persists across navigation.
     ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
+      const items = menuType === "main" ? computedNavItems : computedOthersItems;
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
+            if (!matchedSubmenu && isActive(subItem.path)) {
+              matchedSubmenu = {
                 type: menuType as "main" | "others",
                 index,
-              });
+              };
             }
           });
         }
       });
     });
-  }, [pathname, isActive]);
+
+    if (!matchedSubmenu) {
+      return;
+    }
+
+    const targetSubmenu: { type: "main" | "others"; index: number } =
+      matchedSubmenu;
+
+    setOpenSubmenu((currentOpenSubmenu) => {
+      if (
+        currentOpenSubmenu?.type === targetSubmenu.type &&
+        currentOpenSubmenu?.index === targetSubmenu.index
+      ) {
+        return currentOpenSubmenu;
+      }
+
+      return targetSubmenu;
+    });
+  }, [computedNavItems, computedOthersItems, isActive]);
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened
@@ -492,22 +509,24 @@ const AppSidebar = ({}) => {
               {renderMenuItems(computedNavItems, "main")}
             </div>
 
-            <div className="">
-              <h2
-                className={`mb-4 flex text-xs leading-[20px] text-gray-400 uppercase ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div>
+            {computedOthersItems.length > 0 ? (
+              <div>
+                <h2
+                  className={`mb-4 flex text-xs leading-[20px] text-gray-400 uppercase ${
+                    !isExpanded && !isHovered
+                      ? "lg:justify-center"
+                      : "justify-start"
+                  }`}
+                >
+                  {isExpanded || isHovered || isMobileOpen ? (
+                    "Others"
+                  ) : (
+                    <HorizontaLDots />
+                  )}
+                </h2>
+                {renderMenuItems(computedOthersItems, "others")}
+              </div>
+            ) : null}
           </div>
         </nav>
         {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
