@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
     };
 
     if (!quantity || !websiteId || !productSlug) {
-      return Response.json({ error: "Missing required fields" }, { status: 400 });
+      return Response.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     const qty = parseInt(String(quantity), 10);
@@ -38,22 +41,27 @@ export async function POST(request: NextRequest) {
     const shopBase = `${appUrl}/sites/${encodeURIComponent(websiteIdString)}/shop/${encodeURIComponent(productSlugString)}`;
 
     const apiUrl = getApiBaseUrl();
-    const backendRes = await fetch(`${apiUrl}/stripe/connect/checkout/session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        websiteId: Number(websiteIdString),
-        productSlug: productSlugString,
-        quantity: qty,
-        successUrl: `${shopBase}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: shopBase,
-      }),
-    });
+    const backendRes = await fetch(
+      `${apiUrl}/stripe/connect/checkout/session`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          websiteId: Number(websiteIdString),
+          productSlug: productSlugString,
+          quantity: qty,
+          successUrl: `${shopBase}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: shopBase,
+        }),
+      },
+    );
 
     const data = (await backendRes.json()) as Record<string, unknown>;
     if (!backendRes.ok) {
       return Response.json(
-        { error: (data.error as string) || "Failed to create checkout session" },
+        {
+          error: (data.error as string) || "Failed to create checkout session",
+        },
         { status: backendRes.status },
       );
     }
@@ -61,6 +69,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ url: data.url, accountScope: data.accountScope });
   } catch (err) {
     console.error("[stripe/checkout]", err);
-    return Response.json({ error: "Failed to create checkout session" }, { status: 500 });
+    return Response.json(
+      { error: "Failed to create checkout session" },
+      { status: 500 },
+    );
   }
 }

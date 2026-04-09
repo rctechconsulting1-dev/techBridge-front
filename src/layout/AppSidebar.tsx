@@ -1,5 +1,12 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -17,7 +24,6 @@ import {
   HorizontaLDots,
   ListIcon,
   PageIcon,
-  PieChartIcon,
   PlugInIcon,
   UserCircleIcon,
   VideoIcon,
@@ -58,42 +64,21 @@ const navItems: NavItem[] = [
     path: "/assets",
   },
   {
-    icon: <PieChartIcon />,
-    name: "Reliability",
-    path: "/reliability",
-    requiredRoles: ["admin", "platform_admin"],
-  },
-  {
     icon: <UserCircleIcon />,
     name: "Tenants",
     path: "/tenants",
     requiredRoles: ["admin", "platform_admin"],
   },
   {
-    icon: <PlugInIcon />,
-    name: "Billing Ops",
-    path: "/billing",
-    requiredModules: ["checkout_ecommerce"],
-    requiredFeatures: ["commerce.checkout.manage"],
-    requiredRoles: ["admin", "platform_admin"],
-  },
-  {
     icon: <ListIcon />,
     name: "Payment Config",
     path: "/payment-config",
-    requiredRoles: ["admin", "platform_admin", "tenant_owner", "tenant_manager"],
-  },
-  {
-    icon: <FileIcon />,
-    name: "Estimates",
-    path: "/estimates",
-    requiredRoles: ["admin", "platform_admin", "tenant_owner", "tenant_manager"],
-  },
-  {
-    icon: <ListIcon />,
-    name: "Email DLQ",
-    path: "/email-dlq",
-    requiredRoles: ["admin", "platform_admin"],
+    requiredRoles: [
+      "admin",
+      "platform_admin",
+      "tenant_owner",
+      "tenant_manager",
+    ],
   },
   {
     icon: <ListIcon />,
@@ -128,6 +113,8 @@ const othersItems: NavItem[] = [
     ],
   },
 ];
+
+const SUBMENU_STORAGE_KEY = "sidebar_open_submenu";
 
 const AppSidebar = ({}) => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -183,7 +170,8 @@ const AppSidebar = ({}) => {
           : false
         : true;
 
-      return roleAllowed && (
+      return (
+        roleAllowed &&
         hasAnyModule(entitlementSnapshot, item.requiredModules) &&
         hasAnyFeature(entitlementSnapshot, item.requiredFeatures)
       );
@@ -358,18 +346,43 @@ const AppSidebar = ({}) => {
     type: "main" | "others";
     index: number;
   } | null>(null);
+
+  // Restore from localStorage before first paint so the height effect fires
+  // via a real state transition (lazy initializer skips the effect).
+  useLayoutEffect(() => {
+    try {
+      const stored = localStorage.getItem(SUBMENU_STORAGE_KEY);
+      if (stored) setOpenSubmenu(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+  }, []);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {},
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Persist submenu open state across navigation
+  useEffect(() => {
+    try {
+      if (openSubmenu === null) {
+        localStorage.removeItem(SUBMENU_STORAGE_KEY);
+      } else {
+        localStorage.setItem(SUBMENU_STORAGE_KEY, JSON.stringify(openSubmenu));
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [openSubmenu]);
+
   // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
-    // Check if the current path matches any submenu item
     let matchedSubmenu: { type: "main" | "others"; index: number } | null = null;
-
+    // If a submenu item matches the current route, open its parent.
+    // When no match is found we leave the current state alone so the
+    // user’s manually opened section persists across navigation.
     ["main", "others"].forEach((menuType) => {
       const items = menuType === "main" ? computedNavItems : computedOthersItems;
       items.forEach((nav, index) => {
@@ -386,17 +399,21 @@ const AppSidebar = ({}) => {
       });
     });
 
-    setOpenSubmenu((current) => {
-      if (!matchedSubmenu) {
-        return current === null ? current : null;
+    if (!matchedSubmenu) {
+      return;
+    }
+
+    setOpenSubmenu((currentOpenSubmenu) => {
+      if (
+        currentOpenSubmenu?.type === matchedSubmenu.type &&
+        currentOpenSubmenu?.index === matchedSubmenu.index
+      ) {
+        return currentOpenSubmenu;
       }
 
-      return current?.type === matchedSubmenu.type &&
-        current.index === matchedSubmenu.index
-        ? current
-        : matchedSubmenu;
+      return matchedSubmenu;
     });
-  }, [computedNavItems, computedOthersItems, pathname, isActive]);
+  }, [computedNavItems, computedOthersItems, isActive]);
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened

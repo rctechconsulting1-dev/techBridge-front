@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Stripe from "stripe";
 import { getSiteSettings } from "@/lib/cms-api";
+import FulfillmentStatus from "./FulfillmentStatus";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +57,7 @@ export default async function CheckoutSuccessPage({
     ? `$${(session.amount_total / 100).toFixed(2)}`
     : null;
   const productDetailHref = `/sites/${websiteId}/shop/${sessionProductSlug}`;
+  const isPrintify = session.metadata?.fulfillmentType === "printify";
   const customerEmail = session.customer_details?.email ?? null;
 
   return (
@@ -98,8 +100,16 @@ export default async function CheckoutSuccessPage({
           .
         </p>
 
+        {isPrintify ? (
+          <FulfillmentStatus sessionId={session_id} primaryColor={primary} />
+        ) : (
+          <p className="mb-8 text-sm text-gray-400">
+            A confirmation email will be sent to you shortly.
+          </p>
+        )}
+
         {/* Order summary */}
-        <div className="mx-auto mb-6 mt-4 w-full max-w-xs rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left text-sm">
+        <div className="mx-auto mt-4 mb-6 w-full max-w-xs rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left text-sm">
           {amountPaid && (
             <div className="flex justify-between py-1">
               <span className="text-gray-500">Total</span>
@@ -115,7 +125,9 @@ export default async function CheckoutSuccessPage({
           {customerEmail && (
             <div className="flex justify-between py-1">
               <span className="text-gray-500">Receipt to</span>
-              <span className="truncate pl-2 text-gray-700">{customerEmail}</span>
+              <span className="truncate pl-2 text-gray-700">
+                {customerEmail}
+              </span>
             </div>
           )}
         </div>

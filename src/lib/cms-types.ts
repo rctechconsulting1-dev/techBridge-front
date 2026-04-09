@@ -224,7 +224,9 @@ export interface BuiltInPageReviewEvent<
   created_at: string;
 }
 
-export interface BuiltInPageContentRecord<K extends BuiltInPageKey = BuiltInPageKey> {
+export interface BuiltInPageContentRecord<
+  K extends BuiltInPageKey = BuiltInPageKey,
+> {
   id: number | null;
   tenant_id: number | null;
   website_id: number;
@@ -264,6 +266,11 @@ export interface Product {
   sort_order: number;
   average_rating: string;
   review_count: number;
+  fulfillment_type: "manual" | "printify";
+  printify_product_id: string | null;
+  printify_blueprint_id: number | null;
+  printify_print_provider_id: number | null;
+  printify_variant_id: number | null;
 }
 
 export interface FooterNavLink {
