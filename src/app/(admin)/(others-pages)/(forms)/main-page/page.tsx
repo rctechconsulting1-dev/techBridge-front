@@ -9,9 +9,12 @@ import { useSearchParams } from "next/navigation";
 import ComponentCard from "@/components/common/ComponentCard";
 import Button from "@/components/ui/button/Button";
 import SeoMetadata from "@/components/form/form-elements/SeoMetadata";
+import Label from "@/components/form/Label";
+import Select from "@/components/form/Select";
 import Alert from "@/components/ui/alert/Alert";
 import PageOrganizer from "@/components/page-manager/PageOrganizer";
 import PageCreationWithImages from "@/components/page-manager/PageCreationWithImages";
+import BlogListVariantPreview from "@/components/page-manager/BlogListVariantPreview";
 import EditorSection from "@/components/page-manager/EditorSection";
 
 import { useSidebar } from "@/context/SidebarContext";
@@ -21,6 +24,7 @@ import { InitialPageDraft, PageCreationData } from "@/types/page";
 import PageBreadcrumb from "../../../../../components/common/PageBreadCrumb";
 import { getApiBaseUrl } from "@/lib/api";
 import { getActiveTenantId } from "@/lib/auth-context";
+import { BLOG_LIST_VARIANT_OPTIONS } from "@/components/sections/sectionVariants";
 import {
   isOptionalSystemPageSlug,
   OPTIONAL_SYSTEM_PAGE_CONFIG_BY_SLUG,
@@ -57,6 +61,7 @@ export default function FormMain() {
   const [selectedMissingSlug, setSelectedMissingSlug] = useState<string>("");
   const [isSyncingParentPages, setIsSyncingParentPages] = useState(false);
   const [initialPageDraft, setInitialPageDraft] = useState<InitialPageDraft | undefined>(undefined);
+  const [selectedBlogListVariant, setSelectedBlogListVariant] = useState<string>(BLOG_LIST_VARIANT_OPTIONS[0].value);
   
   // Refs
   const editorRef = useRef<MDXEditorMethods>(null);
@@ -170,16 +175,27 @@ export default function FormMain() {
   }, [showAlert, loadNavRequirements]);
 
   useEffect(() => {
-    if (seoData) {
-      updateFormData({
-        seoTitle: seoData.meta_title || "",
-        seoKeywords: seoData.keywords || "",
-        seoDescription: seoData.meta_description || "",
-        title: selectedPage?.title || "",
-        slug: selectedPage?.slug || "",
-      });
-    }
+    updateFormData({
+      seoTitle: seoData?.meta_title || selectedPage?.title || "",
+      seoKeywords: seoData?.keywords || selectedPage?.meta_keywords || "",
+      seoDescription: seoData?.meta_description || selectedPage?.meta_description || "",
+      title: selectedPage?.title || "",
+      slug: selectedPage?.slug || "",
+    });
   }, [seoData, selectedPage, updateFormData]);
+
+  useEffect(() => {
+    if (selectedPage?.page_type === 'blog-category' || selectedPage?.template_type === 'blog-list') {
+      setSelectedBlogListVariant(
+        typeof selectedPage.presentation?.sectionVariants?.blogList === 'string'
+          ? selectedPage.presentation.sectionVariants.blogList
+          : BLOG_LIST_VARIANT_OPTIONS[0].value,
+      );
+      return;
+    }
+
+    setSelectedBlogListVariant(BLOG_LIST_VARIANT_OPTIONS[0].value);
+  }, [selectedPage]);
 
   const allPages = useMemo(
     () => [
@@ -399,27 +415,34 @@ export default function FormMain() {
   }, [handleInputChange]);
 
   function handleSaveSuccess() {
-    resetForm();
-    setContent("");
     setShowAlert(true);
-    
-    if (editorRef.current) {
-      editorRef.current.setMarkdown(DEFAULT_MARKDOWN);
-    }
   }
 
   const handleSavePage = useCallback(async () => {
     const isValid = validateAllFields();
-    const isContentValid = content.trim().length > 0;
+    const editorContent = editorRef.current?.getMarkdown() || content;
+    const isContentValid = editorContent.trim().length > 0;
+    const nextPresentation = selectedPage?.page_type === 'blog-category' || selectedPage?.template_type === 'blog-list'
+      ? {
+          ...(selectedPage?.presentation ?? {}),
+          sectionVariants: {
+            ...(selectedPage?.presentation?.sectionVariants ?? {}),
+            blogList: selectedBlogListVariant,
+          },
+        }
+      : selectedPage?.presentation ?? undefined;
     
     if (isValid && isContentValid) {
-      await savePage(formData, selectedClient?.website_id);
+      await savePage(formData, selectedClient?.website_id, {
+        content: editorContent,
+        presentation: nextPresentation,
+      });
     } else {
       console.error("Form validation failed", errors);
     }
-  }, [validateAllFields, content, savePage, formData, selectedClient?.website_id, errors]);
+  }, [validateAllFields, content, selectedPage, selectedBlogListVariant, savePage, formData, selectedClient?.website_id, errors]);
 
-  const shouldShowSeoMetadata = showCreationWizard || !!seoData;
+  const shouldShowSeoMetadata = showCreationWizard || !!seoData || !!selectedPage;
 
   const orphanedHeaderParentPages = [...headerDirectPages, ...dropdownParentPages].filter((page) => {
     const slug = String(page.slug || '').toLowerCase();
@@ -702,12 +725,41 @@ export default function FormMain() {
                     </div>
                     
                     {shouldShowSeoMetadata && (
-                      <SeoMetadata 
-                        formData={formData} 
-                        handleInputChange={handleInputChange} 
-                        errors={errors} 
-                        handleDescriptionChange={handleDescriptionChange} 
-                      />
+                      <div className="space-y-4">
+                        <SeoMetadata 
+                          formData={formData} 
+                          handleInputChange={handleInputChange} 
+                          errors={errors} 
+                          handleDescriptionChange={handleDescriptionChange} 
+                        />
+
+                        {(selectedPage?.page_type === 'blog-category' || selectedPage?.template_type === 'blog-list') && (
+                          <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+                            <div>
+                              <Label>Blog List Layout</Label>
+                              <Select
+                                options={BLOG_LIST_VARIANT_OPTIONS.map((option) => ({
+                                  value: option.value,
+                                  label: option.label,
+                                }))}
+                                defaultValue={selectedBlogListVariant}
+                                onChange={setSelectedBlogListVariant}
+                                placeholder="Select blog list layout"
+                              />
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                              This blog parent page controls how article cards are shown before readers open an individual post.
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(BLOG_LIST_VARIANT_OPTIONS.find((option) => option.value === selectedBlogListVariant)?.description) || BLOG_LIST_VARIANT_OPTIONS[0].description}
+                            </p>
+                            <BlogListVariantPreview
+                              variant={selectedBlogListVariant as (typeof BLOG_LIST_VARIANT_OPTIONS)[number]['value']}
+                              className="mt-3"
+                            />
+                          </div>
+                        )}
+                      </div>
                     )}
                   </>
                 )}

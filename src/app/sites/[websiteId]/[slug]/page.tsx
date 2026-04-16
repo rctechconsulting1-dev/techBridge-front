@@ -12,6 +12,7 @@ import {
 import NavBar from "@/components/sections/NavBar";
 import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
+import BlogListSection from "@/components/sections/BlogListSection";
 import MarkdownContent from "@/components/common/MarkdownContent";
 import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
@@ -70,6 +71,18 @@ export default async function CustomPage({ params }: Props) {
 
   const pageImages = await getPageImages(page.id);
   const chromeVariants = getGenericSectionVariants("custom");
+  const childBlogPosts = pages.filter(
+    (entry) => entry.is_published && entry.page_type === "blog-post" && entry.parent_id === page.id,
+  );
+  const fallbackBlogPosts = pages.filter(
+    (entry) => entry.is_published && entry.page_type === "blog-post",
+  );
+  const blogPosts = childBlogPosts.length > 0 ? childBlogPosts : fallbackBlogPosts;
+  const blogListVariant =
+    typeof page.presentation?.sectionVariants?.blogList === "string"
+      ? page.presentation.sectionVariants.blogList
+      : "editorial_grid";
+  const isBlogListPage = page.template_type === "blog-list" || page.page_type === "blog-category";
 
   const primary = settings?.primary_color ?? "#CD7F32";
   const cssVars = {
@@ -103,45 +116,61 @@ export default async function CustomPage({ params }: Props) {
         </section>
 
         <section className="bg-white py-14">
-          <article className="mx-auto max-w-5xl rounded-2xl border border-gray-200 bg-white px-6 py-8 shadow-sm sm:px-8 lg:px-10">
-            {page.content ? (
-              <div>
-                <MarkdownContent content={page.content} />
+          {isBlogListPage ? (
+            <div className="space-y-10">
+              {page.content ? (
+                <article className="mx-auto max-w-5xl rounded-2xl border border-gray-200 bg-white px-6 py-8 shadow-sm sm:px-8 lg:px-10">
+                  <MarkdownContent content={page.content} />
+                </article>
+              ) : null}
+              <BlogListSection
+                pages={blogPosts}
+                settings={settings}
+                websiteId={websiteId}
+                variant={blogListVariant}
+              />
+            </div>
+          ) : (
+            <article className="mx-auto max-w-5xl rounded-2xl border border-gray-200 bg-white px-6 py-8 shadow-sm sm:px-8 lg:px-10">
+              {page.content ? (
+                <div>
+                  <MarkdownContent content={page.content} />
 
-                {pageImages.length > 0 && (
-                  <div className="mt-10">
-                    <h2 className="mb-4 text-2xl font-semibold text-gray-900">
-                      Gallery
-                    </h2>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {pageImages.map((img) => (
-                        <figure
-                          key={`${img.id}-${img.url}`}
-                          className="overflow-hidden rounded-xl border border-gray-200"
-                        >
-                          <div className="relative aspect-[4/3] w-full bg-gray-100">
-                            <Image
-                              src={img.url}
-                              alt={img.alt_text || page.title || "Page image"}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                          {img.caption && (
-                            <figcaption className="px-3 py-2 text-sm text-gray-600">
-                              {img.caption}
-                            </figcaption>
-                          )}
-                        </figure>
-                      ))}
+                  {pageImages.length > 0 && (
+                    <div className="mt-10">
+                      <h2 className="mb-4 text-2xl font-semibold text-gray-900">
+                        Gallery
+                      </h2>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {pageImages.map((img) => (
+                          <figure
+                            key={`${img.id}-${img.url}`}
+                            className="overflow-hidden rounded-xl border border-gray-200"
+                          >
+                            <div className="relative aspect-[4/3] w-full bg-gray-100">
+                              <Image
+                                src={img.url}
+                                alt={img.alt_text || page.title || "Page image"}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            {img.caption && (
+                              <figcaption className="px-3 py-2 text-sm text-gray-600">
+                                {img.caption}
+                              </figcaption>
+                            )}
+                          </figure>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-500">This page has no content yet.</p>
-            )}
-          </article>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500">This page has no content yet.</p>
+              )}
+            </article>
+          )}
         </section>
 
         <CTASection settings={settings} variant={chromeVariants.cta} />

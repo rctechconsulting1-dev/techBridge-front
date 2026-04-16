@@ -6,6 +6,8 @@ import Input from '@/components/form/input/InputField';
 import Select from '@/components/form/Select';
 import TextArea from '@/components/form/input/TextArea';
 import { useContentAgent } from '@/hooks/useContentAgent';
+import { BLOG_LIST_VARIANT_OPTIONS } from '@/components/sections/sectionVariants';
+import BlogListVariantPreview from '@/components/page-manager/BlogListVariantPreview';
 
 // Types for AI content generation
 interface ContentItem {
@@ -295,6 +297,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       nav_style: initialPageDraft.nav_style ?? prev.nav_style ?? 'direct',
       nav_parent_id: initialPageDraft.nav_parent_id ?? prev.nav_parent_id ?? null,
       parent_id: initialPageDraft.parent_id ?? prev.parent_id ?? null,
+      presentation: initialPageDraft.presentation ?? prev.presentation,
     }));
 
     setAiFormData((prev) => ({
@@ -464,6 +467,11 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
     }));
   };
 
+  const selectedBlogListVariant =
+    typeof formData.presentation?.sectionVariants?.blogList === 'string'
+      ? formData.presentation.sectionVariants.blogList
+      : BLOG_LIST_VARIANT_OPTIONS[0]?.value;
+
   const handlePageTypeChange = (pageType: PageType) => {
     const defaultTemplate = templateTypeOptions[pageType][0]?.value || 'standard';
     setFormData(prev => ({
@@ -475,6 +483,28 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       nav_style: pageType === 'main-page' ? 'direct' : 'direct',
       nav_parent_id: null,
       parent_id: pageType === 'main-page' ? null : prev.parent_id ?? null,
+      presentation: pageType === 'blog-category'
+        ? {
+            ...(prev.presentation ?? {}),
+            sectionVariants: {
+              ...(prev.presentation?.sectionVariants ?? {}),
+              blogList: prev.presentation?.sectionVariants?.blogList || BLOG_LIST_VARIANT_OPTIONS[0]?.value,
+            },
+          }
+        : prev.presentation,
+    }));
+  };
+
+  const handleBlogListVariantChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      presentation: {
+        ...(prev.presentation ?? {}),
+        sectionVariants: {
+          ...(prev.presentation?.sectionVariants ?? {}),
+          blogList: value,
+        },
+      },
     }));
   };
 
@@ -651,6 +681,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
           is_published: formData.is_published || false,
           meta_description: formData.meta_description,
           meta_keywords: formData.meta_keywords,
+          presentation: formData.presentation,
           content: selectedContent || undefined, // Add AI-generated content if available
         };
 
@@ -712,6 +743,39 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                 Choose the layout template for this page
               </p>
             </div>
+          )}
+
+          {formData.page_type === 'blog-category' && (
+            <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+              <div>
+                <Label>Blog List Layout</Label>
+                <Select
+                  options={BLOG_LIST_VARIANT_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  }))}
+                  defaultValue={selectedBlogListVariant || ''}
+                  onChange={handleBlogListVariantChange}
+                  placeholder="Select blog list layout"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Blog parent pages can change how the article index is presented. Individual blog posts still use the single blog post template.
+              </p>
+              <p className="text-xs text-gray-500">
+                {(BLOG_LIST_VARIANT_OPTIONS.find((option) => option.value === selectedBlogListVariant)?.description) || BLOG_LIST_VARIANT_OPTIONS[0]?.description}
+              </p>
+              <BlogListVariantPreview
+                variant={selectedBlogListVariant}
+                className="mt-2"
+              />
+            </div>
+          )}
+
+          {formData.page_type === 'blog-post' && (
+            <p className="text-sm text-gray-500 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+              Blog posts currently use one article template. The parent blog page controls the list layout readers see before opening individual posts.
+            </p>
           )}
 
           <div className="flex gap-3">

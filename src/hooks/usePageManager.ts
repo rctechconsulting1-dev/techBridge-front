@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Page, FormData, ImageUploadLocation, PageType, TemplateType, PageCreationData } from '@/types/page';
+import { Page, FormData, ImageUploadLocation, PageType, TemplateType, PageCreationData, PagePresentation } from '@/types/page';
 import { mutateUpdate } from '@/hooks/useMutateUpdate';
 import { useGetPages } from '@/hooks/usePages';
 import { useGetSeo } from '@/hooks/useSeo';
@@ -7,6 +7,11 @@ import { useGetSeo } from '@/hooks/useSeo';
 interface UsePageManagerProps {
   websiteId: number | null;
   onSuccess?: () => void;
+}
+
+interface SavePageOptions {
+  content?: string;
+  presentation?: PagePresentation;
 }
 
 const getLegacyMainNavFlag = (values: {
@@ -123,6 +128,7 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
   const selectPage = useCallback((pageId: number) => {
     const page = enhancedPages.find((p) => p.id === pageId);
     setSelectedPage(page);
+    setContent(page?.content || "");
     setCreationMode(false);
   }, [enhancedPages]);
 
@@ -188,6 +194,7 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
       ),
       meta_description: data.meta_description || null,
       meta_keywords: data.meta_keywords || null,
+      presentation: data.presentation || {},
       website_id: websiteId,
       content: data.content || content, // Use provided content or default content state
       is_published: data.is_published ?? false,
@@ -212,13 +219,62 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
     return result;
   }, [websiteId, content, onSuccess]);
 
-  const savePage = useCallback(async (formData: FormData, websiteId?: number | null ) => {
+  const savePage = useCallback(async (formData: FormData, websiteId?: number | null, options?: SavePageOptions) => {
     if (!websiteId) return null;
+
+    const nextContent = options?.content ?? content;
+
+    if (selectedPage?.id) {
+      const pagePayload = {
+        title: formData.title,
+        slug: formData.slug,
+        content: nextContent,
+        website_id: websiteId,
+        page_type: selectedPage.page_type,
+        parent_id: selectedPage.parent_id,
+        is_main_nav: getLegacyMainNavFlag(selectedPage),
+        is_enabled: selectedPage.is_enabled ?? true,
+        is_required: selectedPage.is_required ?? false,
+        nav_placement: selectedPage.nav_placement ?? 'hidden',
+        nav_style: selectedPage.nav_style ?? (selectedPage.parent_id ? 'dropdown_child' : 'direct'),
+        nav_parent_id: selectedPage.nav_parent_id ?? null,
+        nav_order: selectedPage.nav_order ?? selectedPage.sort_order ?? 0,
+        nav_label: selectedPage.nav_label ?? selectedPage.title,
+        is_external_link: selectedPage.is_external_link ?? false,
+        navigation_assignments: selectedPage.navigation_assignments ?? [],
+        template_type: selectedPage.template_type,
+        presentation: options?.presentation ?? selectedPage.presentation ?? {},
+        meta_description: formData.seoDescription || null,
+        meta_keywords: formData.seoKeywords || null,
+        is_published: selectedPage.is_published,
+        sort_order: selectedPage.sort_order ?? 0,
+      };
+
+      const result = await mutateUpdate({
+        path: `/page/${selectedPage.id}`,
+        method: "PUT",
+        payload: pagePayload,
+        additionalHeaders: {
+          Prefer: "return=representation",
+        },
+      });
+
+      if (result.response) {
+        const updatedPage = result.response as Page;
+        setSelectedPage(updatedPage);
+        setContent(updatedPage.content || nextContent || "");
+        await refreshPages();
+        onSuccess?.();
+        return updatedPage.id;
+      }
+
+      return null;
+    }
 
     const pagePayload = {
       title: formData.title,
       slug: formData.slug,
-      content: content,
+      content: nextContent,
       website_id: websiteId,
     };
 
@@ -260,7 +316,7 @@ export const usePageManager = ({ websiteId, onSuccess }: UsePageManagerProps) =>
     }
 
     return null;
-  }, [content, onSuccess]);
+  }, [content, onSuccess, refreshPages, selectedPage]);
 
   const resetPageState = useCallback(() => {
     setContent("");

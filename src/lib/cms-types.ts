@@ -356,6 +356,9 @@ export interface Page {
   meta_keywords: string | null;
   featured_image_url: string | null;
   excerpt: string | null;
+  presentation?: {
+    sectionVariants?: Record<string, string>;
+  } | null;
 }
 
 export interface PageNavigationAssignment {

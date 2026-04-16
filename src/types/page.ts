@@ -26,6 +26,10 @@ export type NavPlacement = 'header' | 'footer' | 'hidden';
 
 export type NavStyle = 'direct' | 'dropdown_parent' | 'dropdown_child';
 
+export interface PagePresentation {
+  sectionVariants?: Record<string, string>;
+}
+
 export interface PageNavigationAssignment {
   id?: number;
   page_id?: number;
@@ -84,6 +88,7 @@ export interface Page {
   featured_image_url: string | null;
   excerpt: string | null;
   updated_at: string | null;
+  presentation?: PagePresentation | null;
   // Relationships
   parent_page?: Page | null;
   sub_pages?: Page[];
@@ -116,6 +121,7 @@ export interface PageCreationData {
   content?: string; // Added for AI-generated content
   website_id?: number; // Added for API compatibility
   category_ids?: number[]; // Added for category relationships
+  presentation?: PagePresentation;
 }
 
 export interface InitialPageDraft {
@@ -131,6 +137,7 @@ export interface InitialPageDraft {
   page_type?: PageType;
   template_type?: TemplateType;
   parent_id?: number | null;
+  presentation?: PagePresentation;
 }
 
 export interface FormData {
