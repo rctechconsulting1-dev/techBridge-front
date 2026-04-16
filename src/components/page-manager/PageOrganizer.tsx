@@ -34,6 +34,23 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
   selectedPageId,
 }) => {
   const pageById = new Map(parentPages.map((page) => [page.id, page]));
+  const dropdownChildrenByParentId = new Map<number, Page[]>();
+
+  for (const child of dropdownChildPages) {
+    const parentId = Number(child.nav_parent_id ?? child.parent_id ?? 0);
+    if (!parentId) {
+      continue;
+    }
+
+    const existing = dropdownChildrenByParentId.get(parentId) ?? [];
+    existing.push(child);
+    dropdownChildrenByParentId.set(parentId, existing);
+  }
+
+  const orphanDropdownChildren = dropdownChildPages.filter((child) => {
+    const parentId = Number(child.nav_parent_id ?? child.parent_id ?? 0);
+    return !parentId || !dropdownParentPages.some((page) => page.id === parentId);
+  });
 
   const PageGroup = ({ 
     title, 
@@ -86,12 +103,110 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
     </div>
   );
 
+  const DropdownStructureGroup = () => (
+    <div className="border rounded-lg p-4 lg:col-span-2">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-lg">▾</span>
+        <h4 className="font-medium text-gray-800 dark:text-white">Header Dropdown Navigation</h4>
+        <span className="text-sm text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+          {dropdownParentPages.length} parents / {dropdownChildPages.length} children
+        </span>
+      </div>
+
+      {dropdownParentPages.length === 0 ? (
+        <p className="text-sm text-gray-500 italic">
+          No dropdown parent pages. Create a parent page and assign dropdown children to it.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {dropdownParentPages.map((parent) => {
+            const children = dropdownChildrenByParentId.get(parent.id) ?? [];
+
+            return (
+              <div
+                key={parent.id}
+                className="rounded-lg border border-gray-200 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/40"
+              >
+                <button
+                  onClick={() => onSelectPage(parent.id)}
+                  className={`w-full text-left rounded border p-3 transition-colors ${
+                    selectedPageId === parent.id
+                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700'
+                      : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:border-gray-700 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-sm">{parent.title || 'Untitled'}</div>
+                      <div className="text-xs text-gray-500">/{parent.slug}</div>
+                    </div>
+                    <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                      {children.length} child{children.length === 1 ? '' : 'ren'}
+                    </span>
+                  </div>
+                </button>
+
+                {children.length > 0 ? (
+                  <div className="mt-3 space-y-2 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    {children.map((child) => (
+                      <button
+                        key={child.id}
+                        onClick={() => onSelectPage(child.id)}
+                        className={`w-full text-left p-2 rounded border transition-colors ${
+                          selectedPageId === child.id
+                            ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700'
+                            : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:border-gray-700 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <div className="font-medium text-sm">{child.title || 'Untitled'}</div>
+                        <div className="text-xs text-gray-500">/{child.slug}</div>
+                        {('is_published' in child && child.is_published === false) && (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-1 rounded">Draft</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-gray-500 pl-4">
+                    No dropdown children assigned yet.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+
+          {orphanDropdownChildren.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">Dropdown children missing a visible parent</p>
+              <div className="mt-2 space-y-2">
+                {orphanDropdownChildren.map((child) => (
+                  <button
+                    key={child.id}
+                    onClick={() => onSelectPage(child.id)}
+                    className={`w-full text-left p-2 rounded border transition-colors ${
+                      selectedPageId === child.id
+                        ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700'
+                        : 'bg-white border-amber-200 hover:bg-amber-100/40 dark:bg-gray-900 dark:border-amber-800 dark:hover:bg-amber-950/20'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">{child.title || 'Untitled'}</div>
+                    <div className="text-xs text-gray-500">/{child.slug}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Page Organization</h3>
         <Button size="sm" onClick={onCreatePage}>
-          Create New Page
+          Create Custom Page
         </Button>
       </div>
 
@@ -103,19 +218,7 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
           icon="🏠"
         />
 
-        <PageGroup
-          title="Header Dropdown Parents"
-          pages={dropdownParentPages}
-          emptyMessage="No dropdown parent pages. Create a parent page and assign dropdown children to it."
-          icon="▾"
-        />
-
-        <PageGroup
-          title="Header Dropdown Children"
-          pages={dropdownChildPages}
-          emptyMessage="No dropdown child pages. Add child pages and assign them under a header dropdown."
-          icon="↳"
-        />
+        <DropdownStructureGroup />
 
         <PageGroup
           title="Standalone Parent Pages"
@@ -164,8 +267,7 @@ const PageOrganizer: React.FC<PageOrganizerProps> = ({
         <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Page Structure Guide</h4>
         <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
           <p><strong>Header Direct Pages:</strong> Top-level pages shown directly in the header, such as Contact or Reviews</p>
-          <p><strong>Header Dropdown Parents:</strong> Top-level pages that exist to group child pages in a header dropdown</p>
-          <p><strong>Header Dropdown Children:</strong> Pages assigned under a dropdown parent and shown inside that header menu</p>
+          <p><strong>Header Dropdown Navigation:</strong> Dropdown parents and their children are grouped together so you can review the actual menu structure in one place</p>
           <p><strong>Standalone Parent Pages:</strong> Top-level custom hubs like Blog, Resources, or Campaigns that do not need to be in the header</p>
           <p><strong>Hidden Child Pages:</strong> Nested pages like blog posts, support articles, or detail pages that stay out of header navigation</p>
           <p><strong>Services:</strong> Individual service pages that can be organized under Services</p>

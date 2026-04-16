@@ -117,7 +117,7 @@ export default async function SiteLandingPage({ params }: Props) {
         services={services}
         testimonials={testimonials}
         team={team}
-        variant={homePresentation.sectionVariants.proof ?? "badges_and_stats"}
+        variant={homePresentation.sectionVariants.proof ?? "star_rating_bar"}
       />
     ),
     servicesPreview: (

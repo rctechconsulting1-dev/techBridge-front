@@ -59,6 +59,7 @@ interface ChatMessage {
 interface PageCreationWizardProps {
   onCreatePage: (data: PageCreationData & { content?: string }) => void;
   onCancel: () => void;
+  onCreateDropdownParentDraft?: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
   initialPageDraft?: InitialPageDraft;
@@ -224,6 +225,7 @@ function getLegacyMainNavFlag(values: {
 const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   onCreatePage,
   onCancel,
+  onCreateDropdownParentDraft,
   isLoading = false,
   enableAIContent = false,
   initialPageDraft,
@@ -498,6 +500,9 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   const selectedDropdownParent = availableParentPages.find(
     (page) => page.id === Number(formData.nav_parent_id || 0),
   );
+  const needsDropdownParent = showInHeader && selectedNavStyle === 'dropdown_child';
+  const hasDropdownParentOptions = dropdownParentOptions.length > 0;
+  const isDropdownChildValid = !needsDropdownParent || Boolean(formData.nav_parent_id);
 
   const canHaveParent = formData.page_type !== 'main-page';
 
@@ -598,7 +603,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   };
 
   const canProceedToStep2 = formData.page_type && formData.template_type;
-  const canSubmit = formData.title && formData.slug && canProceedToStep2;
+  const canSubmit = formData.title && formData.slug && canProceedToStep2 && isDropdownChildValid;
   const canReviewAndFinalize = Boolean(selectedContent) && !isAILoading;
   const selectedSuggestedSlug =
     typeof formData.slug === 'string' && suggestedSlugs.includes(formData.slug)
@@ -607,6 +612,10 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
 
   const handleSubmit = async () => {
     if (canSubmit && formData.page_type && formData.template_type && formData.title && formData.slug) {
+      if (needsDropdownParent && !formData.nav_parent_id) {
+        return;
+      }
+
       setIsSubmitting(true);
       
       try {
@@ -659,7 +668,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Create New Page</h3>
+        <h3 className="text-lg font-semibold">Create Custom Page</h3>
         <div className="flex gap-2">
           <span className={`text-sm px-2 py-1 rounded ${step === 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
             1. Type & Template
@@ -1051,6 +1060,9 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               <p className="text-sm text-gray-500 mt-1">
                 Leave blank to create a standalone parent page. Select a parent to create a child page.
               </p>
+              <p className="text-sm text-gray-500 mt-1">
+                This controls page hierarchy. Header dropdown placement is configured separately below.
+              </p>
               {selectedParentPage && (
                 <p className="text-sm text-blue-600 mt-1">
                   This page will be created under {selectedParentPage.title || 'Untitled'}.
@@ -1095,12 +1107,31 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               <p className="text-sm text-gray-500 mt-1">
                 Choose whether this page appears directly in the header, acts as a dropdown parent, or lives inside a dropdown.
               </p>
+              <p className="text-sm text-gray-500 mt-1">
+                Create the dropdown parent first, then attach the child page to it here.
+              </p>
             </div>
           )}
 
           {showInHeader && selectedNavStyle === 'dropdown_child' && (
             <div>
               <Label>Dropdown Parent</Label>
+              {!hasDropdownParentOptions && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  <p>
+                    No dropdown parent is available yet. First create or update a header page to use "Dropdown parent in header", then come back and attach this child page to it.
+                  </p>
+                  {onCreateDropdownParentDraft && (
+                    <button
+                      type="button"
+                      onClick={onCreateDropdownParentDraft}
+                      className="mt-3 inline-flex rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-950/40"
+                    >
+                      Create dropdown parent first
+                    </button>
+                  )}
+                </div>
+              )}
               <Select
                 options={dropdownParentOptions}
                 defaultValue={formData.nav_parent_id ? String(formData.nav_parent_id) : ''}
@@ -1108,11 +1139,16 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                 placeholder="Select dropdown parent"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Assign this page under a header dropdown parent.
+                Assign this page under a header dropdown parent. This controls navigation placement, not only content hierarchy.
               </p>
               {selectedDropdownParent && (
                 <p className="text-sm text-blue-600 mt-1">
                   This page will appear under {selectedDropdownParent.title || 'Untitled'} in the header.
+                </p>
+              )}
+              {!selectedDropdownParent && hasDropdownParentOptions && (
+                <p className="text-sm text-amber-700 mt-1">
+                  Select a dropdown parent before creating this page.
                 </p>
               )}
             </div>
@@ -1205,6 +1241,11 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               {isLoading || isSubmitting ? 'Creating...' : 'Create Page'}
             </Button>
           </div>
+          {needsDropdownParent && !formData.nav_parent_id && (
+            <p className="text-sm text-amber-700">
+              Pick a dropdown parent before creating this dropdown child page.
+            </p>
+          )}
         </div>
       )}
     </div>

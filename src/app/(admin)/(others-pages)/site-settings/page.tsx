@@ -5,12 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { getApiBaseUrl } from "@/lib/api";
+import { apiClient } from "@/lib/api-client";
 import { buildLatestIntakeAdminPath } from "@/lib/intake-admin";
+import {
+  createEntitlementSnapshot,
+  hasAnyFeature,
+  normalizeEntitlementValues,
+} from "@/lib/entitlements";
 import {
   decodeJwtPayload,
   getActiveTenantId,
   getStoredAuthToken,
   normalizeAuthSession,
+  setActiveTenantId,
 } from "@/lib/auth-context";
 import { useSidebar } from "@/context/SidebarContext";
 import { useGetAssets, type Asset } from "@/hooks/useImage";
@@ -44,6 +51,7 @@ interface Service {
   slug: string;
   content: string | null;
   image_url: string | null;
+  featured_on_home: boolean;
 }
 
 interface Product {
@@ -141,6 +149,14 @@ interface CmsPageLite {
     sort_order?: number;
     is_active?: boolean;
   }>;
+}
+
+interface OptionalSystemPageEntry {
+  config: OptionalSystemPageConfig;
+  page: CmsPageLite | null;
+  inHeaderNav: boolean;
+  pageIsActive: boolean;
+  isActive: boolean;
 }
 
 type Tab = "settings" | "services" | "team" | "shop";
@@ -802,14 +818,6 @@ function extractServiceDrafts(markdown: string): TemplateServiceDraft[] {
   }));
 }
 
-function parseServicesInput(input: string): string[] {
-  return input
-    .split(/\n|,/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 12);
-}
-
 function coerceNavLinks(links: FooterNavLink[] | null | undefined): FooterNavLink[] {
   if (!Array.isArray(links)) return [];
   return links.map((link) => ({
@@ -970,6 +978,8 @@ export default function SiteSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [aiFeatureLoading, setAiFeatureLoading] = useState(true);
+  const [aiFeatureEnabled, setAiFeatureEnabled] = useState(true);
   const [contentPermissions, setContentPermissions] = useState<
     Record<ContentPermissionKey, boolean>
   >(DEFAULT_CONTENT_PERMISSION_FLAGS);
@@ -985,6 +995,7 @@ export default function SiteSettingsPage() {
     slug: "",
     content: "",
     image_url: "",
+    featured_on_home: false,
   });
   const [serviceSaving, setServiceSaving] = useState(false);
   const [serviceError, setServiceError] = useState<string | null>(null);
@@ -1112,7 +1123,6 @@ export default function SiteSettingsPage() {
     useState<IndustryTemplate>("trades");
   const [templateKeyword, setTemplateKeyword] = useState("");
   const [templateCompetitorUrl, setTemplateCompetitorUrl] = useState("");
-  const [templateServicesInput, setTemplateServicesInput] = useState("");
   const [aboutContextInput, setAboutContextInput] = useState("");
   const [sitePages, setSitePages] = useState<CmsPageLite[]>([]);
   const [publishedPageSlugs, setPublishedPageSlugs] = useState<Set<string>>(
@@ -1120,6 +1130,7 @@ export default function SiteSettingsPage() {
   );
   const [pageAssignmentSavingId, setPageAssignmentSavingId] = useState<number | null>(null);
   const [managedSystemPageSavingSlug, setManagedSystemPageSavingSlug] = useState<string | null>(null);
+  const [showInactiveOptionalSystemPages, setShowInactiveOptionalSystemPages] = useState(false);
   const [aiIdeas, setAiIdeas] = useState<AIContentIdea[]>([]);
   const [aiSelectedIdea, setAiSelectedIdea] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
@@ -1130,6 +1141,60 @@ export default function SiteSettingsPage() {
     trigger: triggerContentAgent,
     isLoading: isAIApplying,
   } = useContentAgent();
+
+  useEffect(() => {
+    let active = true;
+
+    const hydrateAiEntitlements = async () => {
+      try {
+        if (hasPlatformAdminOverride()) {
+          if (active) {
+            setAiFeatureEnabled(true);
+          }
+          return;
+        }
+
+        const session = await apiClient.getSession();
+        if (!active) {
+          return;
+        }
+
+        if (session?.role === "admin" || session?.role === "platform_admin") {
+          setAiFeatureEnabled(true);
+          return;
+        }
+
+        const enabledModules = Array.isArray(session?.enabledModules)
+          ? normalizeEntitlementValues(session.enabledModules)
+          : null;
+        const enabledFeatures = Array.isArray(session?.enabledFeatures)
+          ? normalizeEntitlementValues(session.enabledFeatures)
+          : null;
+
+        const hasEntitlementPayload =
+          (enabledModules && enabledModules.length > 0) ||
+          (enabledFeatures && enabledFeatures.length > 0);
+
+        if (!hasEntitlementPayload) {
+          setAiFeatureEnabled(true);
+          return;
+        }
+
+        const snapshot = createEntitlementSnapshot(enabledModules, enabledFeatures);
+        setAiFeatureEnabled(hasAnyFeature(snapshot, ["ai.agent.generate"]));
+      } finally {
+        if (active) {
+          setAiFeatureLoading(false);
+        }
+      }
+    };
+
+    void hydrateAiEntitlements();
+
+    return () => {
+      active = false;
+    };
+  }, []);
   const { uploadToS3 } = useS3Upload();
   const {
     assets: clientAssets,
@@ -1146,6 +1211,18 @@ export default function SiteSettingsPage() {
       setTemplateBusinessName(selectedClient?.name ?? "");
     }
   }, [selectedClient?.name, templateBusinessName]);
+
+  useEffect(() => {
+    if (selectedTenantId) {
+      setActiveTenantId(selectedTenantId);
+    }
+  }, [selectedTenantId]);
+
+  useEffect(() => {
+    if (!templateCity && typeof form.address === "string" && form.address.trim()) {
+      setTemplateCity(form.address.trim());
+    }
+  }, [form.address, templateCity]);
 
   const fetchLatestIntakeSubmission = useCallback(async (wid?: number | null) => {
     const requestPath = buildLatestIntakeAdminPath({
@@ -1233,14 +1310,6 @@ export default function SiteSettingsPage() {
       const phone = pickFirstText(answers, "business_phone");
       const ownerEmail = submission.email.trim();
       const googleBusinessUrl = pickFirstText(answers, "google_business_url");
-      const servicesText = pickFirstText(
-        answers,
-        "service_list",
-        "appointment_types",
-        "product_list",
-        "reservation_types",
-        "service_product_list",
-      );
       const intakeLogoFile = submission.files.find((file) => file.questionId === "logo");
       const aboutContext = [
         pickFirstText(answers, "ideal_client"),
@@ -1271,7 +1340,6 @@ export default function SiteSettingsPage() {
       setTemplateCity((prev) => prev || city);
       setTemplatePhone((prev) => prev || phone);
       setTemplateEmail((prev) => prev || ownerEmail);
-      setTemplateServicesInput((prev) => prev || servicesText);
       setAboutContextInput((prev) => prev || aboutContext);
       setTab("settings");
       setIntakePrefillMessage(
@@ -1438,6 +1506,10 @@ export default function SiteSettingsPage() {
 
   const canEditSiteSettings =
     hasPlatformAdminOverride() || contentPermissions.edit_branding;
+  const canEditServices =
+    hasPlatformAdminOverride() || contentPermissions.edit_services;
+  const canEditTeam =
+    hasPlatformAdminOverride() || contentPermissions.edit_team;
 
   useEffect(() => {
     const requestedTab = searchParams.get("tab");
@@ -1732,7 +1804,6 @@ export default function SiteSettingsPage() {
     loadSettings(wid);
     loadServices(wid);
     loadTeam(wid);
-    loadProducts(wid);
     loadContentPermissions(wid);
     loadStripeConnectStatus(wid);
     loadDomains(wid);
@@ -1744,13 +1815,20 @@ export default function SiteSettingsPage() {
     loadSettings,
     loadServices,
     loadTeam,
-    loadProducts,
     loadContentPermissions,
     loadStripeConnectStatus,
     loadDomains,
     loadEmailProfile,
     loadPageSlugs,
   ]);
+
+  useEffect(() => {
+    if (tab !== "shop" || !websiteId) {
+      return;
+    }
+
+    loadProducts(websiteId);
+  }, [tab, websiteId, loadProducts]);
 
   const saveEmailProfile = useCallback(async () => {
     if (!websiteId) return;
@@ -2419,21 +2497,25 @@ export default function SiteSettingsPage() {
     }
   }, [createClientAssetRecord, refetchAssets, uploadToS3, websiteId]);
 
-  const set = (field: keyof FormData, value: string) =>
+  const set = (field: keyof FormData, value: FormData[keyof FormData]) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  const canGenerateCurrentService =
+    serviceEdit !== null && Boolean(serviceForm.title.trim());
 
   // ── Services CRUD ──
   const startNewService = () => {
-    if (!contentPermissions.edit_services) {
+    if (!canEditServices) {
       setServiceError("You do not have permission to edit services for this tenant.");
       return;
     }
-    setServiceForm({ title: "", slug: "", content: "", image_url: "" });
+    setServiceForm({ title: "", slug: "", content: "", image_url: "", featured_on_home: false });
     setServiceEdit("new");
     setServiceError(null);
+    setAiMessage(null);
   };
   const startEditService = (s: Service) => {
-    if (!contentPermissions.edit_services) {
+    if (!canEditServices) {
       setServiceError("You do not have permission to edit services for this tenant.");
       return;
     }
@@ -2442,25 +2524,30 @@ export default function SiteSettingsPage() {
       slug: s.slug,
       content: s.content ?? "",
       image_url: s.image_url ?? "",
+      featured_on_home: Boolean(s.featured_on_home),
     });
     setServiceEdit(s.id);
     setServiceError(null);
+    setAiMessage(null);
   };
   const cancelService = () => {
     setServiceEdit(null);
     setServiceError(null);
   };
-  const setServiceField = (key: keyof typeof serviceForm, val: string) =>
+  const setServiceField = (
+    key: keyof typeof serviceForm,
+    val: string | boolean,
+  ) =>
     setServiceForm((f) => ({
       ...f,
       [key]: val,
-      ...(key === "title" && serviceEdit === "new"
+      ...(key === "title" && serviceEdit === "new" && typeof val === "string"
         ? { slug: slugify(val) }
         : {}),
     }));
 
   const saveService = async () => {
-    if (!contentPermissions.edit_services) {
+    if (!canEditServices) {
       setServiceError("You do not have permission to edit services for this tenant.");
       return;
     }
@@ -2480,6 +2567,7 @@ export default function SiteSettingsPage() {
         if (!res.ok) throw new Error(await res.text());
         const created: Service = await res.json();
         setServices((p) => [created, ...p]);
+        toast.success(`Service saved: ${created.title}. Preview is refreshing.`);
       } else {
         const res = await fetch(`${getApiBaseUrl()}/services/${serviceEdit}`, {
           method: "PUT",
@@ -2489,6 +2577,7 @@ export default function SiteSettingsPage() {
         if (!res.ok) throw new Error(await res.text());
         const updated: Service = await res.json();
         setServices((p) => p.map((s) => (s.id === updated.id ? updated : s)));
+        toast.success(`Service updated: ${updated.title}. Preview is refreshing.`);
       }
       cancelService();
     } catch (e) {
@@ -2499,7 +2588,7 @@ export default function SiteSettingsPage() {
   };
 
   const deleteService = async (id: number) => {
-    if (!contentPermissions.edit_services) {
+    if (!canEditServices) {
       setServiceError("You do not have permission to edit services for this tenant.");
       return;
     }
@@ -2513,7 +2602,7 @@ export default function SiteSettingsPage() {
 
   // ── Team CRUD ──
   const startNewTeam = () => {
-    if (!contentPermissions.edit_team) {
+    if (!canEditTeam) {
       setTeamError("You do not have permission to edit team content for this tenant.");
       return;
     }
@@ -2529,7 +2618,7 @@ export default function SiteSettingsPage() {
     setTeamError(null);
   };
   const startEditTeam = (m: TeamMember) => {
-    if (!contentPermissions.edit_team) {
+    if (!canEditTeam) {
       setTeamError("You do not have permission to edit team content for this tenant.");
       return;
     }
@@ -2552,7 +2641,7 @@ export default function SiteSettingsPage() {
     setTeamForm((f) => ({ ...f, [key]: val }));
 
   const saveTeam = async () => {
-    if (!contentPermissions.edit_team) {
+    if (!canEditTeam) {
       setTeamError("You do not have permission to edit team content for this tenant.");
       return;
     }
@@ -2604,7 +2693,7 @@ export default function SiteSettingsPage() {
   };
 
   const deleteTeam = async (id: number) => {
-    if (!contentPermissions.edit_team) {
+    if (!canEditTeam) {
       setTeamError("You do not have permission to edit team content for this tenant.");
       return;
     }
@@ -3030,20 +3119,41 @@ export default function SiteSettingsPage() {
     if (!websiteId) return;
     setAiMessage(null);
 
-    const servicesProvided = parseServicesInput(templateServicesInput);
-    if (servicesProvided.length === 0) {
-      setAiMessage("Add at least one offered service before running V3.");
+    const editedServiceTitle = serviceForm.title.trim();
+    const normalizedCity =
+      templateCity.trim() ||
+      (typeof form.address === "string" ? form.address.trim() : "");
+    const normalizedIndustry =
+      templateIndustry.trim() ||
+      editedServiceTitle ||
+      "local service business";
+
+    if (!normalizedCity) {
+      const message = "Service AI needs city/service area before generating copy.";
+      setAiMessage(message);
+      toast.error(message);
       return;
     }
 
+    if (!editedServiceTitle) {
+      const message = "Open a service to edit, or click Add Service, before running V3.";
+      setAiMessage(message);
+      toast.error(message);
+      return;
+    }
+
+    const targetServiceTitle = editedServiceTitle;
+
     try {
       const aiResponse = (await triggerContentAgent({
+        websiteId,
+        tenantId: selectedTenantId ?? undefined,
         mode: "service_copy",
-        city: templateCity,
-        industry: templateIndustry,
-        keyword: templateKeyword || `${templateIndustry} ${templateCity}`.trim(),
+        city: normalizedCity,
+        industry: normalizedIndustry,
+        keyword: templateKeyword || `${normalizedIndustry} ${normalizedCity}`.trim(),
         competitor1Url: templateCompetitorUrl || undefined,
-        servicesOffered: servicesProvided,
+        servicesOffered: [targetServiceTitle],
       })) as AIServiceCopyResponse;
 
       if (aiResponse?.step !== "service_copy_generated") {
@@ -3086,56 +3196,73 @@ export default function SiteSettingsPage() {
         throw new Error(`Failed to save settings (${settingsRes.status})`);
       }
 
-      const generatedServices = (aiResponse.services || []).slice(0, 12);
+      const generatedService =
+        (aiResponse.services || []).find(
+          (service) => service.title.trim().toLowerCase() === targetServiceTitle.trim().toLowerCase(),
+        ) ||
+        aiResponse.services?.[0] ||
+        null;
       const existingByTitle = new Map(
         services.map((s) => [s.title.trim().toLowerCase(), s]),
       );
 
-      for (const service of generatedServices) {
-        const normalizedTitle = service.title.trim();
-        if (!normalizedTitle) continue;
-        const key = normalizedTitle.toLowerCase();
-        const existing = existingByTitle.get(key);
+      const normalizedTitle =
+        generatedService?.title?.trim() || targetServiceTitle.trim();
+      const servicePayload = {
+        title: normalizedTitle,
+        slug: slugify(generatedService?.slug || normalizedTitle),
+        content: generatedService?.description || serviceForm.content,
+        image_url: serviceForm.image_url || null,
+        featured_on_home: serviceForm.featured_on_home,
+      };
 
-        if (existing) {
-          if (!templateForceReplace) {
-            continue;
-          }
-          await fetch(`${getApiBaseUrl()}/services/${existing.id}`, {
-            method: "PUT",
-            headers: authHeaders(),
-            body: JSON.stringify({
-              title: normalizedTitle,
-              slug: slugify(service.slug || normalizedTitle),
-              content: service.description,
-              image_url: existing.image_url,
-            }),
-          });
-        } else {
-          await fetch(`${getApiBaseUrl()}/services`, {
-            method: "POST",
-            headers: authHeaders(),
-            body: JSON.stringify({
-              title: normalizedTitle,
-              slug: slugify(service.slug || normalizedTitle),
-              content: service.description,
-              image_url: null,
-              website_id: websiteId,
-            }),
-          });
+      const matchedExisting = existingByTitle.get(normalizedTitle.toLowerCase());
+      const serviceIdToUpdate =
+        typeof serviceEdit === "number" ? serviceEdit : matchedExisting?.id ?? null;
+
+      let savedService: Service | null = null;
+
+      if (serviceIdToUpdate) {
+        const res = await fetch(`${getApiBaseUrl()}/services/${serviceIdToUpdate}`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify(servicePayload),
+        });
+        if (!res.ok) {
+          throw new Error(await res.text());
         }
+        savedService = (await res.json()) as Service;
+      } else {
+        const res = await fetch(`${getApiBaseUrl()}/services`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ ...servicePayload, website_id: websiteId }),
+        });
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+        savedService = (await res.json()) as Service;
       }
 
       await Promise.all([loadSettings(websiteId), loadServices(websiteId)]);
-      setAiMessage("V3 service-first copy applied successfully.");
+      setServiceForm({
+        title: servicePayload.title,
+        slug: servicePayload.slug,
+        content: servicePayload.content || "",
+        image_url: servicePayload.image_url || "",
+        featured_on_home: Boolean(servicePayload.featured_on_home),
+      });
+      setServiceEdit(savedService?.id ?? serviceEdit ?? "new");
+      setAiMessage(`V3 service copy applied to ${servicePayload.title}.`);
+      toast.success(`V3 service copy applied to ${servicePayload.title}.`);
     } catch (e) {
-      setAiMessage(
-        e instanceof Error ? e.message : "Failed to generate/apply V3 service copy.",
-      );
+      const message =
+        e instanceof Error ? e.message : "Failed to generate/apply V3 service copy.";
+      setAiMessage(message);
+      toast.error(message);
     }
   }, [
     websiteId,
-    templateServicesInput,
     triggerContentAgent,
     templateCity,
     templateIndustry,
@@ -3144,9 +3271,15 @@ export default function SiteSettingsPage() {
     form,
     templateForceReplace,
     templateBusinessName,
+    serviceEdit,
+    serviceForm.content,
+    serviceForm.featured_on_home,
+    serviceForm.image_url,
+    serviceForm.title,
     services,
     loadSettings,
     loadServices,
+    selectedTenantId,
   ]);
 
   const syncHomeAndContactFromContent = useCallback(async () => {
@@ -3369,10 +3502,21 @@ export default function SiteSettingsPage() {
     .map((slug) => managedPagesBySlug.get(slug))
     .filter((page): page is CmsPageLite => Boolean(page))
     .filter((page) => !isOptionalSystemPageSlug(String(page.slug ?? "").toLowerCase()));
-  const optionalSystemPages = OPTIONAL_SYSTEM_PAGE_CONFIGS.map((config) => ({
-    config,
-    page: managedPagesBySlug.get(config.slug) ?? null,
-  }));
+  const optionalSystemPages: OptionalSystemPageEntry[] = OPTIONAL_SYSTEM_PAGE_CONFIGS.map((config) => {
+    const page = managedPagesBySlug.get(config.slug) ?? null;
+    const inHeaderNav = managedHeaderSlugs.includes(config.slug);
+    const pageIsActive = page ? page.is_published && (page.is_enabled ?? true) : false;
+
+    return {
+      config,
+      page,
+      inHeaderNav,
+      pageIsActive,
+      isActive: inHeaderNav || pageIsActive,
+    };
+  });
+  const activeOptionalSystemPages = optionalSystemPages.filter((item) => item.isActive);
+  const inactiveOptionalSystemPages = optionalSystemPages.filter((item) => !item.isActive);
   const dropdownParentCandidates = sitePages.filter(
     (page) => !page.parent_id && (
       (page.navigation_assignments ?? []).some((assignment) => assignment.placement === 'header' && assignment.style === 'dropdown_parent') ||
@@ -3520,6 +3664,159 @@ export default function SiteSettingsPage() {
       setManagedSystemPageSavingSlug(null);
     }
   }, [loadPageSlugs, sitePages, updateManagedHeaderPage, websiteId]);
+
+  const renderOptionalSystemPageControl = ({
+    config,
+    page,
+    inHeaderNav,
+    pageIsActive,
+    isActive,
+  }: OptionalSystemPageEntry) => {
+    const showInHeader =
+      (page?.nav_placement ?? (page?.is_main_nav ? "header" : "hidden")) ===
+      "header";
+    const navStyle = page?.nav_style ?? "direct";
+    const isEnabled = page ? (page.is_enabled ?? true) : false;
+    const isPublished = page?.is_published ?? false;
+    const isSaving =
+      managedSystemPageSavingSlug === config.slug ||
+      (page ? pageAssignmentSavingId === page.id : false);
+    const statusBadge = inHeaderNav
+      ? {
+          label: "In Header Nav",
+          className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        }
+      : pageIsActive
+        ? {
+            label: "Published Route",
+            className: "border-blue-200 bg-blue-50 text-blue-700",
+          }
+        : page
+          ? {
+              label: "Inactive Page",
+              className: "border-gray-200 bg-gray-50 text-gray-600",
+            }
+          : {
+              label: "Missing Page",
+              className: "border-amber-200 bg-amber-50 text-amber-700",
+            };
+
+    return (
+      <div
+        key={config.slug}
+        className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+              {config.title}
+            </p>
+            <p className="text-xs text-gray-500">/{config.slug}</p>
+            <p className="mt-1 text-xs text-gray-500">{config.description}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${statusBadge.className}`}>
+              {statusBadge.label}
+            </span>
+            {isSaving && (
+              <span className="text-xs font-semibold text-amber-700">Saving…</span>
+            )}
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={isEnabled}
+              onChange={(e) => void upsertOptionalSystemPage(config, e.target.checked
+                ? {
+                    is_enabled: true,
+                    is_published: page?.is_published ?? true,
+                  }
+                : {
+                    is_enabled: false,
+                    is_published: false,
+                    nav_placement: "hidden",
+                    nav_style: "direct",
+                    nav_parent_id: null,
+                  })}
+            />
+            Enable Page
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={isPublished}
+              disabled={!isEnabled && !page}
+              onChange={(e) => void upsertOptionalSystemPage(config, {
+                is_enabled: e.target.checked ? true : isEnabled,
+                is_published: e.target.checked,
+                nav_placement: e.target.checked ? (page?.nav_placement ?? "hidden") : "hidden",
+                nav_style: page?.nav_style ?? "direct",
+                nav_parent_id: page?.nav_parent_id ?? null,
+              })}
+            />
+            Publish Page
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={showInHeader}
+              onChange={(e) => void upsertOptionalSystemPage(config, e.target.checked
+                ? {
+                    is_enabled: true,
+                    is_published: true,
+                    nav_placement: "header",
+                    nav_style:
+                      page?.nav_style === "dropdown_parent"
+                        ? "dropdown_parent"
+                        : "direct",
+                  }
+                : {
+                    nav_placement: "hidden",
+                    nav_style: "direct",
+                    nav_parent_id: null,
+                  })}
+            />
+            Show in Header
+          </label>
+          <div>
+            <label className={LABEL}>Header Display</label>
+            <select
+              className={INPUT}
+              value={navStyle}
+              disabled={!showInHeader}
+              onChange={(e) => void upsertOptionalSystemPage(config, {
+                is_enabled: true,
+                is_published: true,
+                nav_placement: "header",
+                nav_style: e.target.value as CmsPageLite["nav_style"],
+                nav_parent_id: null,
+              })}
+            >
+              <option value="direct">Direct link</option>
+              {config.supportsDropdownParent !== false && (
+                <option value="dropdown_parent">Dropdown parent</option>
+              )}
+            </select>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={`/managed-pages/${config.slug}`}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Open Managed Editor
+          </Link>
+          {!isActive && (
+            <span className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
+              Inactive until enabled or added to header nav
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const setNavLinksForLocation = useCallback(
     (location: "header" | "footer", nextLinks: FooterNavLink[]) => {
@@ -3800,8 +4097,8 @@ export default function SiteSettingsPage() {
 
   const isTabLocked = (tabId: Tab) => {
     if (tabId === "settings") return !canEditSiteSettings;
-    if (tabId === "services") return !contentPermissions.edit_services;
-    if (tabId === "team") return !contentPermissions.edit_team;
+    if (tabId === "services") return !canEditServices;
+    if (tabId === "team") return !canEditTeam;
     return false;
   };
 
@@ -4942,144 +5239,61 @@ export default function SiteSettingsPage() {
                     href="/managed-pages"
                     className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
-                    Open Managed Pages
+                    Enable Optional Pages
                   </Link>
                   <Link
                     href="/built-in-pages"
                     className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
-                    Open Built-in Pages
+                    Edit Built-in Pages
                   </Link>
                 </div>
               </div>
-              {optionalSystemPages.map(({ config, page }) => {
-                const showInHeader =
-                  (page?.nav_placement ?? (page?.is_main_nav ? "header" : "hidden")) ===
-                  "header";
-                const navStyle = page?.nav_style ?? "direct";
-                const isEnabled = page ? (page.is_enabled ?? true) : false;
-                const isPublished = page?.is_published ?? false;
-                const isSaving =
-                  managedSystemPageSavingSlug === config.slug ||
-                  (page ? pageAssignmentSavingId === page.id : false);
-
-                return (
-                  <div
-                    key={config.slug}
-                    className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                          {config.title}
-                        </p>
-                        <p className="text-xs text-gray-500">/{config.slug}</p>
-                        <p className="mt-1 text-xs text-gray-500">{config.description}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {page ? (
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                            Page exists
-                          </span>
-                        ) : (
-                          <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
-                            Missing page
-                          </span>
-                        )}
-                        {isSaving && (
-                          <span className="text-xs font-semibold text-amber-700">Saving…</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={isEnabled}
-                          onChange={(e) => void upsertOptionalSystemPage(config, e.target.checked
-                            ? {
-                                is_enabled: true,
-                                is_published: page?.is_published ?? true,
-                              }
-                            : {
-                                is_enabled: false,
-                                is_published: false,
-                                nav_placement: "hidden",
-                                nav_style: "direct",
-                                nav_parent_id: null,
-                              })}
-                        />
-                        Enable Page
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={isPublished}
-                          disabled={!isEnabled && !page}
-                          onChange={(e) => void upsertOptionalSystemPage(config, {
-                            is_enabled: e.target.checked ? true : isEnabled,
-                            is_published: e.target.checked,
-                            nav_placement: e.target.checked ? (page?.nav_placement ?? "hidden") : "hidden",
-                            nav_style: page?.nav_style ?? "direct",
-                            nav_parent_id: page?.nav_parent_id ?? null,
-                          })}
-                        />
-                        Publish Page
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={showInHeader}
-                          onChange={(e) => void upsertOptionalSystemPage(config, e.target.checked
-                            ? {
-                                is_enabled: true,
-                                is_published: true,
-                                nav_placement: "header",
-                                nav_style:
-                                  page?.nav_style === "dropdown_parent"
-                                    ? "dropdown_parent"
-                                    : "direct",
-                              }
-                            : {
-                                nav_placement: "hidden",
-                                nav_style: "direct",
-                                nav_parent_id: null,
-                              })}
-                        />
-                        Show in Header
-                      </label>
-                      <div>
-                        <label className={LABEL}>Header Display</label>
-                        <select
-                          className={INPUT}
-                          value={navStyle}
-                          disabled={!showInHeader}
-                          onChange={(e) => void upsertOptionalSystemPage(config, {
-                            is_enabled: true,
-                            is_published: true,
-                            nav_placement: "header",
-                            nav_style: e.target.value as CmsPageLite["nav_style"],
-                            nav_parent_id: null,
-                          })}
-                        >
-                          <option value="direct">Direct link</option>
-                          {config.supportsDropdownParent !== false && (
-                            <option value="dropdown_parent">Dropdown parent</option>
-                          )}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Link
-                        href={`/managed-pages/${config.slug}`}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        Open Managed Editor
-                      </Link>
-                    </div>
+              {activeOptionalSystemPages.length > 0 ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                      Active Optional Pages
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      These routes are currently active because they are published or placed in header navigation for this tenant.
+                    </p>
                   </div>
-                );
-              })}
+                  {activeOptionalSystemPages.map((item) => renderOptionalSystemPageControl(item))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-white/70 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
+                  No optional system parent pages are active for this tenant right now.
+                </div>
+              )}
+              {inactiveOptionalSystemPages.length > 0 && (
+                <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                        Inactive Optional Pages
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        These routes are supported by the platform but are not part of the current tenant setup.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowInactiveOptionalSystemPages((current) => !current)}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      {showInactiveOptionalSystemPages
+                        ? "Hide Inactive Optional Pages"
+                        : `Show ${inactiveOptionalSystemPages.length} Inactive Optional Page${inactiveOptionalSystemPages.length === 1 ? "" : "s"}`}
+                    </button>
+                  </div>
+                  {showInactiveOptionalSystemPages && (
+                    <div className="space-y-3">
+                      {inactiveOptionalSystemPages.map((item) => renderOptionalSystemPageControl(item))}
+                    </div>
+                  )}
+                </div>
+              )}
               <p className="text-xs text-gray-500">
                 Shop stays tied to the ecommerce toggle and Built-in Pages editor. Home, Services, and About remain built-in core routes.
               </p>
@@ -5208,13 +5422,13 @@ export default function SiteSettingsPage() {
               <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 <p className="font-semibold">Potential 404s detected in Header Navigation</p>
                 <p className="mt-1">
-                  {missingHeaderLinks.length} link(s) need page setup or href updates. Use Custom Pages to create/publish missing slugs.
+                  {missingHeaderLinks.length} link(s) need page setup or href updates. Create and publish custom pages for any missing slugs.
                 </p>
                 <Link
                   href="/main-page"
                   className="mt-2 inline-block font-semibold underline"
                 >
-                  Open Custom Pages
+                  Create Custom Page
                 </Link>
               </div>
             )}
@@ -5671,7 +5885,7 @@ export default function SiteSettingsPage() {
                 value={form.average_rating != null ? String(form.average_rating) : ""}
                 onChange={(v) => {
                   const parsed = parseFloat(v);
-                  set("average_rating", !v.trim() || isNaN(parsed) ? "" : String(Math.min(5, Math.max(0, parsed))));
+                  set("average_rating", !v.trim() || isNaN(parsed) ? null : Math.min(5, Math.max(0, parsed)));
                 }}
                 hint="Between 0 and 5. One decimal place, e.g. 4.9"
               />
@@ -5680,7 +5894,7 @@ export default function SiteSettingsPage() {
                 value={form.review_count != null ? String(form.review_count) : ""}
                 onChange={(v) => {
                   const parsed = parseInt(v, 10);
-                  set("review_count", !v.trim() || isNaN(parsed) ? "" : String(Math.max(0, parsed)));
+                  set("review_count", !v.trim() || isNaN(parsed) ? null : Math.max(0, parsed));
                 }}
                 hint="Total number of Google reviews"
               />
@@ -5759,7 +5973,7 @@ export default function SiteSettingsPage() {
             {serviceEdit === null && (
               <button
                 onClick={startNewService}
-                disabled={!contentPermissions.edit_services}
+                disabled={!canEditServices}
                 className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 + Add Service
@@ -5769,49 +5983,76 @@ export default function SiteSettingsPage() {
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <p className="mb-3 text-sm font-semibold text-gray-800 dark:text-white">
-              Services AI Context Builder (V3)
+              Service AI Builder (V3)
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field
-                label="Primary SEO Keyword"
-                value={templateKeyword}
-                onChange={setTemplateKeyword}
-              />
-              <Field
-                label="Competitor URL (optional)"
-                value={templateCompetitorUrl}
-                onChange={setTemplateCompetitorUrl}
-              />
-              <div className="sm:col-span-2">
-                <Field
-                  label="Services Client Provides"
-                  value={templateServicesInput}
-                  onChange={setTemplateServicesInput}
-                  textarea
-                  hint="One per line or comma-separated. Example: EV Charger Installation, Panel Upgrades, Electrical Troubleshooting"
-                />
+            {aiFeatureLoading ? (
+              <p className="text-sm text-gray-500">Checking AI access…</p>
+            ) : aiFeatureEnabled ? (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field
+                    label="Primary SEO Keyword"
+                    value={templateKeyword}
+                    onChange={setTemplateKeyword}
+                  />
+                  <Field
+                    label="City / Service Area"
+                    value={templateCity}
+                    onChange={setTemplateCity}
+                    hint="Used for local SEO framing and preview copy."
+                  />
+                  <Field
+                    label="Competitor URL (optional)"
+                    value={templateCompetitorUrl}
+                    onChange={setTemplateCompetitorUrl}
+                  />
+                </div>
+                <p className="mt-3 text-xs text-gray-500">
+                  {serviceEdit !== null && serviceForm.title.trim()
+                    ? `Current V3 target: ${serviceForm.title.trim()} (from the service editor below).`
+                    : "Tip: click Add Service or open an existing service below, then run V3 for that single service."}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {serviceEdit === null ? (
+                    <button
+                      type="button"
+                      onClick={startNewService}
+                      disabled={!canEditServices}
+                      className="rounded-lg border border-[#CD7F32] px-4 py-2 text-sm font-semibold text-[#CD7F32] hover:bg-[#CD7F32]/10 disabled:opacity-50"
+                    >
+                      Open New Service Editor
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={generateAndApplyServiceCopyV3}
+                    disabled={isAIApplying || !canGenerateCurrentService}
+                    className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    title={
+                      canGenerateCurrentService
+                        ? "Generate and apply copy for the current open service"
+                        : "Open a service to edit first"
+                    }
+                  >
+                    {isAIApplying
+                      ? "Generating V3…"
+                      : "Generate & Apply Open Service (V3)"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={generateAIIdeas}
+                    disabled={isAIApplying}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    {isAIApplying ? "Generating…" : "Generate Legacy Ideas"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                AI service copy is not enabled for this tenant. Enable the `ai.agent.generate` feature to use this builder.
               </div>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={generateAndApplyServiceCopyV3}
-                disabled={isAIApplying}
-                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {isAIApplying
-                  ? "Generating V3…"
-                  : "Generate & Apply Service Copy (V3)"}
-              </button>
-              <button
-                type="button"
-                onClick={generateAIIdeas}
-                disabled={isAIApplying}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                {isAIApplying ? "Generating…" : "Generate Legacy Ideas"}
-              </button>
-            </div>
+            )}
             {aiIdeas.length > 0 && (
               <div className="mt-3 space-y-2">
                 {aiIdeas.map((ideaItem) => (
@@ -5917,14 +6158,59 @@ export default function SiteSettingsPage() {
                     />
                   )}
                 </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setServiceField(
+                        "featured_on_home",
+                        !serviceForm.featured_on_home,
+                      )
+                    }
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      serviceForm.featured_on_home ? "bg-[#CD7F32]" : "bg-gray-200"
+                    }`}
+                    role="switch"
+                    aria-checked={serviceForm.featured_on_home}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                        serviceForm.featured_on_home
+                          ? "translate-x-4"
+                          : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                  <div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      Feature on home services widget
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Featured services are prioritized in the homepage showcase only.
+                    </p>
+                  </div>
+                </div>
               </div>
               {serviceError && (
                 <p className="mt-2 text-sm text-red-500">{serviceError}</p>
               )}
               <div className="mt-4 flex gap-3">
                 <button
+                  type="button"
+                  onClick={generateAndApplyServiceCopyV3}
+                  disabled={isAIApplying || !serviceForm.title.trim()}
+                  className="rounded-lg border border-[#CD7F32] px-5 py-2 text-sm font-semibold text-[#CD7F32] hover:bg-[#CD7F32]/10 disabled:opacity-50"
+                  title={
+                    serviceForm.title.trim()
+                      ? `Generate copy for ${serviceForm.title.trim()}`
+                      : "Enter a service title first"
+                  }
+                >
+                  {isAIApplying ? "Generating…" : "Generate Copy For This Service"}
+                </button>
+                <button
                   onClick={saveService}
-                  disabled={serviceSaving || !contentPermissions.edit_services}
+                  disabled={serviceSaving || !canEditServices}
                   className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {serviceSaving ? "Saving…" : "Save"}
@@ -5944,8 +6230,18 @@ export default function SiteSettingsPage() {
             <p className="text-sm text-gray-400">Loading…</p>
           ) : services.length === 0 && serviceEdit === null ? (
             <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
-              No services yet. Click <strong>+ Add Service</strong> to get
-              started.
+              <p>
+                No services yet. Click <strong>+ Add Service</strong> to get
+                started.
+              </p>
+              <button
+                type="button"
+                onClick={startNewService}
+                disabled={!canEditServices}
+                className="mt-4 rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                Add Service Now
+              </button>
             </div>
           ) : (
             <ul className="space-y-3">
@@ -5970,6 +6266,11 @@ export default function SiteSettingsPage() {
                       <p className="font-semibold text-gray-900 dark:text-white">
                         {s.title}
                       </p>
+                      {s.featured_on_home ? (
+                        <p className="mt-1 inline-flex rounded-full bg-[#CD7F32]/12 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#CD7F32]">
+                          Featured On Home
+                        </p>
+                      ) : null}
                       {s.content && (
                         <p className="mt-1 line-clamp-2 text-sm text-gray-500">
                           {s.content.replace(/<[^>]+>/g, "")}
@@ -5983,14 +6284,14 @@ export default function SiteSettingsPage() {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => startEditService(s)}
-                      disabled={!contentPermissions.edit_services}
+                      disabled={!canEditServices}
                       className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deleteService(s.id)}
-                      disabled={!contentPermissions.edit_services}
+                      disabled={!canEditServices}
                       className="rounded-md border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
                     >
                       Delete
@@ -6013,7 +6314,7 @@ export default function SiteSettingsPage() {
             {teamEdit === null && (
               <button
                 onClick={startNewTeam}
-                disabled={!contentPermissions.edit_team}
+                disabled={!canEditTeam}
                 className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 + Add Member
@@ -6021,31 +6322,41 @@ export default function SiteSettingsPage() {
             )}
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <p className="mb-3 text-sm font-semibold text-gray-800 dark:text-white">
               About / Team AI Context Builder (V3)
             </p>
-            <Field
-              label="About Context (founder story, years in business, credentials, trust points)"
-              value={aboutContextInput}
-              onChange={setAboutContextInput}
-              textarea
-            />
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={generateAndApplyAboutCopyV3}
-                disabled={isAIApplying}
-                className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {isAIApplying
-                  ? "Generating About…"
-                  : "Generate & Apply About Copy (V3)"}
-              </button>
-              <span className="text-xs text-gray-500">
-                Applies CTA + primary team/about copy.
-              </span>
-            </div>
+            {aiFeatureLoading ? (
+              <p className="text-sm text-gray-500">Checking AI access…</p>
+            ) : aiFeatureEnabled ? (
+              <>
+                <Field
+                  label="About Context (founder story, years in business, credentials, trust points)"
+                  value={aboutContextInput}
+                  onChange={setAboutContextInput}
+                  textarea
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={generateAndApplyAboutCopyV3}
+                    disabled={isAIApplying}
+                    className="rounded-lg bg-[#CD7F32] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {isAIApplying
+                      ? "Generating About…"
+                      : "Generate & Apply About Copy (V3)"}
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    Applies CTA + primary team/about copy.
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                AI about copy is not enabled for this tenant. Enable the `ai.agent.generate` feature to use this builder.
+              </div>
+            )}
             {aiMessage && (
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
                 {aiMessage}
@@ -6144,7 +6455,7 @@ export default function SiteSettingsPage() {
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={saveTeam}
-                  disabled={teamSaving || !contentPermissions.edit_team}
+                  disabled={teamSaving || !canEditTeam}
                   className="rounded-lg bg-[#CD7F32] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {teamSaving ? "Saving…" : "Save"}
@@ -6204,14 +6515,14 @@ export default function SiteSettingsPage() {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => startEditTeam(m)}
-                      disabled={!contentPermissions.edit_team}
+                      disabled={!canEditTeam}
                       className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deleteTeam(m.id)}
-                      disabled={!contentPermissions.edit_team}
+                      disabled={!canEditTeam}
                       className="rounded-md border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
                     >
                       Delete

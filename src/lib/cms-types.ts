@@ -286,6 +286,7 @@ export interface Service {
   slug: string;
   content: string | null;
   image_url: string | null;
+  featured_on_home: boolean;
   website_id: number | null;
 }
 

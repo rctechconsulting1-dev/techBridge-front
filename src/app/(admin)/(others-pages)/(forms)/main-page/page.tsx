@@ -274,6 +274,23 @@ export default function FormMain() {
     setViewMode('editor');
   }, []);
 
+  const handleCreateDropdownParentDraft = useCallback(() => {
+    setInitialPageDraft({
+      slug: '',
+      title: '',
+      is_published: true,
+      is_enabled: true,
+      nav_placement: 'header',
+      nav_style: 'dropdown_parent',
+      page_type: 'main-page',
+      template_type: 'standard',
+      parent_id: null,
+      nav_parent_id: null,
+    });
+    setShowCreationWizard(true);
+    setViewMode('editor');
+  }, []);
+
   const toTitleFromSlug = useCallback((slug: string) => {
     return slug
       .split("-")
@@ -596,13 +613,13 @@ export default function FormMain() {
       <ComponentCard title="Built-in Versus Custom Pages">
         <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
           <p>
-            Use <strong>Built-in Pages</strong> for the platform-managed routes: <strong>/</strong>, <strong>/services</strong>, <strong>/about</strong>, and <strong>/shop</strong>.
+            Use <strong>Built-in Pages</strong> to edit the platform-managed routes: <strong>/</strong>, <strong>/services</strong>, <strong>/about</strong>, and <strong>/shop</strong>.
           </p>
           <p>
-            Use <strong>Custom Pages</strong> here for extra client-specific slugs such as <strong>/why-us</strong>, <strong>/financing</strong>, or <strong>/service-area</strong>.
+            Use <strong>Custom Pages</strong> here to create extra client-specific slugs such as <strong>/why-us</strong>, <strong>/financing</strong>, or <strong>/service-area</strong>.
           </p>
           <p>
-            Use <strong>Global Site Settings</strong> for optional system parent pages such as <strong>/contact</strong>, <strong>/faq</strong>, <strong>/blog</strong>, and <strong>/locations</strong>.
+            Use <strong>Global Site Settings</strong> to enable optional system parent pages such as <strong>/contact</strong>, <strong>/faq</strong>, <strong>/blog</strong>, and <strong>/locations</strong>.
           </p>
           <p>
             Use <strong>Managed Pages</strong> when you want a direct editor entry for those system parent pages without hunting through the organizer.
@@ -612,13 +629,13 @@ export default function FormMain() {
               href="/managed-pages"
               className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
             >
-              Open Managed Pages
+              Enable Optional Pages
             </Link>
             <Link
               href="/built-in-pages"
               className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
             >
-              Open Built-in Pages
+              Edit Built-in Pages
             </Link>
             <Link
               href="/site-settings"
@@ -659,6 +676,7 @@ export default function FormMain() {
                       setShowCreationWizard(false);
                       setViewMode('organizer');
                     }}
+                    onCreateDropdownParentDraft={handleCreateDropdownParentDraft}
                     enableAIContent={true}
                     initialPageDraft={initialPageDraft}
                     suggestedSlugs={missingNavPages}
@@ -672,7 +690,7 @@ export default function FormMain() {
                         size="sm"
                         onClick={handleCreatePage}
                       >
-                        Create New Page
+                        Create Custom Page
                       </Button>
                       <Button
                         size="sm"
@@ -723,7 +741,7 @@ export default function FormMain() {
                         size="sm"
                         onClick={handleCreatePage}
                       >
-                        Create New Page
+                        Create Custom Page
                       </Button>
                     </div>
                   </div>

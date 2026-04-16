@@ -98,6 +98,42 @@ export default function HomeTestimonialsVariants({
     );
   }
 
+  if (variant === "review_strip") {
+    return (
+      <section id="testimonials" className="scroll-mt-20 py-20" style={{ backgroundColor: theme.cardBackground }}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: primary }}>
+                Review Strip
+              </p>
+              <h2 className="mt-3 text-4xl font-bold text-gray-900">Proof points that scan fast</h2>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {testimonials.slice(0, 3).map((testimonial) => (
+              <div
+                key={testimonial.id}
+                className="rounded-[2rem] border p-6"
+                style={{ backgroundColor: theme.softBackground, borderColor: `${primary}22` }}
+              >
+                <p className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: primary }}>
+                  {testimonial.author_name}
+                </p>
+                {testimonial.author_title ? (
+                  <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gray-500">
+                    {testimonial.author_title}
+                  </p>
+                ) : null}
+                <p className="mt-4 text-base leading-relaxed text-gray-700">&ldquo;{testimonial.quote}&rdquo;</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="testimonials" className="scroll-mt-20 py-20" style={{ backgroundColor: theme.cardBackground }}>
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 sm:grid-cols-3 sm:px-6 lg:px-8">
