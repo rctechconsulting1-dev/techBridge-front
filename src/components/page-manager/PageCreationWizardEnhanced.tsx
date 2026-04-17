@@ -6,7 +6,10 @@ import Input from '@/components/form/input/InputField';
 import Select from '@/components/form/Select';
 import TextArea from '@/components/form/input/TextArea';
 import { useContentAgent } from '@/hooks/useContentAgent';
-import { BLOG_LIST_VARIANT_OPTIONS } from '@/components/sections/sectionVariants';
+import {
+  BLOG_LIST_VARIANT_OPTIONS,
+  type BlogListSectionVariant,
+} from '@/components/sections/sectionVariants';
 import BlogListVariantPreview from '@/components/page-manager/BlogListVariantPreview';
 
 // Types for AI content generation
@@ -29,6 +32,7 @@ type InferredPageIntent = {
 };
 
 const MIN_IDEA_CONFIDENCE = 65;
+const DEFAULT_BLOG_LIST_VARIANT: BlogListSectionVariant = 'editorial_grid';
 
 interface ContentAgentData {
   content?: string;
@@ -467,10 +471,15 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
     }));
   };
 
+  const isBlogListVariant = (value: string): value is BlogListSectionVariant => {
+    return BLOG_LIST_VARIANT_OPTIONS.some((option) => option.value === value);
+  };
+
   const selectedBlogListVariant =
-    typeof formData.presentation?.sectionVariants?.blogList === 'string'
+    typeof formData.presentation?.sectionVariants?.blogList === 'string' &&
+    isBlogListVariant(formData.presentation.sectionVariants.blogList)
       ? formData.presentation.sectionVariants.blogList
-      : BLOG_LIST_VARIANT_OPTIONS[0]?.value;
+      : DEFAULT_BLOG_LIST_VARIANT;
 
   const handlePageTypeChange = (pageType: PageType) => {
     const defaultTemplate = templateTypeOptions[pageType][0]?.value || 'standard';
@@ -488,7 +497,11 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
             ...(prev.presentation ?? {}),
             sectionVariants: {
               ...(prev.presentation?.sectionVariants ?? {}),
-              blogList: prev.presentation?.sectionVariants?.blogList || BLOG_LIST_VARIANT_OPTIONS[0]?.value,
+              blogList:
+                typeof prev.presentation?.sectionVariants?.blogList === 'string' &&
+                isBlogListVariant(prev.presentation.sectionVariants.blogList)
+                  ? prev.presentation.sectionVariants.blogList
+                  : DEFAULT_BLOG_LIST_VARIANT,
             },
           }
         : prev.presentation,
@@ -496,6 +509,10 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   };
 
   const handleBlogListVariantChange = (value: string) => {
+    if (!isBlogListVariant(value)) {
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       presentation: {
