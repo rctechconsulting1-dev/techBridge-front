@@ -14,7 +14,10 @@ import CTASection from "@/components/sections/CTASection";
 import FooterSection from "@/components/sections/FooterSection";
 import BlogListSection from "@/components/sections/BlogListSection";
 import MarkdownContent from "@/components/common/MarkdownContent";
-import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
+import {
+  getGenericSectionVariants,
+  type BlogListSectionVariant,
+} from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
 
 export const revalidate = 60;
@@ -29,6 +32,10 @@ function toReadableTitle(slug: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function isBlogListVariant(value: string): value is BlogListSectionVariant {
+  return ["editorial_grid", "featured_stack", "compact_rows"].includes(value);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -79,7 +86,8 @@ export default async function CustomPage({ params }: Props) {
   );
   const blogPosts = childBlogPosts.length > 0 ? childBlogPosts : fallbackBlogPosts;
   const blogListVariant =
-    typeof page.presentation?.sectionVariants?.blogList === "string"
+    typeof page.presentation?.sectionVariants?.blogList === "string" &&
+    isBlogListVariant(page.presentation.sectionVariants.blogList)
       ? page.presentation.sectionVariants.blogList
       : "editorial_grid";
   const isBlogListPage = page.template_type === "blog-list" || page.page_type === "blog-category";
