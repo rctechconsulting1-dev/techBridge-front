@@ -271,7 +271,10 @@ export async function sendWelcomeEmail({
   websiteId,
   tenantId,
 }: SendWelcomeEmailOptions) {
-  const sender = await resolveNotificationSenderForContext({ websiteId, tenantId });
+  const sender = await resolveNotificationSenderForContext({
+    websiteId,
+    tenantId,
+  });
 
   return getResendClient().emails.send({
     from: sender.from,
@@ -327,7 +330,10 @@ export async function sendResetPasswordEmail({
 }: SendResetPasswordEmailOptions) {
   const resetToken = token ?? (await createPasswordResetToken(to, userId));
   const resetUrl = `${APP_URL}/reset-password/confirm?token=${encodeURIComponent(resetToken)}`;
-  const sender = await resolveNotificationSenderForContext({ websiteId, tenantId });
+  const sender = await resolveNotificationSenderForContext({
+    websiteId,
+    tenantId,
+  });
 
   return getResendClient().emails.send({
     from: sender.from,
@@ -373,7 +379,12 @@ export async function sendBillingInviteEmail({
     from: FROM_EMAIL,
     to,
     subject: `Activate your ${planName} subscription – RC TechBridge`,
-    html: buildBillingInviteHtml({ firstName, planName, priceFormatted, checkoutUrl }),
+    html: buildBillingInviteHtml({
+      firstName,
+      planName,
+      priceFormatted,
+      checkoutUrl,
+    }),
   });
 }
 
@@ -425,8 +436,14 @@ export async function sendIntakeEmail({
     websiteId,
     tenantName,
   );
-  const intakeUrl = `${APP_URL}/intake?token=${encodeURIComponent(token)}`;
-  const sender = await resolveNotificationSenderForContext({ websiteId, tenantId });
+  // Use the AI-assisted intake form when OpenAI is configured; fall back to
+  // the classic form if the key is absent (AI unavailable).
+  const intakePath = process.env.OPENAI_API_KEY ? "/intake/ai" : "/intake";
+  const intakeUrl = `${APP_URL}${intakePath}?token=${encodeURIComponent(token)}`;
+  const sender = await resolveNotificationSenderForContext({
+    websiteId,
+    tenantId,
+  });
 
   const content = buildTenantIntakeHtml({
     firstName,
