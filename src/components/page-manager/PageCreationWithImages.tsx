@@ -7,6 +7,7 @@ import PageCreationWizardEnhanced from './PageCreationWizardEnhanced';
 interface PageCreationWithImagesProps {
   onCreatePage: (data: PageCreationData) => Promise<unknown>;
   onCancel: () => void;
+  onCreateDropdownParentDraft?: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
   initialPageDraft?: InitialPageDraft;
@@ -18,6 +19,7 @@ interface PageCreationWithImagesProps {
 const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
   onCreatePage,
   onCancel,
+  onCreateDropdownParentDraft,
   isLoading = false,
   enableAIContent = false,
   initialPageDraft,
@@ -143,6 +145,7 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
     <PageCreationWizardEnhanced
       onCreatePage={handlePageCreation}
       onCancel={onCancel}
+      onCreateDropdownParentDraft={onCreateDropdownParentDraft}
       isLoading={isLoading}
       enableAIContent={enableAIContent}
       initialPageDraft={initialPageDraft}

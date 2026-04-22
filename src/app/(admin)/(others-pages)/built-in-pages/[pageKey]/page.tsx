@@ -27,6 +27,7 @@ import type {
   BuiltInPageWorkflowStatus,
   ConversionMode,
   FAQItem,
+  Product,
   Service,
   SiteSettings,
   TeamMember,
@@ -114,6 +115,7 @@ type HomeSourceSummary = {
   testimonialCount: number;
   faqCount: number;
   teamCount: number;
+  productCount: number;
   loading: boolean;
   error: string | null;
 };
@@ -405,6 +407,11 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   aboutPreview: "Brand story snippet — strengthens E-E-A-T signals.",
   booking: "Inline booking widget — keeps visitors on the page.",
   offer: "Dollar amount + expiry promo — urgency and fresh content.",
+  servicesList: "Full service catalog — card grid, category groups, or problem/solution rows.",
+  mission: "Founder story, values grid, or timeline — supports E-E-A-T.",
+  team: "Team member profiles — credibility and local trust.",
+  catalog: "Product grid or collection tabs for browsable merchandising.",
+  featured: "Curated bestsellers or featured offer panel.",
 };
 
 type SlotEntry = {
@@ -425,8 +432,33 @@ const HOME_SLOT_CATALOG: SlotEntry[] = [
   { slot: "booking",         required: false, defaultOn: false },
 ];
 
-const PAGE_SLOT_CATALOG: Partial<Record<BuiltInPageKey, SlotEntry[]>> = {
+const SERVICES_SLOT_CATALOG: SlotEntry[] = [
+  { slot: "hero",         required: true,  defaultOn: true },
+  { slot: "servicesList", required: true,  defaultOn: true },
+  { slot: "faq",          required: false, defaultOn: false },
+  { slot: "cta",          required: false, defaultOn: true },
+];
+
+const ABOUT_SLOT_CATALOG: SlotEntry[] = [
+  { slot: "hero",         required: true,  defaultOn: true },
+  { slot: "mission",      required: true,  defaultOn: true },
+  { slot: "team",         required: false, defaultOn: true },
+  { slot: "testimonials", required: false, defaultOn: true },
+  { slot: "cta",          required: false, defaultOn: true },
+];
+
+const SHOP_SLOT_CATALOG: SlotEntry[] = [
+  { slot: "hero",     required: true,  defaultOn: true },
+  { slot: "catalog",  required: true,  defaultOn: true },
+  { slot: "featured", required: false, defaultOn: true },
+  { slot: "cta",      required: false, defaultOn: true },
+];
+
+const PAGE_SLOT_CATALOG: Record<BuiltInPageKey, SlotEntry[]> = {
   home: HOME_SLOT_CATALOG,
+  services: SERVICES_SLOT_CATALOG,
+  about: ABOUT_SLOT_CATALOG,
+  shop: SHOP_SLOT_CATALOG,
 };
 
 const RECIPE_PRESETS: Record<BuiltInPageKey, Record<string, PresentationPreset>> = {
@@ -633,18 +665,18 @@ const RECIPE_OPTIONS: Record<BuiltInPageKey, PresentationOption[]> = {
   services: [
     {
       value: "service_grid",
-      label: "Service Grid",
-      description: "Balanced layout that favors scanability and breadth.",
+      label: "Authority Grid",
+      description: "Dark service-card layout built for quick scanning and stronger trust framing.",
     },
     {
       value: "service_categories",
-      label: "Service Categories",
-      description: "Groups services into clearer buckets for larger catalogs.",
+      label: "Editorial Showcase",
+      description: "Image-led split layout for premium service storytelling and category positioning.",
     },
     {
       value: "problem_solution",
-      label: "Problem Solution",
-      description: "Frames services around customer pain points and outcomes.",
+      label: "Action Menu",
+      description: "Compact service menu with stronger CTA treatment and one featured priority item.",
     },
   ],
   about: [
@@ -702,10 +734,26 @@ const SECTION_VARIANT_OPTIONS: Record<
       { value: "review_strip", label: "Review Strip" },
     ],
     servicesPreview: [
-      { value: "three_card_grid", label: "Three Card Grid" },
-      { value: "authority_list", label: "Authority List" },
-      { value: "service_tiles", label: "Service Tiles" },
-      { value: "compact_cards", label: "Compact Cards" },
+      {
+        value: "three_card_grid",
+        label: "Dark Authority Cards",
+        description: "Dark high-contrast preview cards with icon-style monograms and fuller service copy.",
+      },
+      {
+        value: "authority_list",
+        label: "Numbered Authority List",
+        description: "Ordered service rows that read like a tighter trust-focused capabilities list.",
+      },
+      {
+        value: "service_tiles",
+        label: "Featured Service Tiles",
+        description: "Tile grid with one highlighted priority service and stronger CTA styling.",
+      },
+      {
+        value: "compact_cards",
+        label: "Compact Icon Cards",
+        description: "Smaller monogram-driven preview cards for dense homepage service coverage.",
+      },
     ],
     testimonials: [
       { value: "review_cards", label: "Review Cards" },
@@ -731,9 +779,21 @@ const SECTION_VARIANT_OPTIONS: Record<
       { value: "problem_solution_split", label: "Problem Solution Split" },
     ],
     servicesList: [
-      { value: "grid_cards", label: "Grid Cards" },
-      { value: "category_sections", label: "Category Sections" },
-      { value: "problem_solution_rows", label: "Problem Solution Rows" },
+      {
+        value: "grid_cards",
+        label: "Dark Authority Grid",
+        description: "Dark card grid that showcases broad service coverage with stronger contrast.",
+      },
+      {
+        value: "category_sections",
+        label: "Editorial Split Showcase",
+        description: "Alternating image-and-copy rows for a more premium service presentation.",
+      },
+      {
+        value: "problem_solution_rows",
+        label: "Action Service Menu",
+        description: "Compact service menu rows with one featured highlight and direct CTA buttons.",
+      },
     ],
     faq: [
       { value: "accordion", label: "Accordion" },
@@ -1481,6 +1541,7 @@ export default function BuiltInPageEditorPage() {
     testimonialCount: 0,
     faqCount: 0,
     teamCount: 0,
+    productCount: 0,
     loading: false,
     error: null,
   });
@@ -1636,13 +1697,14 @@ export default function BuiltInPageEditorPage() {
   }, [selectedTenantId, websiteId]);
 
   useEffect(() => {
-    if (pageKey !== "home" || !websiteId) {
+    if (!pageKey || !websiteId) {
       setHomeSourceSummary({
         settings: null,
         serviceCount: 0,
         testimonialCount: 0,
         faqCount: 0,
         teamCount: 0,
+        productCount: 0,
         loading: false,
         error: null,
       });
@@ -1656,27 +1718,32 @@ export default function BuiltInPageEditorPage() {
 
       try {
         const headers = authHeaders();
-        const [settingsRes, servicesRes, testimonialsRes, faqRes, teamRes] = await Promise.all([
+        const needsServices = pageKey === "home" || pageKey === "services";
+        const needsTestimonials = pageKey === "home" || pageKey === "about";
+        const needsFaq = pageKey === "home" || pageKey === "services" || pageKey === "about";
+        const needsTeam = pageKey === "home" || pageKey === "about";
+        const needsProducts = pageKey === "shop";
+
+        const [settingsRes, servicesRes, testimonialsRes, faqRes, teamRes, productsRes] = await Promise.all([
           fetch(`${getApiBaseUrl()}/site-settings/${websiteId}`, {
             headers,
             cache: "no-store",
           }),
-          fetch(`${getApiBaseUrl()}/services?website_id=${websiteId}`, {
-            headers,
-            cache: "no-store",
-          }),
-          fetch(`${getApiBaseUrl()}/testimonials?website_id=${websiteId}`, {
-            headers,
-            cache: "no-store",
-          }),
-          fetch(`${getApiBaseUrl()}/faq?website_id=${websiteId}`, {
-            headers,
-            cache: "no-store",
-          }),
-          fetch(`${getApiBaseUrl()}/team-members?website_id=${websiteId}`, {
-            headers,
-            cache: "no-store",
-          }),
+          needsServices
+            ? fetch(`${getApiBaseUrl()}/services?website_id=${websiteId}`, { headers, cache: "no-store" })
+            : Promise.resolve(null),
+          needsTestimonials
+            ? fetch(`${getApiBaseUrl()}/testimonials?website_id=${websiteId}`, { headers, cache: "no-store" })
+            : Promise.resolve(null),
+          needsFaq
+            ? fetch(`${getApiBaseUrl()}/faq?website_id=${websiteId}`, { headers, cache: "no-store" })
+            : Promise.resolve(null),
+          needsTeam
+            ? fetch(`${getApiBaseUrl()}/team-members?website_id=${websiteId}`, { headers, cache: "no-store" })
+            : Promise.resolve(null),
+          needsProducts
+            ? fetch(`${getApiBaseUrl()}/products?website_id=${websiteId}`, { headers, cache: "no-store" })
+            : Promise.resolve(null),
         ]);
 
         const settings = settingsRes.ok
@@ -1685,12 +1752,13 @@ export default function BuiltInPageEditorPage() {
               "average_rating" | "review_count" | "contact_email" | "contact_phone" | "address"
             >)
           : null;
-        const services = servicesRes.ok ? ((await servicesRes.json()) as Service[]) : [];
-        const testimonials = testimonialsRes.ok
+        const services = servicesRes?.ok ? ((await servicesRes.json()) as Service[]) : [];
+        const testimonials = testimonialsRes?.ok
           ? ((await testimonialsRes.json()) as Testimonial[])
           : [];
-        const faq = faqRes.ok ? ((await faqRes.json()) as FAQItem[]) : [];
-        const team = teamRes.ok ? ((await teamRes.json()) as TeamMember[]) : [];
+        const faq = faqRes?.ok ? ((await faqRes.json()) as FAQItem[]) : [];
+        const team = teamRes?.ok ? ((await teamRes.json()) as TeamMember[]) : [];
+        const products = productsRes?.ok ? ((await productsRes.json()) as Product[]) : [];
 
         if (cancelled) {
           return;
@@ -1702,6 +1770,7 @@ export default function BuiltInPageEditorPage() {
           testimonialCount: testimonials.filter((item) => item.is_published !== false).length,
           faqCount: faq.filter((item) => item.is_published !== false).length,
           teamCount: team.filter((item) => item.is_published !== false).length,
+          productCount: products.filter((item) => item.is_published !== false).length,
           loading: false,
           error: null,
         });
@@ -1716,11 +1785,12 @@ export default function BuiltInPageEditorPage() {
           testimonialCount: 0,
           faqCount: 0,
           teamCount: 0,
+          productCount: 0,
           loading: false,
           error:
             error instanceof Error
               ? error.message
-              : "Failed to load Home section source summary.",
+              : "Failed to load section source summary.",
         });
       }
     };
@@ -1794,250 +1864,270 @@ export default function BuiltInPageEditorPage() {
           isActive: presentationState.sectionOrder.includes(section.slot),
         }))
       : [];
-  const homeSectionReadiness = useMemo<Record<string, SectionReadiness>>(() => {
-    if (pageKey !== "home") {
-      return {} as Record<string, SectionReadiness>;
+  const homeSectionReadiness = useMemo(() => {
+    type R = Record<string, SectionReadiness>;
+    // ---------- shared helpers ----------
+    const heroReady = (content.heroTitle ?? "").trim().length > 0;
+    const heroBodyOwned = hasOwnContentField(content, "heroBody");
+
+    const makeHeroReadiness = (pageName: string): SectionReadiness => ({
+      sourceKind: "page",
+      sourceLabel: "Page-owned copy",
+      statusTone: heroReady ? (heroBodyOwned ? "ready" : "warning") : "needs-config",
+      statusLabel: heroReady ? (heroBodyOwned ? "Ready" : "Needs body review") : "Needs page copy",
+      detail: heroReady
+        ? heroBodyOwned
+          ? `Hero owns its title and body inside the ${pageName} editor.`
+          : `Hero body is still inheriting from Site Settings or the website tagline.`
+        : `Fill Hero title in the ${pageName} editor.`,
+    });
+
+    const makeCollectionReadiness = (
+      count: number,
+      label: string,
+      manageHref: string,
+      manageLabel: string,
+      ideal = 3,
+    ): SectionReadiness => ({
+      sourceKind: "collection",
+      sourceLabel: `${label} collection`,
+      statusTone: count >= ideal ? "ready" : count > 0 ? "warning" : "needs-source",
+      statusLabel: count >= ideal ? "Ready" : count > 0 ? "Thin source" : `Needs ${label.toLowerCase()}`,
+      detail:
+        count >= ideal
+          ? `${count} published ${label.toLowerCase()} available.`
+          : count > 0
+            ? `Only ${count} ${label.toLowerCase()} record${count === 1 ? " is" : "s are"} available; ${ideal}+ recommended.`
+            : `Add ${label.toLowerCase()} records before enabling this section.`,
+      manageHref,
+      manageLabel,
+    });
+
+    const makeCtaReadiness = (ctaHeadline: string | null, ctaButtonText: string | null): SectionReadiness => {
+      const headlineOk = (ctaHeadline ?? "").trim().length > 0;
+      const btnOk = (ctaButtonText ?? "").trim().length > 0;
+      const active = presentationState.sectionOrder.includes("cta");
+      return {
+        sourceKind: "page",
+        sourceLabel: "Page-owned copy",
+        statusTone: headlineOk && btnOk ? "ready" : active ? "warning" : "needs-config",
+        statusLabel: headlineOk && btnOk ? "Ready" : active ? "Review CTA copy" : "Disabled",
+        detail: headlineOk && btnOk
+          ? "CTA owns its headline and button text in the page editor."
+          : active
+            ? "CTA is enabled, but its headline or button text is still inherited or blank."
+            : "CTA section is not active in the current recipe.",
+      };
+    };
+
+    // ---------- HOME ----------
+    if (pageKey === "home") {
+      const reviewSignalsAvailable =
+        Number(homeSourceSummary.settings?.average_rating ?? 0) > 0 ||
+        Number(homeSourceSummary.settings?.review_count ?? 0) > 0;
+      const computedTrustSignals =
+        homeSourceSummary.serviceCount +
+        homeSourceSummary.testimonialCount +
+        homeSourceSummary.teamCount;
+      const proofVariant = presentationState.sectionVariants.proof ?? "star_rating_bar";
+      const testimonialsVariant =
+        presentationState.sectionVariants.testimonials ?? "review_cards";
+      const proofCanRender = reviewSignalsAvailable || computedTrustSignals > 0;
+
+      return {
+        hero: makeHeroReadiness("Home"),
+        proof: {
+          sourceKind: "computed",
+          sourceLabel: "Computed trust data",
+          statusTone: proofCanRender ? "ready" : "needs-source",
+          statusLabel: proofCanRender ? "Ready" : "Needs trust data",
+          detail:
+            reviewSignalsAvailable && computedTrustSignals > 0
+              ? proofVariant === "star_rating_bar"
+                ? "Uses Google review signals from Global Site Settings. Collection counts are also available as fallback trust data."
+                : "Review signals are available now, and collection counts are also available for trust badges."
+              : reviewSignalsAvailable
+                ? proofVariant === "star_rating_bar"
+                  ? "Uses Google review signals from Global Site Settings."
+                  : "Review signals are available, so this proof section can still render even without services, testimonials, or team counts."
+                : computedTrustSignals > 0
+                  ? proofVariant === "star_rating_bar"
+                    ? "Star rating data is missing, so this variant would fall back to generic counts."
+                    : "This proof variant can render from current collection counts."
+                  : "Add review signals or enough services, testimonials, or team data to support proof.",
+          manageHref: "/site-settings?tab=settings",
+          manageLabel: "Review Signals",
+        },
+        servicesPreview: makeCollectionReadiness(
+          homeSourceSummary.serviceCount, "Services", "/site-settings?tab=services", "Manage Services",
+        ),
+        testimonials: {
+          sourceKind: "collection",
+          sourceLabel: "Testimonials collection",
+          statusTone:
+            homeSourceSummary.testimonialCount === 0
+              ? "needs-source"
+              : testimonialsVariant === "single_featured_quote"
+                ? "ready"
+                : homeSourceSummary.testimonialCount >= 3
+                  ? "ready"
+                  : "warning",
+          statusLabel:
+            homeSourceSummary.testimonialCount === 0
+              ? "Needs testimonials"
+              : testimonialsVariant === "single_featured_quote"
+                ? "Ready"
+                : homeSourceSummary.testimonialCount >= 3
+                  ? "Ready"
+                  : "Thin source",
+          detail:
+            homeSourceSummary.testimonialCount === 0
+              ? "No published testimonials are available for this Home section yet."
+              : testimonialsVariant === "single_featured_quote"
+                ? `${homeSourceSummary.testimonialCount} published testimonial${homeSourceSummary.testimonialCount === 1 ? " is" : "s are"} available for a featured quote.`
+                : homeSourceSummary.testimonialCount >= 3
+                  ? `${homeSourceSummary.testimonialCount} published testimonials are available.`
+                  : `This variant works best with 3 or more published testimonials; only ${homeSourceSummary.testimonialCount} found.`,
+          manageHref: "/content-testimonials",
+          manageLabel: "Manage Testimonials",
+        },
+        faq: makeCollectionReadiness(
+          homeSourceSummary.faqCount, "FAQ", "/content-faq", "Manage FAQ",
+        ),
+        cta: makeCtaReadiness(content.ctaHeadline ?? null, content.ctaButtonText ?? null),
+        aboutPreview: makeCollectionReadiness(
+          homeSourceSummary.teamCount, "Team", "/site-settings?tab=team", "Manage Team", 1,
+        ),
+        booking: {
+          sourceKind: "computed",
+          sourceLabel: "Public booking form",
+          statusTone:
+            homeSourceSummary.settings?.contact_email || homeSourceSummary.settings?.contact_phone
+              ? "ready"
+              : "warning",
+          statusLabel:
+            homeSourceSummary.settings?.contact_email || homeSourceSummary.settings?.contact_phone
+              ? "Ready"
+              : "Needs contact data",
+          detail:
+            homeSourceSummary.settings?.contact_email || homeSourceSummary.settings?.contact_phone
+              ? "Booking can route through the public form and show real contact methods."
+              : "Booking form still works, but contact methods are missing from Global Site Settings.",
+          manageHref: "/site-settings?tab=settings",
+          manageLabel: "Manage Contact",
+        },
+        offer: {
+          sourceKind: "page",
+          sourceLabel: "Page-owned offer copy",
+          statusTone:
+            presentationState.sectionOrder.includes("offer")
+              ? (content.offerHeadline ?? "").trim() && (content.offerButtonText ?? "").trim()
+                ? "ready"
+                : "warning"
+              : "needs-config",
+          statusLabel:
+            presentationState.sectionOrder.includes("offer")
+              ? (content.offerHeadline ?? "").trim() && (content.offerButtonText ?? "").trim()
+                ? "Ready"
+                : "Needs offer copy"
+              : "Disabled",
+          detail: presentationState.sectionOrder.includes("offer")
+            ? (content.offerHeadline ?? "").trim() && (content.offerButtonText ?? "").trim()
+              ? "Offer now owns its own headline and button copy in the Home editor."
+              : "Offer section is enabled, but its dedicated headline or button copy is still missing."
+            : "Offer section is not active in the current recipe.",
+        },
+      } as R;
     }
 
-    const reviewSignalsAvailable =
-      (homeSourceSummary.settings?.average_rating ?? 0) > 0 ||
-      (homeSourceSummary.settings?.review_count ?? 0) > 0;
-    const computedTrustSignals =
-      homeSourceSummary.serviceCount +
-      homeSourceSummary.testimonialCount +
-      homeSourceSummary.teamCount;
-    const proofVariant = presentationState.sectionVariants.proof ?? "star_rating_bar";
-    const testimonialsVariant =
-      presentationState.sectionVariants.testimonials ?? "review_cards";
+    // ---------- SERVICES ----------
+    if (pageKey === "services") {
+      return {
+        hero: makeHeroReadiness("Services"),
+        servicesList: makeCollectionReadiness(
+          homeSourceSummary.serviceCount, "Services", "/site-settings?tab=services", "Manage Services",
+        ),
+        faq: makeCollectionReadiness(
+          homeSourceSummary.faqCount, "FAQ", "/content-faq", "Manage FAQ",
+        ),
+        cta: {
+          sourceKind: "page",
+          sourceLabel: "Inherited CTA",
+          statusTone: "ready",
+          statusLabel: "Ready",
+          detail: "Services CTA uses shared conversion copy from Global Site Settings.",
+        },
+      } as R;
+    }
 
-    return {
-      hero: {
-        sourceKind: "page",
-        sourceLabel: "Page-owned copy",
-        statusTone:
-          (content.heroTitle ?? "").trim() && (content.heroPrimaryCtaText ?? "").trim()
-            ? !hasOwnContentField(content, "heroBody")
-              ? "warning"
-              : "ready"
-            : "needs-config",
-        statusLabel:
-          (content.heroTitle ?? "").trim() && (content.heroPrimaryCtaText ?? "").trim()
-            ? !hasOwnContentField(content, "heroBody")
-              ? "Needs body review"
-              : "Ready"
-            : "Needs page copy",
-        detail:
-          (content.heroTitle ?? "").trim() && (content.heroPrimaryCtaText ?? "").trim()
-            ? !hasOwnContentField(content, "heroBody")
-              ? "Hero body is still inheriting from Site Settings or the website tagline."
-              : "Hero owns its title and primary CTA inside this page editor."
-            : "Fill Hero title and Primary CTA text in the Home editor.",
-      },
-      proof: {
-        sourceKind: "computed",
-        sourceLabel: "Computed trust data",
-        statusTone:
-          proofVariant === "star_rating_bar"
-            ? reviewSignalsAvailable
-              ? "ready"
-              : computedTrustSignals > 0
-                ? "warning"
-                : "needs-source"
-            : computedTrustSignals > 0
-              ? "ready"
-              : "needs-source",
-        statusLabel:
-          proofVariant === "star_rating_bar"
-            ? reviewSignalsAvailable
-              ? "Ready"
-              : computedTrustSignals > 0
-                ? "Fallback only"
-                : "Needs trust data"
-            : computedTrustSignals > 0
-              ? "Ready"
-              : "Needs trust data",
-        detail:
-          proofVariant === "star_rating_bar"
-            ? reviewSignalsAvailable
-              ? "Uses Google review signals from Global Site Settings."
-              : computedTrustSignals > 0
-                ? "Star rating data is missing, so this variant would fall back to generic counts."
-                : "Add review signals or enough services, testimonials, or team data to support proof."
-            : computedTrustSignals > 0
-              ? "This proof variant can render from current collection counts."
-              : "Add services, testimonials, or team content before relying on this proof block.",
-        manageHref: "/site-settings?tab=settings",
-        manageLabel: "Review Signals",
-      },
-      servicesPreview: {
-        sourceKind: "collection",
-        sourceLabel: "Services collection",
-        statusTone:
-          homeSourceSummary.serviceCount >= 3
-            ? "ready"
-            : homeSourceSummary.serviceCount > 0
-              ? "warning"
-              : "needs-source",
-        statusLabel:
-          homeSourceSummary.serviceCount >= 3
-            ? "Ready"
-            : homeSourceSummary.serviceCount > 0
-              ? "Thin source"
-              : "Needs services",
-        detail:
-          homeSourceSummary.serviceCount >= 3
-            ? `${homeSourceSummary.serviceCount} services available for Home preview cards.`
-            : homeSourceSummary.serviceCount > 0
-              ? `Only ${homeSourceSummary.serviceCount} service record${homeSourceSummary.serviceCount === 1 ? " is" : "s are"} available.`
-              : "Add service records before enabling this section for Home.",
-        manageHref: "/site-settings?tab=services",
-        manageLabel: "Manage Services",
-      },
-      testimonials: {
-        sourceKind: "collection",
-        sourceLabel: "Testimonials collection",
-        statusTone:
-          homeSourceSummary.testimonialCount === 0
-            ? "needs-source"
-            : testimonialsVariant === "single_featured_quote"
-              ? "ready"
-              : homeSourceSummary.testimonialCount >= 3
-                ? "ready"
-                : "warning",
-        statusLabel:
-          homeSourceSummary.testimonialCount === 0
-            ? "Needs testimonials"
-            : testimonialsVariant === "single_featured_quote"
-              ? "Ready"
-              : homeSourceSummary.testimonialCount >= 3
-                ? "Ready"
-                : "Thin source",
-        detail:
-          homeSourceSummary.testimonialCount === 0
-            ? "No published testimonials are available for this Home section yet."
-            : testimonialsVariant === "single_featured_quote"
-              ? `${homeSourceSummary.testimonialCount} published testimonial${homeSourceSummary.testimonialCount === 1 ? " is" : "s are"} available for a featured quote.`
-              : homeSourceSummary.testimonialCount >= 3
-                ? `${homeSourceSummary.testimonialCount} published testimonials are available.`
-                : `This variant works best with 3 or more published testimonials; only ${homeSourceSummary.testimonialCount} found.`,
-        manageHref: "/content-testimonials",
-        manageLabel: "Manage Testimonials",
-      },
-      faq: {
-        sourceKind: "collection",
-        sourceLabel: "FAQ collection",
-        statusTone:
-          homeSourceSummary.faqCount >= 3
-            ? "ready"
-            : homeSourceSummary.faqCount > 0
-              ? "warning"
-              : "needs-source",
-        statusLabel:
-          homeSourceSummary.faqCount >= 3
-            ? "Ready"
-            : homeSourceSummary.faqCount > 0
-              ? "Thin source"
-              : "Needs FAQ items",
-        detail:
-          homeSourceSummary.faqCount >= 3
-            ? `${homeSourceSummary.faqCount} published FAQ items are available.`
-            : homeSourceSummary.faqCount > 0
-              ? `Home FAQ should usually have at least 3 items; only ${homeSourceSummary.faqCount} found.`
-              : "Add published FAQ items before enabling this section.",
-        manageHref: "/content-faq",
-        manageLabel: "Manage FAQ",
-      },
-      cta: {
-        sourceKind: "page",
-        sourceLabel: "Page-owned copy",
-        statusTone:
-          (content.ctaHeadline ?? "").trim() && (content.ctaButtonText ?? "").trim()
-            ? "ready"
-            : presentationState.sectionOrder.includes("cta")
-              ? "warning"
-              : "needs-config",
-        statusLabel:
-          (content.ctaHeadline ?? "").trim() && (content.ctaButtonText ?? "").trim()
-            ? "Ready"
-            : presentationState.sectionOrder.includes("cta")
-              ? "Review CTA copy"
-              : "Disabled",
-        detail:
-          (content.ctaHeadline ?? "").trim() && (content.ctaButtonText ?? "").trim()
-            ? "CTA owns its headline and button text in the Home editor."
-            : presentationState.sectionOrder.includes("cta")
-              ? "CTA is enabled, but its headline or button text is still inherited or blank."
-              : "CTA section is not active in the current recipe.",
-      },
-      aboutPreview: {
-        sourceKind: "collection",
-        sourceLabel: "Team collection",
-        statusTone:
-          homeSourceSummary.teamCount > 0 ? "ready" : "needs-source",
-        statusLabel:
-          homeSourceSummary.teamCount > 0 ? "Ready" : "Needs team content",
-        detail:
-          homeSourceSummary.teamCount > 0
-            ? `${homeSourceSummary.teamCount} published team member${homeSourceSummary.teamCount === 1 ? " is" : "s are"} available.`
-            : "Add at least one published team member before enabling About Preview.",
-        manageHref: "/site-settings?tab=team",
-        manageLabel: "Manage Team",
-      },
-      booking: {
-        sourceKind: "computed",
-        sourceLabel: "Public booking form",
-        statusTone:
-          homeSourceSummary.settings?.contact_email || homeSourceSummary.settings?.contact_phone
-            ? "ready"
-            : "warning",
-        statusLabel:
-          homeSourceSummary.settings?.contact_email || homeSourceSummary.settings?.contact_phone
-            ? "Ready"
-            : "Needs contact data",
-        detail:
-          homeSourceSummary.settings?.contact_email || homeSourceSummary.settings?.contact_phone
-            ? "Booking can route through the public form and show real contact methods."
-            : "Booking form still works, but contact methods are missing from Global Site Settings.",
-        manageHref: "/site-settings?tab=settings",
-        manageLabel: "Manage Contact",
-      },
-      offer: {
-        sourceKind: "page",
-        sourceLabel: "Page-owned offer copy",
-        statusTone:
-          presentationState.sectionOrder.includes("offer")
-            ? (content.offerHeadline ?? "").trim() && (content.offerButtonText ?? "").trim()
-              ? "ready"
-              : "warning"
-            : "needs-config",
-        statusLabel:
-          presentationState.sectionOrder.includes("offer")
-            ? (content.offerHeadline ?? "").trim() && (content.offerButtonText ?? "").trim()
-              ? "Ready"
-              : "Needs offer copy"
-            : "Disabled",
-        detail: presentationState.sectionOrder.includes("offer")
-          ? (content.offerHeadline ?? "").trim() && (content.offerButtonText ?? "").trim()
-            ? "Offer now owns its own headline and button copy in the Home editor."
-            : "Offer section is enabled, but its dedicated headline or button copy is still missing."
-          : "Offer section is not active in the current recipe.",
-      },
-    };
+    // ---------- ABOUT ----------
+    if (pageKey === "about") {
+      const missionOk =
+        (content.missionTitle ?? "").trim().length > 0 &&
+        (content.missionBody ?? "").trim().length > 0;
+      return {
+        hero: makeHeroReadiness("About"),
+        mission: {
+          sourceKind: "page",
+          sourceLabel: "Page-owned copy",
+          statusTone: missionOk ? "ready" : "needs-config",
+          statusLabel: missionOk ? "Ready" : "Needs mission copy",
+          detail: missionOk
+            ? "Mission title and body are set in the About editor."
+            : "Fill mission title and body in the About editor to enable this section.",
+        },
+        team: makeCollectionReadiness(
+          homeSourceSummary.teamCount, "Team", "/site-settings?tab=team", "Manage Team", 1,
+        ),
+        testimonials: makeCollectionReadiness(
+          homeSourceSummary.testimonialCount, "Testimonials", "/content-testimonials", "Manage Testimonials",
+        ),
+        cta: {
+          sourceKind: "page",
+          sourceLabel: "Inherited CTA",
+          statusTone: "ready",
+          statusLabel: "Ready",
+          detail: "About CTA uses shared conversion copy from Global Site Settings.",
+        },
+      } as R;
+    }
+
+    // ---------- SHOP ----------
+    if (pageKey === "shop") {
+      return {
+        hero: makeHeroReadiness("Shop"),
+        catalog: makeCollectionReadiness(
+          homeSourceSummary.productCount, "Products", "/site-settings?tab=shop", "Manage Products",
+        ),
+        featured: makeCollectionReadiness(
+          homeSourceSummary.productCount, "Products", "/site-settings?tab=shop", "Manage Products", 1,
+        ),
+        cta: {
+          sourceKind: "page",
+          sourceLabel: "Inherited CTA",
+          statusTone: "ready",
+          statusLabel: "Ready",
+          detail: "Shop CTA uses shared conversion copy from Global Site Settings.",
+        },
+      } as R;
+    }
+
+    return {} as R;
   }, [content, homeSourceSummary, pageKey, presentationState]);
   const activeHomeSectionReadiness =
-    pageKey === "home" && activeSectionConfig
+    activeSectionConfig
       ? homeSectionReadiness[activeSectionConfig]
       : null;
   const activeHomeSectionGuide =
-    pageKey === "home" && activeSectionConfig
+    activeSectionConfig
       ? HOME_SECTION_GUIDES[activeSectionConfig] ?? null
       : null;
   const activeHomeSectionOptions =
-    pageKey === "home" && activeSectionConfig
+    activeSectionConfig
       ? sectionVariantOptions[activeSectionConfig] ?? []
       : [];
   const activeHomeSectionPosition =
-    pageKey === "home" && activeSectionConfig
+    activeSectionConfig
       ? presentationState.sectionOrder.indexOf(activeSectionConfig)
       : -1;
   const draftValidation = getDraftValidation(activePageKey, content, seo, presentationState);
@@ -2253,6 +2343,34 @@ export default function BuiltInPageEditorPage() {
         setReviewDecisionNotes("");
       }
       toast.success(successMessage);
+
+      // Trigger ISR revalidation after approve (publish)
+      if (action === "approve") {
+        try {
+          await fetch("/api/revalidate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ websiteId }),
+          });
+          const livePath = pageKey === "home" ? "" : `/${pageKey}`;
+          toast.info(
+            <span>
+              Live site cache revalidated.{" "}
+              <a
+                href={`/sites/${websiteId}${livePath}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-semibold"
+              >
+                View Live →
+              </a>
+            </span>,
+          );
+        } catch {
+          // Non-blocking — the publish itself already succeeded
+          toast.warn("Published, but live cache revalidation failed. It will refresh on its own shortly.");
+        }
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : `Failed to update ${pageTitle}`;
@@ -2780,7 +2898,7 @@ export default function BuiltInPageEditorPage() {
                   const options = sectionVariantOptions[slot] ?? [];
                   const isFirst = index === 0;
                   const isLast = index === presentationState.sectionOrder.length - 1;
-                  const homeReadiness = pageKey === "home" ? homeSectionReadiness[slot] : null;
+                  const homeReadiness = homeSectionReadiness[slot] ?? null;
 
                   const moveUp = () => {
                     if (!canEditPresentation || isFirst || isRequired) return;

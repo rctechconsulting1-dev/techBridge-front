@@ -53,6 +53,44 @@ import ShopFeaturedVariants from "@/components/built-in/shop/ShopFeaturedVariant
 import ShopCtaVariants from "@/components/built-in/shop/ShopCtaVariants";
 import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 
+/** Draft-preview-only placeholder shown when a collection-backed section would render null. */
+function DraftEmptySlot({ slot, message, manageHref }: { slot: string; message: string; manageHref?: string }) {
+  const label = slot.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+  return (
+    <div className="border-y border-dashed border-amber-300 bg-amber-50/50 px-6 py-10 text-center dark:border-amber-800/50 dark:bg-amber-950/20">
+      <p className="text-xs font-semibold uppercase tracking-widest text-amber-500 dark:text-amber-400/70">
+        {label}
+      </p>
+      <p className="mx-auto mt-2 max-w-md text-sm text-amber-700 dark:text-amber-300">
+        {message}
+      </p>
+      {manageHref ? (
+        <Link
+          href={manageHref}
+          className="mt-3 inline-block rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40"
+        >
+          Add Content →
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+/** Wraps a section node — if it would render null, shows a draft-only placeholder instead. */
+function SlotOrEmpty({
+  node,
+  slot,
+  message,
+  manageHref,
+}: {
+  node: React.ReactNode;
+  slot: string;
+  message: string;
+  manageHref?: string;
+}) {
+  return <>{node ?? <DraftEmptySlot slot={slot} message={message} manageHref={manageHref} />}</>;
+}
+
 type Props = {
   pageKey: BuiltInPageKey;
   websiteId: string;
@@ -317,33 +355,68 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
         />
       ),
       proof: (
-        <HomeProofVariants
-          themePack={homePresentation.themePack}
-          settings={presentationSettings}
-          services={services}
-          testimonials={testimonials}
-          team={team}
-          variant={homePresentation.sectionVariants.proof ?? "badges_and_stats"}
+        <SlotOrEmpty
+          slot="proof"
+          message="No review signals or trust data available yet. Add them in Site Settings."
+          manageHref="/site-settings?tab=settings"
+          node={
+            <HomeProofVariants
+              themePack={homePresentation.themePack}
+              settings={presentationSettings}
+              services={services}
+              testimonials={testimonials}
+              team={team}
+              variant={homePresentation.sectionVariants.proof ?? "star_rating_bar"}
+            />
+          }
         />
       ),
       servicesPreview: (
-        <HomeServicesPreviewVariants
-          themePack={homePresentation.themePack}
-          services={services}
-          settings={presentationSettings}
-          variant={homePresentation.sectionVariants.servicesPreview ?? "three_card_grid"}
+        <SlotOrEmpty
+          slot="servicesPreview"
+          message="No published services yet. Add service records to populate this section."
+          manageHref="/site-settings?tab=services"
+          node={
+            <HomeServicesPreviewVariants
+              themePack={homePresentation.themePack}
+              services={services}
+              settings={presentationSettings}
+              variant={homePresentation.sectionVariants.servicesPreview ?? "three_card_grid"}
+            />
+          }
         />
       ),
-      aboutPreview: <TeamSection team={team} settings={presentationSettings} variant={chromeVariants.team} />,
+      aboutPreview: (
+        <SlotOrEmpty
+          slot="aboutPreview"
+          message="No published team members yet. Add team profiles to populate this section."
+          manageHref="/site-settings?tab=team"
+          node={<TeamSection team={team} settings={presentationSettings} variant={chromeVariants.team} />}
+        />
+      ),
       testimonials: (
-        <HomeTestimonialsVariants
-          themePack={homePresentation.themePack}
-          testimonials={testimonials}
-          settings={presentationSettings}
-          variant={homePresentation.sectionVariants.testimonials ?? "review_cards"}
+        <SlotOrEmpty
+          slot="testimonials"
+          message="No published testimonials yet. Add testimonials to populate this section."
+          manageHref="/content-testimonials"
+          node={
+            <HomeTestimonialsVariants
+              themePack={homePresentation.themePack}
+              testimonials={testimonials}
+              settings={presentationSettings}
+              variant={homePresentation.sectionVariants.testimonials ?? "review_cards"}
+            />
+          }
         />
       ),
-      faq: <FAQSection faq={faq} settings={presentationSettings} variant={chromeVariants.faq} />,
+      faq: (
+        <SlotOrEmpty
+          slot="faq"
+          message="No published FAQ items yet. Add FAQ entries to populate this section."
+          manageHref="/content-faq"
+          node={<FAQSection faq={faq} settings={presentationSettings} variant={chromeVariants.faq} />}
+        />
+      ),
       booking: <BookingSection websiteId={websiteId} settings={presentationSettings} variant={chromeVariants.booking} />,
       offer: (
         <HomeOfferSection
@@ -394,21 +467,35 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
         />
       ),
       servicesList: (
-        <ServicesListVariants
-          variant={presentation.sectionVariants.servicesList ?? "grid_cards"}
-          themePack={presentation.themePack}
-          services={services}
-          settings={settings}
-          emptyStateTitle={pageContent.emptyStateTitle}
-          emptyStateBody={pageContent.emptyStateBody}
+        <SlotOrEmpty
+          slot="servicesList"
+          message="No published services yet. Add service records to populate this section."
+          manageHref="/site-settings?tab=services"
+          node={
+            <ServicesListVariants
+              variant={presentation.sectionVariants.servicesList ?? "grid_cards"}
+              themePack={presentation.themePack}
+              services={services}
+              settings={settings}
+              emptyStateTitle={pageContent.emptyStateTitle}
+              emptyStateBody={pageContent.emptyStateBody}
+            />
+          }
         />
       ),
       faq: (
-        <ServicesFaqVariants
-          variant={presentation.sectionVariants.faq ?? "accordion"}
-          themePack={presentation.themePack}
-          faq={faq}
-          settings={settings}
+        <SlotOrEmpty
+          slot="faq"
+          message="No published FAQ items yet. Add FAQ entries to populate this section."
+          manageHref="/content-faq"
+          node={
+            <ServicesFaqVariants
+              variant={presentation.sectionVariants.faq ?? "accordion"}
+              themePack={presentation.themePack}
+              faq={faq}
+              settings={settings}
+            />
+          }
         />
       ),
       cta: (
@@ -465,19 +552,33 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
         />
       ),
       team: (
-        <AboutTeamVariants
-          variant={presentation.sectionVariants.team ?? "founder_focus"}
-          themePack={presentation.themePack}
-          team={team}
-          settings={settings}
+        <SlotOrEmpty
+          slot="team"
+          message="No published team members yet. Add team profiles to populate this section."
+          manageHref="/site-settings?tab=team"
+          node={
+            <AboutTeamVariants
+              variant={presentation.sectionVariants.team ?? "founder_focus"}
+              themePack={presentation.themePack}
+              team={team}
+              settings={settings}
+            />
+          }
         />
       ),
       testimonials: (
-        <AboutTestimonialsVariants
-          variant={presentation.sectionVariants.testimonials ?? "featured_quote"}
-          themePack={presentation.themePack}
-          testimonials={testimonials}
-          settings={settings}
+        <SlotOrEmpty
+          slot="testimonials"
+          message="No published testimonials yet. Add testimonials to populate this section."
+          manageHref="/content-testimonials"
+          node={
+            <AboutTestimonialsVariants
+              variant={presentation.sectionVariants.testimonials ?? "featured_quote"}
+              themePack={presentation.themePack}
+              testimonials={testimonials}
+              settings={settings}
+            />
+          }
         />
       ),
       cta: (
@@ -535,23 +636,37 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
               />
             ),
             catalog: (
-              <ShopCatalogVariants
-                variant={presentation.sectionVariants.catalog ?? "product_grid"}
-                themePack={presentation.themePack}
-                products={publishedProducts}
-                settings={settings}
-                websiteId={websiteId}
-                emptyStateTitle={pageContent.emptyStateTitle}
-                emptyStateBody={pageContent.emptyStateBody}
+              <SlotOrEmpty
+                slot="catalog"
+                message="No published products yet. Add products to populate the catalog."
+                manageHref="/site-settings?tab=shop"
+                node={
+                  <ShopCatalogVariants
+                    variant={presentation.sectionVariants.catalog ?? "product_grid"}
+                    themePack={presentation.themePack}
+                    products={publishedProducts}
+                    settings={settings}
+                    websiteId={websiteId}
+                    emptyStateTitle={pageContent.emptyStateTitle}
+                    emptyStateBody={pageContent.emptyStateBody}
+                  />
+                }
               />
             ),
             featured: (
-              <ShopFeaturedVariants
-                variant={presentation.sectionVariants.featured ?? "featured_row"}
-                themePack={presentation.themePack}
-                products={publishedProducts}
-                settings={settings}
-                websiteId={websiteId}
+              <SlotOrEmpty
+                slot="featured"
+                message="No published products yet. Add products to show featured items."
+                manageHref="/site-settings?tab=shop"
+                node={
+                  <ShopFeaturedVariants
+                    variant={presentation.sectionVariants.featured ?? "featured_row"}
+                    themePack={presentation.themePack}
+                    products={publishedProducts}
+                    settings={settings}
+                    websiteId={websiteId}
+                  />
+                }
               />
             ),
             cta: (

@@ -286,6 +286,7 @@ export interface Service {
   slug: string;
   content: string | null;
   image_url: string | null;
+  featured_on_home: boolean;
   website_id: number | null;
 }
 
@@ -355,6 +356,9 @@ export interface Page {
   meta_keywords: string | null;
   featured_image_url: string | null;
   excerpt: string | null;
+  presentation?: {
+    sectionVariants?: Record<string, string>;
+  } | null;
 }
 
 export interface PageNavigationAssignment {

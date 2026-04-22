@@ -92,11 +92,13 @@ const consumeUsage = (key: string, cost: number) => {
 
 const consumeBackendEntitlementUsage = async ({
   authorizationHeader,
+  tenantId,
   featureKey,
   amount,
   limitPerWindow,
 }: {
   authorizationHeader: string | null;
+  tenantId: number | null;
   featureKey: string;
   amount: number;
   limitPerWindow: number;
@@ -111,6 +113,7 @@ const consumeBackendEntitlementUsage = async ({
       headers: {
         "Content-Type": "application/json",
         Authorization: authorizationHeader,
+        ...(tenantId ? { "x-tenant-id": String(tenantId) } : {}),
       },
       body: JSON.stringify({
         featureKey,
@@ -1114,20 +1117,34 @@ export async function POST(request: Request) {
 
     const body = RequestSchema.parse(await request.json());
     const headerWebsiteId = request.headers.get("x-website-id");
+    const headerTenantId = request.headers.get("x-tenant-id");
     const websiteId =
       toPositiveInteger(body.websiteId) ?? toPositiveInteger(headerWebsiteId);
     const authorizationHeader = request.headers.get("authorization");
     const tokenPayload = decodeJwtPayload(authorizationHeader);
+    const tenantId =
+      toPositiveInteger(headerTenantId) ??
+      toPositiveInteger(tokenPayload?.tenant_id) ??
+      toPositiveInteger(tokenPayload?.tenantId) ??
+      toPositiveInteger(tokenPayload?.active_tenant_id) ??
+      toPositiveInteger(tokenPayload?.activeTenantId);
+    const role =
+      typeof tokenPayload?.role === "string" ? tokenPayload.role : null;
+    const bypassEntitlementsForRole =
+      role === "admin" || role === "platform_admin";
     const userId = tokenPayload?.sub ? String(tokenPayload.sub) : "anonymous";
     const usageKey = `website:${websiteId ?? "unscoped"}|user:${userId}|ip:${ipKey}`;
 
     const usageCost = body.userChosenIdea && !body.content ? 3 : 1;
-    const entitlementUsage = await consumeBackendEntitlementUsage({
-      authorizationHeader,
-      featureKey: "ai.agent.generate",
-      amount: usageCost,
-      limitPerWindow: AI_DAILY_LIMIT,
-    });
+    const entitlementUsage = bypassEntitlementsForRole
+      ? null
+      : await consumeBackendEntitlementUsage({
+          authorizationHeader,
+          tenantId,
+          featureKey: "ai.agent.generate",
+          amount: usageCost,
+          limitPerWindow: AI_DAILY_LIMIT,
+        });
 
     if (entitlementUsage && !entitlementUsage.ok) {
       const payload = entitlementUsage.payload as { code?: string; error?: string };

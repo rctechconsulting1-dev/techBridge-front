@@ -12,6 +12,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint --fix src/",
     "smoke:nav": "node scripts/nav-assignment-smoke-test.mjs",
+    "smoke:blog": "node scripts/blog-variant-smoke-test.mjs",
     "s3:cleanup:dry": "node scripts/cleanup-test-s3.mjs",
     "s3:cleanup:execute": "node scripts/cleanup-test-s3.mjs --execute --confirm=DELETE_TEST_IMAGES"
   },

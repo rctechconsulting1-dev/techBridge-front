@@ -47,6 +47,28 @@ export type BlogListSectionVariant =
   | "featured_stack"
   | "compact_rows";
 
+export const BLOG_LIST_VARIANT_OPTIONS: Array<{
+  value: BlogListSectionVariant;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "editorial_grid",
+    label: "Editorial Grid",
+    description: "Balanced card grid for a standard blog index.",
+  },
+  {
+    value: "featured_stack",
+    label: "Featured Stack",
+    description: "Lead with one featured article and stack the next posts beside it.",
+  },
+  {
+    value: "compact_rows",
+    label: "Compact Rows",
+    description: "Dense row layout for practical, scan-first article lists.",
+  },
+];
+
 export interface GenericSectionVariantPreset {
   navBar: NavBarVariant;
   hero: HeroSectionVariant;

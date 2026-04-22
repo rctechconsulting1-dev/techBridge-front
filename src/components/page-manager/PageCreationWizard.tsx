@@ -312,7 +312,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Create New Page</h3>
+        <h3 className="text-lg font-semibold">Create Custom Page</h3>
         <div className="flex gap-2">
           <span className={`text-sm px-2 py-1 rounded ${step === 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
             1. Type & Template

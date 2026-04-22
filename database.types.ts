@@ -664,6 +664,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string | null
+          featured_on_home: boolean
           id: number
           slug: string | null
           title: string | null
@@ -672,6 +673,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string | null
+          featured_on_home?: boolean
           id?: number
           slug?: string | null
           title?: string | null
@@ -680,6 +682,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string | null
+          featured_on_home?: boolean
           id?: number
           slug?: string | null
           title?: string | null

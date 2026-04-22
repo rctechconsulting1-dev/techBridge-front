@@ -6,6 +6,11 @@ import Input from '@/components/form/input/InputField';
 import Select from '@/components/form/Select';
 import TextArea from '@/components/form/input/TextArea';
 import { useContentAgent } from '@/hooks/useContentAgent';
+import {
+  BLOG_LIST_VARIANT_OPTIONS,
+  type BlogListSectionVariant,
+} from '@/components/sections/sectionVariants';
+import BlogListVariantPreview from '@/components/page-manager/BlogListVariantPreview';
 
 // Types for AI content generation
 interface ContentItem {
@@ -27,6 +32,7 @@ type InferredPageIntent = {
 };
 
 const MIN_IDEA_CONFIDENCE = 65;
+const DEFAULT_BLOG_LIST_VARIANT: BlogListSectionVariant = 'editorial_grid';
 
 interface ContentAgentData {
   content?: string;
@@ -59,6 +65,7 @@ interface ChatMessage {
 interface PageCreationWizardProps {
   onCreatePage: (data: PageCreationData & { content?: string }) => void;
   onCancel: () => void;
+  onCreateDropdownParentDraft?: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
   initialPageDraft?: InitialPageDraft;
@@ -224,6 +231,7 @@ function getLegacyMainNavFlag(values: {
 const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   onCreatePage,
   onCancel,
+  onCreateDropdownParentDraft,
   isLoading = false,
   enableAIContent = false,
   initialPageDraft,
@@ -293,6 +301,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       nav_style: initialPageDraft.nav_style ?? prev.nav_style ?? 'direct',
       nav_parent_id: initialPageDraft.nav_parent_id ?? prev.nav_parent_id ?? null,
       parent_id: initialPageDraft.parent_id ?? prev.parent_id ?? null,
+      presentation: initialPageDraft.presentation ?? prev.presentation,
     }));
 
     setAiFormData((prev) => ({
@@ -462,6 +471,16 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
     }));
   };
 
+  const isBlogListVariant = (value: string): value is BlogListSectionVariant => {
+    return BLOG_LIST_VARIANT_OPTIONS.some((option) => option.value === value);
+  };
+
+  const selectedBlogListVariant =
+    typeof formData.presentation?.sectionVariants?.blogList === 'string' &&
+    isBlogListVariant(formData.presentation.sectionVariants.blogList)
+      ? formData.presentation.sectionVariants.blogList
+      : DEFAULT_BLOG_LIST_VARIANT;
+
   const handlePageTypeChange = (pageType: PageType) => {
     const defaultTemplate = templateTypeOptions[pageType][0]?.value || 'standard';
     setFormData(prev => ({
@@ -473,6 +492,36 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
       nav_style: pageType === 'main-page' ? 'direct' : 'direct',
       nav_parent_id: null,
       parent_id: pageType === 'main-page' ? null : prev.parent_id ?? null,
+      presentation: pageType === 'blog-category'
+        ? {
+            ...(prev.presentation ?? {}),
+            sectionVariants: {
+              ...(prev.presentation?.sectionVariants ?? {}),
+              blogList:
+                typeof prev.presentation?.sectionVariants?.blogList === 'string' &&
+                isBlogListVariant(prev.presentation.sectionVariants.blogList)
+                  ? prev.presentation.sectionVariants.blogList
+                  : DEFAULT_BLOG_LIST_VARIANT,
+            },
+          }
+        : prev.presentation,
+    }));
+  };
+
+  const handleBlogListVariantChange = (value: string) => {
+    if (!isBlogListVariant(value)) {
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      presentation: {
+        ...(prev.presentation ?? {}),
+        sectionVariants: {
+          ...(prev.presentation?.sectionVariants ?? {}),
+          blogList: value,
+        },
+      },
     }));
   };
 
@@ -498,6 +547,9 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   const selectedDropdownParent = availableParentPages.find(
     (page) => page.id === Number(formData.nav_parent_id || 0),
   );
+  const needsDropdownParent = showInHeader && selectedNavStyle === 'dropdown_child';
+  const hasDropdownParentOptions = dropdownParentOptions.length > 0;
+  const isDropdownChildValid = !needsDropdownParent || Boolean(formData.nav_parent_id);
 
   const canHaveParent = formData.page_type !== 'main-page';
 
@@ -598,7 +650,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   };
 
   const canProceedToStep2 = formData.page_type && formData.template_type;
-  const canSubmit = formData.title && formData.slug && canProceedToStep2;
+  const canSubmit = formData.title && formData.slug && canProceedToStep2 && isDropdownChildValid;
   const canReviewAndFinalize = Boolean(selectedContent) && !isAILoading;
   const selectedSuggestedSlug =
     typeof formData.slug === 'string' && suggestedSlugs.includes(formData.slug)
@@ -607,6 +659,10 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
 
   const handleSubmit = async () => {
     if (canSubmit && formData.page_type && formData.template_type && formData.title && formData.slug) {
+      if (needsDropdownParent && !formData.nav_parent_id) {
+        return;
+      }
+
       setIsSubmitting(true);
       
       try {
@@ -642,6 +698,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
           is_published: formData.is_published || false,
           meta_description: formData.meta_description,
           meta_keywords: formData.meta_keywords,
+          presentation: formData.presentation,
           content: selectedContent || undefined, // Add AI-generated content if available
         };
 
@@ -659,7 +716,7 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Create New Page</h3>
+        <h3 className="text-lg font-semibold">Create Custom Page</h3>
         <div className="flex gap-2">
           <span className={`text-sm px-2 py-1 rounded ${step === 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
             1. Type & Template
@@ -703,6 +760,39 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                 Choose the layout template for this page
               </p>
             </div>
+          )}
+
+          {formData.page_type === 'blog-category' && (
+            <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+              <div>
+                <Label>Blog List Layout</Label>
+                <Select
+                  options={BLOG_LIST_VARIANT_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  }))}
+                  defaultValue={selectedBlogListVariant || ''}
+                  onChange={handleBlogListVariantChange}
+                  placeholder="Select blog list layout"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Blog parent pages can change how the article index is presented. Individual blog posts still use the single blog post template.
+              </p>
+              <p className="text-xs text-gray-500">
+                {(BLOG_LIST_VARIANT_OPTIONS.find((option) => option.value === selectedBlogListVariant)?.description) || BLOG_LIST_VARIANT_OPTIONS[0]?.description}
+              </p>
+              <BlogListVariantPreview
+                variant={selectedBlogListVariant}
+                className="mt-2"
+              />
+            </div>
+          )}
+
+          {formData.page_type === 'blog-post' && (
+            <p className="text-sm text-gray-500 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+              Blog posts currently use one article template. The parent blog page controls the list layout readers see before opening individual posts.
+            </p>
           )}
 
           <div className="flex gap-3">
@@ -1051,6 +1141,9 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               <p className="text-sm text-gray-500 mt-1">
                 Leave blank to create a standalone parent page. Select a parent to create a child page.
               </p>
+              <p className="text-sm text-gray-500 mt-1">
+                This controls page hierarchy. Header dropdown placement is configured separately below.
+              </p>
               {selectedParentPage && (
                 <p className="text-sm text-blue-600 mt-1">
                   This page will be created under {selectedParentPage.title || 'Untitled'}.
@@ -1095,12 +1188,31 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               <p className="text-sm text-gray-500 mt-1">
                 Choose whether this page appears directly in the header, acts as a dropdown parent, or lives inside a dropdown.
               </p>
+              <p className="text-sm text-gray-500 mt-1">
+                Create the dropdown parent first, then attach the child page to it here.
+              </p>
             </div>
           )}
 
           {showInHeader && selectedNavStyle === 'dropdown_child' && (
             <div>
               <Label>Dropdown Parent</Label>
+              {!hasDropdownParentOptions && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  <p>
+                    No dropdown parent is available yet. First create or update a header page to use "Dropdown parent in header", then come back and attach this child page to it.
+                  </p>
+                  {onCreateDropdownParentDraft && (
+                    <button
+                      type="button"
+                      onClick={onCreateDropdownParentDraft}
+                      className="mt-3 inline-flex rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-950/40"
+                    >
+                      Create dropdown parent first
+                    </button>
+                  )}
+                </div>
+              )}
               <Select
                 options={dropdownParentOptions}
                 defaultValue={formData.nav_parent_id ? String(formData.nav_parent_id) : ''}
@@ -1108,11 +1220,16 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
                 placeholder="Select dropdown parent"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Assign this page under a header dropdown parent.
+                Assign this page under a header dropdown parent. This controls navigation placement, not only content hierarchy.
               </p>
               {selectedDropdownParent && (
                 <p className="text-sm text-blue-600 mt-1">
                   This page will appear under {selectedDropdownParent.title || 'Untitled'} in the header.
+                </p>
+              )}
+              {!selectedDropdownParent && hasDropdownParentOptions && (
+                <p className="text-sm text-amber-700 mt-1">
+                  Select a dropdown parent before creating this page.
                 </p>
               )}
             </div>
@@ -1205,6 +1322,11 @@ const PageCreationWizard: React.FC<PageCreationWizardProps> = ({
               {isLoading || isSubmitting ? 'Creating...' : 'Create Page'}
             </Button>
           </div>
+          {needsDropdownParent && !formData.nav_parent_id && (
+            <p className="text-sm text-amber-700">
+              Pick a dropdown parent before creating this dropdown child page.
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -66,58 +66,70 @@ export default function HomeProofVariants({
   const primary = settings?.primary_color ?? "#CD7F32";
   const accent = settings?.accent_color ?? "#111827";
   const theme = getHomeThemePackStyles(themePack);
-  const items = buildProofItems(services, testimonials, team);
+  const collectionItems = buildProofItems(services, testimonials, team);
+  const rawRating = settings?.average_rating;
+  const rating = rawRating != null ? Number(rawRating) : null;
+  const rawCount = settings?.review_count;
+  const count = rawCount != null ? Number(rawCount) : null;
+  const hasRating = rating != null && !isNaN(rating) && rating > 0;
+  const hasCount = count != null && !isNaN(count) && count > 0;
+  const hasReviewSignals = hasRating || hasCount;
+  const displayRating = hasRating ? rating.toFixed(1) : null;
+  const displayCount = hasCount ? count.toLocaleString() : null;
+  const reviewItems: ProofItem[] = [
+    ...(displayRating ? [{ label: "Average Rating", value: displayRating }] : []),
+    ...(displayCount ? [{ label: "Google Reviews", value: displayCount }] : []),
+  ];
+  const items = [...reviewItems, ...collectionItems];
+
+  const reviewSignalBar = (
+    <section
+      className="border-b py-4"
+      style={{ backgroundColor: theme.cardBackground, borderColor: `${accent}12` }}
+    >
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-3 px-4 sm:px-6 lg:px-8">
+        {displayRating ? (
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xl tracking-tight"
+              style={{ color: primary }}
+              aria-label={`${displayRating} out of 5 stars`}
+            >
+              {renderStars(Number(displayRating))}
+            </span>
+            <span className="text-sm font-bold text-gray-900">{displayRating}</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              / 5
+            </span>
+          </div>
+        ) : null}
+        {displayCount ? (
+          <span className="text-sm font-semibold text-gray-700">
+            {displayCount}{" "}
+            <span className="font-normal text-gray-500">Google Reviews</span>
+          </span>
+        ) : null}
+        {settings?.contact_phone ? (
+          <a
+            href={`tel:${settings.contact_phone}`}
+            className="text-sm font-semibold"
+            style={{ color: primary }}
+          >
+            {settings.contact_phone}
+          </a>
+        ) : null}
+      </div>
+    </section>
+  );
 
   // star_rating_bar renders from SiteSettings data, not from computed items
   if (variant === "star_rating_bar") {
-    const rating = settings?.average_rating ?? null;
-    const count = settings?.review_count ?? null;
     // If no review signals configured yet, fall through to items-based rendering
     // so the proof section still shows something in draft preview
-    if (!rating && !count) {
+    if (!hasReviewSignals) {
       // intentional fall-through — handled by items-based variants below
     } else {
-    const displayRating = rating ? rating.toFixed(1) : null;
-    const displayCount = count ? count.toLocaleString() : null;
-    return (
-      <section
-        className="border-b py-4"
-        style={{ backgroundColor: theme.cardBackground, borderColor: `${accent}12` }}
-      >
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-3 px-4 sm:px-6 lg:px-8">
-          {displayRating ? (
-            <div className="flex items-center gap-2">
-              <span
-                className="text-xl tracking-tight"
-                style={{ color: primary }}
-                aria-label={`${displayRating} out of 5 stars`}
-              >
-                {renderStars(Number(displayRating))}
-              </span>
-              <span className="text-sm font-bold text-gray-900">{displayRating}</span>
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                / 5
-              </span>
-            </div>
-          ) : null}
-          {displayCount ? (
-            <span className="text-sm font-semibold text-gray-700">
-              {displayCount}{" "}
-              <span className="font-normal text-gray-500">Google Reviews</span>
-            </span>
-          ) : null}
-          {settings?.contact_phone ? (
-            <a
-              href={`tel:${settings.contact_phone}`}
-              className="text-sm font-semibold"
-              style={{ color: primary }}
-            >
-              {settings.contact_phone}
-            </a>
-          ) : null}
-        </div>
-      </section>
-    );
+      return reviewSignalBar;
     } // end else (has rating/count data)
   } // end star_rating_bar block
 
@@ -170,6 +182,27 @@ export default function HomeProofVariants({
                 {item.label}
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (variant === "badges_and_stats") {
+    return (
+      <section className="py-14" style={{ backgroundColor: theme.cardBackground }}>
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 sm:grid-cols-3 sm:px-6 lg:px-8">
+          {items.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-3xl border px-6 py-7 text-center"
+              style={{ borderColor: `${accent}14`, backgroundColor: `${primary}10` }}
+            >
+              <p className="text-3xl font-bold text-gray-900">{item.value}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.24em] text-gray-600">
+                {item.label}
+              </p>
             </div>
           ))}
         </div>

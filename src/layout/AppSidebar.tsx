@@ -59,6 +59,16 @@ const navItems: NavItem[] = [
     requiredModules: ["google_business_management"],
   },
   {
+    name: "Marketing",
+    icon: <PageIcon />,
+    requiredModules: ["google_ads_optimization"],
+    subItems: [
+      { name: "Performance", path: "/marketing" },
+      { name: "Ad Requests", path: "/marketing/requests" },
+      { name: "Content", path: "/marketing/content" },
+    ],
+  },
+  {
     icon: <VideoIcon />,
     name: "Assets",
     path: "/assets",
