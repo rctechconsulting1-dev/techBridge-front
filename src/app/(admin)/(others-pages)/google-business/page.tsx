@@ -220,7 +220,6 @@ export default function GoogleBusinessPage() {
             headers: authHeaders,
             body: JSON.stringify({
                 locationId: business.gmb_Id,
-                accountId: business.google_account_id ?? undefined,
                 postData,
             }),
         });
