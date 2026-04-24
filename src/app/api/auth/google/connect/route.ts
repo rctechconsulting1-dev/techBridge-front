@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleOAuthManager } from '@/lib/google-oauth';
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
     try {
-        const loginHint = process.env.GOOGLE_LOGIN_HINT || 'rctechconsulting1@gmail.com';
-        const authUrl = GoogleOAuthManager.generateAuthUrl('agency', loginHint);
+        const body = await req.json().catch(() => ({}));
+        const tenantId = body.tenantId ?? null;
+        // Encode tenantId in state so the callback can pass x-tenant-id to the backend
+        const state = Buffer.from(JSON.stringify({ purpose: 'agency', tenantId })).toString('base64');
+        const authUrl = GoogleOAuthManager.generateAuthUrl(state);
         return NextResponse.json({ authUrl });
     } catch (error) {
         console.error('Error generating Google OAuth URL:', error);

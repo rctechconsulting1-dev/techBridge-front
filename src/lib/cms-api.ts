@@ -8,19 +8,124 @@
  */
 
 import type {
+  BuiltInPageContentRecord,
+  BuiltInPageEditorRecord,
+  BuiltInPageKey,
   Website,
   SiteSettings,
   Service,
   Testimonial,
   TeamMember,
   FAQItem,
+  Product,
+  Page,
+  Image,
   LandingPageData,
 } from "./cms-types";
+import { getApiBaseUrl } from "./api";
 import { getToken } from "./cms-auth";
+import {
+  getWebsiteCacheTag,
+  getWebsiteResourceCacheTag,
+  SITE_REVALIDATE_SECONDS,
+} from "./public-cache";
+import { isPlatformHost } from "./public-site-routing";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api";
+const BASE_URL = getApiBaseUrl();
 
-const REVALIDATE = 60; // seconds
+async function getServerTenantForwardHeaders(): Promise<Record<string, string>> {
+  if (typeof window !== "undefined") {
+    return {};
+  }
+
+  try {
+    const { headers } = await import("next/headers");
+    const headerStore = await headers();
+    const host =
+      headerStore.get("x-forwarded-host") ||
+      headerStore.get("host") ||
+      null;
+
+    if (!host || isPlatformHost(host)) {
+      return {};
+    }
+
+    return {
+      "x-tenant-domain": host,
+      "x-forwarded-proto": headerStore.get("x-forwarded-proto") || "https",
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function getWebsiteTenantId(
+  websiteId: number | string,
+  requestHeaders: Record<string, string> = {},
+): Promise<number | null> {
+  if (typeof window !== "undefined") {
+    return null;
+  }
+
+  try {
+    const tenantHeaders = await getServerTenantForwardHeaders();
+    const response = await fetch(`${BASE_URL}/websites/${websiteId}`, {
+      cache: "no-store",
+      headers: {
+        ...tenantHeaders,
+        ...requestHeaders,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const website = (await response.json()) as Website;
+    return typeof website?.tenant_id === "number" ? website.tenant_id : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getServerAuthHeaders(): Promise<Record<string, string>> {
+  if (typeof window !== "undefined") {
+    return {};
+  }
+
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("auth_token_client")?.value ||
+      null;
+
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function getServerCmsHeaders(options?: {
+  tenantId?: number | string | null;
+  includeAuth?: boolean;
+}): Promise<Record<string, string>> {
+  if (typeof window !== "undefined") {
+    return {};
+  }
+
+  const [tenantForwardHeaders, authHeaders] = await Promise.all([
+    getServerTenantForwardHeaders(),
+    options?.includeAuth ? getServerAuthHeaders() : Promise.resolve({}),
+  ]);
+
+  return {
+    ...tenantForwardHeaders,
+    ...(options?.tenantId ? { "x-tenant-id": String(options.tenantId) } : {}),
+    ...authHeaders,
+  };
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -31,9 +136,70 @@ function authHeaders(): Record<string, string> {
 
 async function cmsGet<T>(path: string, serverSide = true): Promise<T | null> {
   try {
+    const tenantHeaders = serverSide ? await getServerTenantForwardHeaders() : {};
     const opts: RequestInit = serverSide
-      ? { next: { revalidate: REVALIDATE } }
-      : { cache: "no-store" };
+      ? {
+          next: { revalidate: SITE_REVALIDATE_SECONDS },
+          headers: tenantHeaders,
+        }
+      : { cache: "no-store", headers: tenantHeaders };
+    const res = await fetch(`${BASE_URL}${path}`, opts);
+    if (!res.ok) return null;
+    return res.json() as Promise<T>;
+  } catch {
+    return null;
+  }
+}
+
+function websiteTags(
+  websiteId: number | string,
+  resource: string,
+  extra: string[] = [],
+): string[] {
+  return [
+    getWebsiteCacheTag(websiteId),
+    getWebsiteResourceCacheTag(websiteId, resource),
+    ...extra,
+  ];
+}
+
+async function cmsGetForWebsite<T>(
+  websiteId: number | string,
+  resource: string,
+  path: string,
+  serverSide = true,
+  extraTags: string[] = [],
+  requestHeaders: Record<string, string> = {},
+): Promise<T | null> {
+  try {
+    const tenantHeaders = serverSide ? await getServerTenantForwardHeaders() : {};
+    const shouldResolveTenantId =
+      serverSide &&
+      resource !== "website" &&
+      !tenantHeaders["x-tenant-domain"] &&
+      !requestHeaders["x-tenant-id"];
+    const resolvedTenantId = shouldResolveTenantId
+      ? await getWebsiteTenantId(websiteId, requestHeaders)
+      : null;
+    const opts: RequestInit = serverSide
+      ? {
+          next: {
+            revalidate: SITE_REVALIDATE_SECONDS,
+            tags: websiteTags(websiteId, resource, extraTags),
+          },
+          headers: {
+            ...tenantHeaders,
+            ...(resolvedTenantId ? { "x-tenant-id": String(resolvedTenantId) } : {}),
+            ...requestHeaders,
+          },
+        }
+      : {
+          cache: "no-store",
+          headers: {
+            ...tenantHeaders,
+            ...requestHeaders,
+          },
+        };
     const res = await fetch(`${BASE_URL}${path}`, opts);
     if (!res.ok) return null;
     return res.json() as Promise<T>;
@@ -70,56 +236,281 @@ function clearTokenOnClient() {
 
 export async function getWebsite(
   websiteId: number | string,
+  requestHeaders?: Record<string, string>,
 ): Promise<Website | null> {
-  return cmsGet<Website>(`/websites/${websiteId}`);
+  return cmsGetForWebsite<Website>(
+    websiteId,
+    "website",
+    `/websites/${websiteId}`,
+    true,
+    [],
+    requestHeaders,
+  );
 }
 
 export async function getSiteSettings(
   websiteId: number | string,
+  requestHeaders?: Record<string, string>,
 ): Promise<SiteSettings | null> {
-  return cmsGet<SiteSettings>(`/site-settings/${websiteId}`);
+  return cmsGetForWebsite<SiteSettings>(
+    websiteId,
+    "site-settings",
+    `/site-settings/${websiteId}`,
+    true,
+    [],
+    requestHeaders,
+  );
+}
+
+export async function getBuiltInPageContent<K extends BuiltInPageKey>(
+  websiteId: number | string,
+  pageKey: K,
+  requestHeaders?: Record<string, string>,
+): Promise<BuiltInPageContentRecord<K> | null> {
+  return cmsGetForWebsite<BuiltInPageContentRecord<K>>(
+    websiteId,
+    `built-in-page:${pageKey}`,
+    `/built-in-page-content/${pageKey}?website_id=${websiteId}`,
+    true,
+    [],
+    requestHeaders,
+  );
+}
+
+export async function getBuiltInPageEditorContent<K extends BuiltInPageKey>(
+  websiteId: number | string,
+  pageKey: K,
+  requestHeaders?: Record<string, string>,
+): Promise<BuiltInPageEditorRecord<K> | null> {
+  try {
+    const headers =
+      requestHeaders ??
+      (await getServerCmsHeaders({
+        includeAuth: true,
+      }));
+    const res = await fetch(
+      `${BASE_URL}/built-in-page-content/editor/${pageKey}?website_id=${websiteId}`,
+      {
+        cache: "no-store",
+        headers,
+      },
+    );
+    if (!res.ok) {
+      return null;
+    }
+    return res.json() as Promise<BuiltInPageEditorRecord<K>>;
+  } catch {
+    return null;
+  }
 }
 
 export async function getServices(
   websiteId: number | string,
+  requestHeaders?: Record<string, string>,
 ): Promise<Service[]> {
-  return (await cmsGet<Service[]>(`/services?website_id=${websiteId}`)) ?? [];
+  return (
+    (await cmsGetForWebsite<Service[]>(
+      websiteId,
+      "services",
+      `/services?website_id=${websiteId}`,
+      true,
+      [],
+      requestHeaders,
+    )) ?? []
+  );
 }
 
 export async function getTestimonials(
   websiteId: number | string,
+  requestHeaders?: Record<string, string>,
 ): Promise<Testimonial[]> {
   return (
-    (await cmsGet<Testimonial[]>(`/testimonials?website_id=${websiteId}`)) ?? []
+    (await cmsGetForWebsite<Testimonial[]>(
+      websiteId,
+      "testimonials",
+      `/testimonials?website_id=${websiteId}`,
+      true,
+      [],
+      requestHeaders,
+    )) ?? []
   );
 }
 
 export async function getTeamMembers(
   websiteId: number | string,
+  requestHeaders?: Record<string, string>,
 ): Promise<TeamMember[]> {
   return (
-    (await cmsGet<TeamMember[]>(`/team-members?website_id=${websiteId}`)) ?? []
+    (await cmsGetForWebsite<TeamMember[]>(
+      websiteId,
+      "team-members",
+      `/team-members?website_id=${websiteId}`,
+      true,
+      [],
+      requestHeaders,
+    )) ?? []
   );
 }
 
-export async function getFAQ(websiteId: number | string): Promise<FAQItem[]> {
-  return (await cmsGet<FAQItem[]>(`/faq?website_id=${websiteId}`)) ?? [];
+export async function getFAQ(
+  websiteId: number | string,
+  requestHeaders?: Record<string, string>,
+): Promise<FAQItem[]> {
+  return (
+    (await cmsGetForWebsite<FAQItem[]>(
+      websiteId,
+      "faq",
+      `/faq?website_id=${websiteId}`,
+      true,
+      [],
+      requestHeaders,
+    )) ?? []
+  );
+}
+
+export async function getProducts(
+  websiteId: number | string,
+  requestHeaders?: Record<string, string>,
+): Promise<Product[]> {
+  return (
+    (await cmsGetForWebsite<Product[]>(
+      websiteId,
+      "products",
+      `/products?website_id=${websiteId}`,
+      true,
+      [],
+      requestHeaders,
+    )) ?? []
+  );
+}
+
+export async function getProductBySlug(
+  websiteId: number | string,
+  slug: string,
+): Promise<Product | null> {
+  return cmsGetForWebsite<Product>(
+    websiteId,
+    "products",
+    `/products/slug/${encodeURIComponent(slug)}?website_id=${websiteId}`,
+    true,
+    [getWebsiteResourceCacheTag(websiteId, `product:${slug.toLowerCase()}`)],
+  );
+}
+
+export async function getPages(websiteId: number | string): Promise<Page[]> {
+  return (
+    (await cmsGetForWebsite<Page[]>(
+      websiteId,
+      "pages",
+      `/pages?website_id=${websiteId}`,
+    )) ?? []
+  );
+}
+
+export async function getPageBySlug(
+  websiteId: number | string,
+  slug: string,
+): Promise<Page | null> {
+  const publicDirect = await cmsGetForWebsite<{ page?: Page }>(
+    websiteId,
+    "pages",
+    `/public/site/pages/${encodeURIComponent(slug)}?website_id=${websiteId}`,
+    true,
+    [getWebsiteResourceCacheTag(websiteId, `page:${slug.toLowerCase()}`)],
+  );
+
+  if (publicDirect?.page) {
+    return publicDirect.page;
+  }
+
+  const direct = await cmsGetForWebsite<Page>(
+    websiteId,
+    "pages",
+    `/pages/slug/${encodeURIComponent(slug)}?website_id=${websiteId}`,
+    true,
+    [getWebsiteResourceCacheTag(websiteId, `page:${slug.toLowerCase()}`)],
+  );
+
+  if (direct) {
+    return direct.is_published ? direct : null;
+  }
+
+  const pages = await getPages(websiteId);
+  const normalized = slug.toLowerCase();
+  return (
+    pages.find((p) => p.slug?.toLowerCase() === normalized && p.is_published) ??
+    null
+  );
+}
+
+type RawPageImage = {
+  id?: number;
+  image_id?: number | null;
+  image?: Image | null;
+  url?: string;
+  alt_text?: string | null;
+  caption?: string | null;
+};
+
+export async function getPageImages(pageId: number): Promise<Image[]> {
+  const rows =
+    (await cmsGet<RawPageImage[]>(`/page-images?page_id=${pageId}`)) ?? [];
+
+  const directImages = rows
+    .map((row) => {
+      if (row.image && row.image.url) {
+        return row.image;
+      }
+
+      if (row.url) {
+        return {
+          id: row.id ?? 0,
+          created_at: "",
+          url: row.url,
+          alt_text: row.alt_text ?? null,
+          caption: row.caption ?? null,
+        } as Image;
+      }
+
+      return null;
+    })
+    .filter((img): img is Image => !!img);
+
+  if (directImages.length > 0) {
+    return directImages;
+  }
+
+  const missingImageIds = rows
+    .map((row) => row.image_id)
+    .filter((id): id is number => typeof id === "number");
+
+  if (missingImageIds.length === 0) {
+    return [];
+  }
+
+  const fetchedImages = await Promise.all(
+    missingImageIds.map((id) => cmsGet<Image>(`/images/${id}`)),
+  );
+
+  return fetchedImages.filter((img): img is Image => !!img?.url);
 }
 
 /** Fetches all landing page data in parallel — use in page.tsx */
 export async function getLandingPageData(
   websiteId: number | string,
 ): Promise<LandingPageData> {
-  const [website, settings, services, testimonials, team, faq] =
+  const [website, settings, homePageContent, pages, services, testimonials, team, faq] =
     await Promise.all([
       getWebsite(websiteId),
       getSiteSettings(websiteId),
+      getBuiltInPageContent(websiteId, "home"),
+      getPages(websiteId),
       getServices(websiteId),
       getTestimonials(websiteId),
       getTeamMembers(websiteId),
       getFAQ(websiteId),
     ]);
-  return { website, settings, services, testimonials, team, faq };
+  return { website, settings, homePageContent, pages, services, testimonials, team, faq };
 }
 
 // ─── Protected writes (client-side, admin panel) ────────────────────────────

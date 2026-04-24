@@ -2,18 +2,18 @@
   <!-- Bridge Structure -->
   <path d="M 50 80 Q 150 40 250 80" stroke="#CD7F32" stroke-width="8" fill="none"/>
   <path d="M 50 85 Q 150 45 250 85" stroke="#8B4513" stroke-width="4" fill="none"/>
-  
+
   <!-- Bridge Pillars -->
   <rect x="45" y="80" width="10" height="25" fill="#CD7F32"/>
   <rect x="245" y="80" width="10" height="25" fill="#CD7F32"/>
-  
-  <!-- R and C Letters as Pillars -->
+
+  <!-- R and D Letters as Pillars -->
   <text x="70" y="100" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#CD7F32">R</text>
-  <text x="220" y="100" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#CD7F32">C</text>
-  
+  <text x="220" y="100" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#CD7F32">D</text>
+
   <!-- Tech Bridge Text -->
   <text x="150" y="115" font-family="Arial, sans-serif" font-size="14" font-weight="600" text-anchor="middle" fill="#C41E3A">TECH BRIDGE</text>
-  
+
   <!-- Connection cables -->
   <line x1="80" y1="70" x2="120" y2="60" stroke="#C41E3A" stroke-width="2"/>
   <line x1="180" y1="60" x2="220" y2="70" stroke="#C41E3A" stroke-width="2"/>

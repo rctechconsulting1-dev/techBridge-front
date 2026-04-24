@@ -1,4 +1,5 @@
 const DEFAULT_API_BASE_URL = "http://localhost:5000/api";
+const DEFAULT_APP_BASE_URL = "http://localhost:3000";
 
 const RESOURCE_PATH_MAP: Record<string, string> = {
   "/page": "/pages",
@@ -13,11 +14,27 @@ const RESOURCE_PATH_MAP: Record<string, string> = {
 
 const normalizePath = (path: string) => RESOURCE_PATH_MAP[path] || path;
 
+const normalizeBaseUrl = (value: string | undefined, fallback: string): string =>
+  (value || fallback).replace(/\/$/, "");
+
 export const getApiBaseUrl = (): string => {
-  return (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL).replace(
-    /\/$/,
-    "",
+  return normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL, DEFAULT_API_BASE_URL);
+};
+
+export const getAppBaseUrl = (): string => {
+  return normalizeBaseUrl(
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL,
+    DEFAULT_APP_BASE_URL,
   );
+};
+
+export const getRequiredAppBaseUrl = (): string => {
+  const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
+  if (!configured) {
+    throw new Error("NEXT_PUBLIC_APP_URL or NEXTAUTH_URL is not set");
+  }
+
+  return normalizeBaseUrl(configured, DEFAULT_APP_BASE_URL);
 };
 
 export const toApiUrl = (pathOrUrl: string): string => {

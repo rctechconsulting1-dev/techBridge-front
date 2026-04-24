@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "front-end-developer": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "computedHash": "c33c2e51eac1a90e094407dfd61457ec7c3ba3fa9587e7389b747ea90c7bb0eb"
+    },
+    "typescript-advanced-types": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "3a3be8c925f96ac4e1280db28a01677e7ca5197f3792de2bbf35ab3bb324b6dd"
+    }
+  }
+}

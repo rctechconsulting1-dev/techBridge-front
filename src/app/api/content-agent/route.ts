@@ -1,9 +1,205 @@
 import OpenAI from "openai";
 import z from "zod";
+import { checkRateLimit } from "@/lib/ai/rate-limit";
+import { getApiBaseUrl } from "@/lib/api";
 
 // Ensure this route is always dynamic and runs on Node.js runtime
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const AI_DAILY_LIMIT = Number(process.env.AI_CONTENT_DAILY_LIMIT ?? 60);
+const BACKEND_API_BASE = getApiBaseUrl();
+
+type UsageRecord = {
+  day: string;
+  count: number;
+};
+
+const getUsageStore = (): Map<string, UsageRecord> => {
+  const globalWithStore = globalThis as typeof globalThis & {
+    __contentAgentUsageStore?: Map<string, UsageRecord>;
+  };
+
+  if (!globalWithStore.__contentAgentUsageStore) {
+    globalWithStore.__contentAgentUsageStore = new Map<string, UsageRecord>();
+  }
+
+  return globalWithStore.__contentAgentUsageStore;
+};
+
+const decodeJwtPayload = (authorizationHeader: string | null): Record<string, unknown> | null => {
+  if (!authorizationHeader?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authorizationHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return null;
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = Buffer.from(padded, "base64").toString("utf-8");
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const toPositiveInteger = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+const consumeUsage = (key: string, cost: number) => {
+  const store = getUsageStore();
+  const day = todayKey();
+  const current = store.get(key);
+  const active = current && current.day === day ? current : { day, count: 0 };
+
+  if (active.count + cost > AI_DAILY_LIMIT) {
+    return {
+      allowed: false,
+      used: active.count,
+      remaining: Math.max(AI_DAILY_LIMIT - active.count, 0),
+      limit: AI_DAILY_LIMIT,
+    };
+  }
+
+  const updated = { ...active, count: active.count + cost };
+  store.set(key, updated);
+
+  return {
+    allowed: true,
+    used: updated.count,
+    remaining: Math.max(AI_DAILY_LIMIT - updated.count, 0),
+    limit: AI_DAILY_LIMIT,
+  };
+};
+
+const consumeBackendEntitlementUsage = async ({
+  authorizationHeader,
+  tenantId,
+  featureKey,
+  amount,
+  limitPerWindow,
+}: {
+  authorizationHeader: string | null;
+  tenantId: number | null;
+  featureKey: string;
+  amount: number;
+  limitPerWindow: number;
+}) => {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_API_BASE}/entitlements/usage/consume`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorizationHeader,
+        ...(tenantId ? { "x-tenant-id": String(tenantId) } : {}),
+      },
+      body: JSON.stringify({
+        featureKey,
+        amount,
+        limitPerWindow,
+        window: "daily",
+      }),
+      cache: "no-store",
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const AI_MODEL = process.env.OPENAI_MODEL_CONTENT_AGENT || "gpt-4o-mini";
+const AI_TIMEOUT_MS = Number(process.env.AI_AGENT_TIMEOUT_MS || 60000);
+const AI_TIMEOUT_IDEAS_MS = Number(
+  process.env.AI_AGENT_TIMEOUT_IDEAS_MS || 25000,
+);
+const AI_TIMEOUT_OUTLINE_MS = Number(
+  process.env.AI_AGENT_TIMEOUT_OUTLINE_MS || 35000,
+);
+const AI_TIMEOUT_CONTENT_MS = Number(
+  process.env.AI_AGENT_TIMEOUT_CONTENT_MS || 90000,
+);
+const AI_TIMEOUT_METADATA_MS = Number(
+  process.env.AI_AGENT_TIMEOUT_METADATA_MS || 30000,
+);
+const AI_TIMEOUT_COMPETITOR_MS = Number(
+  process.env.AI_AGENT_TIMEOUT_COMPETITOR_MS || 30000,
+);
+const AI_MAX_COMPLETION_TOKENS = Number(
+  process.env.AI_AGENT_MAX_COMPLETION_TOKENS || 2000,
+);
+const AI_MAX_INPUT_CHARS = Number(process.env.AI_AGENT_MAX_INPUT_CHARS || 6000);
+const AI_METADATA_MAX_CONTENT_CHARS = Number(
+  process.env.AI_METADATA_MAX_CONTENT_CHARS || 12000,
+);
+const AI_RATE_LIMIT_WINDOW_MS = Number(
+  process.env.AI_RATE_LIMIT_WINDOW_MS || 60000,
+);
+const AI_RATE_LIMIT_MAX_REQUESTS = Number(
+  process.env.AI_RATE_LIMIT_MAX_REQUESTS || 20,
+);
+
+const RequestSchema = z.object({
+  websiteId: z.number().int().positive().optional(),
+  mode: z
+    .enum([
+      "standard",
+      "service_copy",
+      "about_copy",
+      "page_nav_copy",
+      "site_settings_orchestrator",
+      "built_in_page_seo",
+    ])
+    .optional(),
+  ourUrl: z.string().optional(),
+  city: z.string().optional(),
+  industry: z.string().optional(),
+  keyword: z.string().optional(),
+  pageKey: z.enum(["home", "services", "about", "shop"]).optional(),
+  competitor1Url: z.string().optional(),
+  competitor2Url: z.string().optional(),
+  service: z.string().optional(),
+  pageSlug: z.string().optional(),
+  pageTitle: z.string().optional(),
+  pageIntent: z.string().optional(),
+  pageGoal: z.string().optional(),
+  targetAudience: z.string().optional(),
+  primaryCta: z.string().optional(),
+  mustInclude: z.array(z.string()).optional(),
+  mustAvoid: z.array(z.string()).optional(),
+  servicesOffered: z.array(z.string()).optional(),
+  businessName: z.string().optional(),
+  aboutContext: z.string().optional(),
+  userChosenIdea: z.string().optional(),
+  content: z.string().optional(),
+});
 
 function getOpenAI() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -11,6 +207,26 @@ function getOpenAI() {
     throw new Error("Missing OPENAI_API_KEY. Set it in your environment to use /api/content-agent.");
   }
   return new OpenAI({ apiKey });
+}
+
+function trimToCap(value: string | undefined, cap: number): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > cap ? trimmed.slice(0, cap) : trimmed;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`AI request timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 //Prompt Chaining Steps
@@ -28,7 +244,10 @@ function getOpenAI() {
 const ContentIdeas = z.object({
   ideas: z.array(z.object({
     idea: z.string(),
-    keywordTargets: z.array(z.string())
+    keywordTargets: z.array(z.string()),
+    ideaType: z.string().optional(),
+    intentMatchScore: z.number().min(0).max(100).optional(),
+    whyMatch: z.string().optional(),
   }))
 });
 
@@ -46,44 +265,386 @@ const Metadata = z.object({
     keywords: z.array(z.string())
 });
 
+const ServiceCopyPack = z.object({
+  heroHeadline: z.string(),
+  heroSubheadline: z.string(),
+  ctaHeadline: z.string(),
+  ctaBody: z.string(),
+  services: z.array(
+    z.object({
+      title: z.string(),
+      slug: z.string(),
+      description: z.string(),
+      seoTitle: z.string().optional(),
+      metaDescription: z.string().optional(),
+      keywordTargets: z.array(z.string()).optional(),
+    }),
+  ),
+});
+
+const AboutCopyPack = z.object({
+  aboutHeadline: z.string(),
+  aboutBody: z.string(),
+  teamName: z.string(),
+  teamTitle: z.string(),
+  teamBio: z.string(),
+  contactCtaHeadline: z.string(),
+  contactCtaBody: z.string(),
+});
+
+const BuiltInPageSeoPack = z.object({
+  primaryKeyword: z.string(),
+  supportingTerms: z.array(z.string()),
+  recommendedFields: z.record(z.string(), z.string()),
+  seoTitle: z.string(),
+  seoDescription: z.string(),
+  missingInputs: z.array(z.string()),
+  rationale: z.array(z.string()),
+});
+
+const BUILT_IN_PAGE_FIELDS: Record<
+  "home" | "services" | "about" | "shop",
+  string[]
+> = {
+  home: [
+    "heroTitle",
+    "heroBody",
+    "heroPrimaryCtaText",
+    "heroPrimaryCtaUrl",
+    "ctaHeadline",
+    "ctaBody",
+    "ctaButtonText",
+    "ctaButtonUrl",
+  ],
+  services: ["heroTitle", "heroBody", "emptyStateTitle", "emptyStateBody"],
+  about: ["heroTitle", "heroBody", "missionTitle", "missionBody"],
+  shop: ["heroTitle", "heroBody", "emptyStateTitle", "emptyStateBody"],
+};
+
+type JsonSchema = {
+  name: string;
+  schema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required: string[];
+  };
+};
+
+async function gatewayStructuredCall<T>(args: {
+  messages: { role: "system" | "user"; content: string }[];
+  responseSchema: JsonSchema;
+  parser: (input: unknown) => T;
+  maxCompletionTokens?: number;
+  timeoutMs?: number;
+}): Promise<T> {
+  const response = await withTimeout(
+    getOpenAI().chat.completions.create({
+      model: AI_MODEL,
+      messages: args.messages,
+      max_completion_tokens:
+        args.maxCompletionTokens ?? AI_MAX_COMPLETION_TOKENS,
+      response_format: {
+        type: "json_schema",
+        json_schema: args.responseSchema,
+      },
+    }),
+    args.timeoutMs ?? AI_TIMEOUT_MS,
+  );
+
+  const content = response.choices[0]?.message?.content || "{}";
+  return args.parser(JSON.parse(content));
+}
+
 //Define the functions/tools
-const generateContentIdeas = async ({ city, industry, keyword }: { city: string, industry: string, keyword: string }) => {
-  // Call OpenAI API to generate content ideas
-  const response = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
+const generateContentIdeasStandard = async ({
+  city,
+  industry,
+  keyword,
+}: {
+  city: string;
+  industry: string;
+  keyword: string;
+}) => {
+  return gatewayStructuredCall({
     messages: [
-      { role: "user", content: `I am a content creator assistant. Here is my competitor's site: My company is in the ${industry} industry. Help me create 3 ideas to rank for the keyword "${keyword}" in ${city}.` }
+      {
+        role: "system",
+        content:
+          "You are a specialist SEO ideation agent. Return concise, practical ideas for local business pages.",
+      },
+      {
+        role: "user",
+        content: `Company industry: ${industry}. City: ${city}. Target keyword: ${keyword}. Generate exactly 3 ideas to rank locally with keyword targets for each idea.`,
+      },
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "content_ideas",
-        schema: {
-          type: "object",
-          properties: {
-            ideas: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  idea: { type: "string" },
-                  keywordTargets: {
-                    type: "array",
-                    items: { type: "string" }
-                  }
+    responseSchema: {
+      name: "content_ideas",
+      schema: {
+        type: "object",
+        properties: {
+          ideas: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                idea: { type: "string" },
+                keywordTargets: {
+                  type: "array",
+                  items: { type: "string" },
                 },
-                required: ["idea", "keywordTargets"]
-              }
-            }
+              },
+              required: ["idea", "keywordTargets"],
+            },
           },
-          required: ["ideas"]
-        }
-      }
-    }
+        },
+        required: ["ideas"],
+      },
+    },
+    parser: (raw) => ContentIdeas.parse(raw),
+    maxCompletionTokens: 600,
+    timeoutMs: AI_TIMEOUT_IDEAS_MS,
   });
-  
-  const parsedResponse = ContentIdeas.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  return parsedResponse;
+};
+
+const generateContentIdeasIntent = async ({
+  city,
+  industry,
+  keyword,
+  pageSlug,
+  pageTitle,
+  pageIntent,
+  pageGoal,
+  targetAudience,
+  primaryCta,
+  mustInclude,
+  mustAvoid,
+}: {
+  city: string;
+  industry: string;
+  keyword: string;
+  pageSlug?: string;
+  pageTitle?: string;
+  pageIntent?: string;
+  pageGoal?: string;
+  targetAudience?: string;
+  primaryCta?: string;
+  mustInclude?: string[];
+  mustAvoid?: string[];
+}) => {
+  const requiredTopics = (mustInclude || []).filter(Boolean).join(", ");
+  const excludedTopics = (mustAvoid || []).filter(Boolean).join(", ");
+
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a specialist SEO ideation agent. Return concise, practical ideas for local business pages and stay tightly aligned to the requested page intent.",
+      },
+      {
+        role: "user",
+        content: `Company industry: ${industry}. City: ${city}. Target keyword: ${keyword}.
+Page slug: ${pageSlug || "n/a"}. Page title: ${pageTitle || "n/a"}.
+Page intent: ${pageIntent || "general"}. Page goal: ${pageGoal || "conversion"}.
+Target audience: ${targetAudience || "local customers"}. Primary CTA: ${primaryCta || "contact us"}.
+Must include topics: ${requiredTopics || "none"}. Must avoid topics: ${excludedTopics || "none"}.
+
+Generate exactly 3 ideas that fit this page specifically.
+For each idea, return:
+- idea (short summary)
+- keywordTargets (3-6)
+- ideaType (example: pricing-guide, faq, comparison, service-overview)
+- intentMatchScore (0-100 confidence that this idea matches requested page intent)
+- whyMatch (1 sentence explaining fit)
+
+If page intent is pricing, avoid generic blog post angles unless they directly answer pricing decisions.`,
+      },
+    ],
+    responseSchema: {
+      name: "content_ideas",
+      schema: {
+        type: "object",
+        properties: {
+          ideas: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                idea: { type: "string" },
+                keywordTargets: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                ideaType: { type: "string" },
+                intentMatchScore: { type: "number" },
+                whyMatch: { type: "string" },
+              },
+              required: ["idea", "keywordTargets", "ideaType", "intentMatchScore", "whyMatch"],
+            },
+          },
+        },
+        required: ["ideas"],
+      },
+    },
+    parser: (raw) => ContentIdeas.parse(raw),
+    maxCompletionTokens: 600,
+    timeoutMs: AI_TIMEOUT_IDEAS_MS,
+  });
+};
+
+const generateSiteSettingsIdeas = async ({
+  city,
+  industry,
+  keyword,
+  service,
+  competitor1Url,
+}: {
+  city: string;
+  industry: string;
+  keyword: string;
+  service?: string;
+  competitor1Url?: string;
+}) => {
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Site Settings AI Orchestrator. Coordinate these specialist perspectives: Positioning Specialist, Local SEO Specialist, and Conversion Copy Specialist. Return 3 homepage/service framing ideas suitable for hero + CTA + starter services.",
+      },
+      {
+        role: "user",
+        content: `Business context:
+- Industry: ${industry}
+- City: ${city}
+- Primary keyword: ${keyword}
+- Core service: ${service || "n/a"}
+- Competitor URL: ${competitor1Url || "n/a"}
+
+Generate exactly 3 ideas for Site Settings copy direction.
+Each idea should be practical for hero headline/subheadline, CTA, and 2-3 starter services.
+Return only concise ideas with keyword targets.`,
+      },
+    ],
+    responseSchema: {
+      name: "site_settings_ideas",
+      schema: {
+        type: "object",
+        properties: {
+          ideas: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                idea: { type: "string" },
+                keywordTargets: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+              },
+              required: ["idea", "keywordTargets"],
+            },
+          },
+        },
+        required: ["ideas"],
+      },
+    },
+    parser: (raw) => ContentIdeas.parse(raw),
+    maxCompletionTokens: 700,
+    timeoutMs: AI_TIMEOUT_IDEAS_MS,
+  });
+};
+
+const createSiteSettingsOutline = async ({
+  userChosenIdea,
+  city,
+  industry,
+  keyword,
+}: {
+  userChosenIdea: string;
+  city: string;
+  industry: string;
+  keyword: string;
+}) => {
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Content Structure Specialist for local business websites. Build outlines that can power homepage hero, CTA, and service blocks.",
+      },
+      {
+        role: "user",
+        content: `Create a structured outline from this chosen direction: ${userChosenIdea}
+Context: ${industry} business in ${city}, targeting ${keyword}.
+Include sections for hero framing, trust points, featured services, and CTA path.`,
+      },
+    ],
+    responseSchema: {
+      name: "site_settings_outline",
+      schema: {
+        type: "object",
+        properties: {
+          content: { type: "string" },
+        },
+        required: ["content"],
+      },
+    },
+    parser: (raw) => Content.parse(raw),
+    maxCompletionTokens: 1000,
+    timeoutMs: AI_TIMEOUT_OUTLINE_MS,
+  });
+};
+
+const writeSiteSettingsMarkdown = async ({
+  outline,
+  userChosenIdea,
+  city,
+  industry,
+  keyword,
+}: {
+  outline: string;
+  userChosenIdea: string;
+  city: string;
+  industry: string;
+  keyword: string;
+}) => {
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Conversion Copy Specialist. Produce markdown suitable for extracting hero intro and starter service sections from H2 headings.",
+      },
+      {
+        role: "user",
+        content: `Using this outline:
+${outline}
+
+Write complete markdown content for the direction: "${userChosenIdea}".
+Business context: ${industry} in ${city}, keyword ${keyword}.
+
+Requirements:
+- Use clear H2 sections for service opportunities (these become starter services)
+- Keep copy actionable and conversion-focused
+- Include trust proof and a strong CTA
+- Keep the content practical for site settings application`,
+      },
+    ],
+    responseSchema: {
+      name: "site_settings_markdown",
+      schema: {
+        type: "object",
+        properties: {
+          markdownContent: { type: "string" },
+        },
+        required: ["markdownContent"],
+      },
+    },
+    parser: (raw) => MarkdownContent.parse(raw),
+    maxCompletionTokens: 1700,
+    timeoutMs: AI_TIMEOUT_CONTENT_MS,
+  });
 };
 
 const analyzeCompetitorGaps = async ({
@@ -93,16 +654,15 @@ const analyzeCompetitorGaps = async ({
   contentIdeas: { idea: string }[],
   competitor1Url: string
 }) => {
-  // Call OpenAI API to analyze competitor gaps
-  const response = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
+  const response = await gatewayStructuredCall({
     messages: [
-      { 
-        role: "system", 
-        content: `You are an SEO content analyst. Analyze competitor content for gaps and opportunities based on the provided content ideas and competitor URL.` 
+      {
+        role: "system",
+        content:
+          "You are an SEO gap analysis specialist. Return concrete gaps and strategy components.",
       },
-      { 
-        role: "user", 
+      {
+        role: "user",
         content: `Based on these content ideas:
 1. ${contentIdeas?.[0]?.idea || ""}
 2. ${contentIdeas?.[1]?.idea || ""}
@@ -111,148 +671,419 @@ const analyzeCompetitorGaps = async ({
 Competitor URL: ${competitor1Url}
 
 Analyze potential gaps and opportunities. Provide target keywords, titles, and strategy components for each idea. Focus on what content gaps might exist that we could fill.` 
-      }
+      },
     ],
-    response_format: { 
-      type: "json_schema",
-      json_schema: {
-        name: "competitor_analysis",
-        schema: {
-          type: "object",
-          properties: {
-            gaps: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  keywordTargets: { type: "array", items: { type: "string" } },
-                  title: { type: "string" },
-                  strategyComponents: { type: "array", items: { type: "string" } }
-                },
-                required: ["keywordTargets", "title", "strategyComponents"]
-              }
-            }
+    responseSchema: {
+      name: "competitor_analysis",
+      schema: {
+        type: "object",
+        properties: {
+          gaps: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                keywordTargets: { type: "array", items: { type: "string" } },
+                title: { type: "string" },
+                strategyComponents: { type: "array", items: { type: "string" } },
+              },
+              required: ["keywordTargets", "title", "strategyComponents"],
+            },
           },
-          required: ["gaps"]
-        }
-      }
-    }
+        },
+        required: ["gaps"],
+      },
+    },
+    parser: (raw) => raw as { gaps: unknown[] },
+    maxCompletionTokens: 900,
+    timeoutMs: AI_TIMEOUT_COMPETITOR_MS,
   });
-  return response.choices[0].message.content;
+
+  return JSON.stringify(response);
 };
 
-const createContentOutline = async ({ userChosenIdea }: { userChosenIdea: string }) => {
-  // Call OpenAI API to create content outline
-  const response = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
+const createContentOutline = async ({
+  userChosenIdea,
+  pageIntent,
+  pageGoal,
+  targetAudience,
+  primaryCta,
+  mustInclude,
+  mustAvoid,
+}: {
+  userChosenIdea: string;
+  pageIntent?: string;
+  pageGoal?: string;
+  targetAudience?: string;
+  primaryCta?: string;
+  mustInclude?: string[];
+  mustAvoid?: string[];
+}) => {
+  return gatewayStructuredCall({
     messages: [
-      { role: "user", content: `Create a detailed content outline for the following idea: ${userChosenIdea}. Include appropriate H1, H2, H3 headings, key points to cover, and SEO best practices.` }
+      {
+        role: "system",
+        content:
+          "You are an SEO outline specialist. Produce a practical heading structure with key points and strictly align to the page intent.",
+      },
+      {
+        role: "user",
+        content: `Create a detailed content outline for: ${userChosenIdea}.
+Page intent: ${pageIntent || "general"}
+Page goal: ${pageGoal || "conversion"}
+Target audience: ${targetAudience || "local prospects"}
+Primary CTA: ${primaryCta || "contact us"}
+Must include: ${(mustInclude || []).join(", ") || "none"}
+Must avoid: ${(mustAvoid || []).join(", ") || "none"}
+
+Include H1, H2, H3 headings, key points, local SEO and accessibility best practices.
+Do not shift to unrelated formats (for example blog narrative) unless the intent requires it.`,
+      },
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "content",
-        schema: {
-          type: "object",
-          properties: {
-            content: { type: "string" }
-          },
-          required: ["content"]
-        }
-      }
-    }
+    responseSchema: {
+      name: "content",
+      schema: {
+        type: "object",
+        properties: {
+          content: { type: "string" },
+        },
+        required: ["content"],
+      },
+    },
+    parser: (raw) => Content.parse(raw),
+    maxCompletionTokens: 1100,
+    timeoutMs: AI_TIMEOUT_OUTLINE_MS,
   });
-  
-  const parsedResponse = Content.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  return parsedResponse;
 };
 
-const writeMarkdownContent = async ({ outline, userChosenIdea, city, industry, keyword }: { 
+const writeMarkdownContent = async ({ outline, userChosenIdea, city, industry, keyword, pageIntent, pageGoal, targetAudience, primaryCta, mustInclude, mustAvoid }: { 
   outline: string, 
   userChosenIdea: string,
   city: string,
   industry: string, 
-  keyword: string 
+  keyword: string,
+  pageIntent?: string,
+  pageGoal?: string,
+  targetAudience?: string,
+  primaryCta?: string,
+  mustInclude?: string[],
+  mustAvoid?: string[]
 }) => {
-  // Call OpenAI API to write the full markdown content
-  const response = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
+  return gatewayStructuredCall({
     messages: [
-      { 
-        role: "system", 
-        content: `You are an expert content writer specializing in SEO content for the ${industry} industry. Write comprehensive, engaging content that targets the keyword "${keyword}" for businesses in ${city}.` 
+      {
+        role: "system",
+        content: `You are a specialist long-form copywriter for ${industry}. Prioritize clarity, conversion, and local SEO relevance for ${city}.`,
       },
-      { 
-        role: "user", 
+      {
+        role: "user",
         content: `Based on this content outline:
 ${outline}
 
-Write a complete blog post in markdown format for: "${userChosenIdea}"
+      Write complete markdown page content for: "${userChosenIdea}"
 
 Requirements:
 - Use proper markdown syntax (# ## ### for headings)
 - Target keyword: "${keyword}"
 - Location: ${city}
 - Industry: ${industry}
+      - Page intent: ${pageIntent || "general"}
+      - Page goal: ${pageGoal || "conversion"}
+      - Target audience: ${targetAudience || "local prospects"}
+      - Primary CTA: ${primaryCta || "contact us"}
+      - Must include: ${(mustInclude || []).join(", ") || "none"}
+      - Must avoid: ${(mustAvoid || []).join(", ") || "none"}
 - Include SEO-optimized headings with the target keyword
 - Write engaging, informative content
 - Add relevant examples and practical tips
-- Include a strong call-to-action at the end
+      - Include a strong call-to-action aligned to the primary CTA at the end
 - Use appropriate heading hierarchy (H1, H2, H3)
 - Ensure accessibility with clear structure
 - Target length: 1000-1500 words
 
-Focus on providing real value to readers while naturally incorporating the target keyword and location.` 
-      }
+      Focus on providing real value while naturally incorporating the target keyword and location.
+      Do not drift away from the requested page intent.` 
+      },
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "markdown_content",
-        schema: {
-          type: "object",
-          properties: {
-            markdownContent: { type: "string" }
-          },
-          required: ["markdownContent"]
-        }
-      }
-    }
+    responseSchema: {
+      name: "markdown_content",
+      schema: {
+        type: "object",
+        properties: {
+          markdownContent: { type: "string" },
+        },
+        required: ["markdownContent"],
+      },
+    },
+    parser: (raw) => MarkdownContent.parse(raw),
+    maxCompletionTokens: 1800,
+    timeoutMs: AI_TIMEOUT_CONTENT_MS,
   });
-  
-  const parsedResponse = MarkdownContent.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  return parsedResponse;
 };
 
 const generateMetadata = async ({ content }: { content: string }) => {
-  // Call OpenAI API to generate metadata
-  const response = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
+  const cappedContent = content.slice(0, AI_METADATA_MAX_CONTENT_CHARS);
+  return gatewayStructuredCall({
     messages: [
-      { role: "user", content: `Generate SEO metadata for the following content: ${content}.` }
+      {
+        role: "system",
+        content:
+          "You are an SEO metadata specialist. Output concise, click-worthy and factual metadata.",
+      },
+      {
+        role: "user",
+        content: `Generate SEO metadata for the following content: ${cappedContent}`,
+      },
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "metadata",
-        schema: {
-          type: "object",
-          properties: {
-            title: { type: "string" },
-            description: { type: "string" },
-            keywords: {
-              type: "array",
-              items: { type: "string" }
-            }
+    responseSchema: {
+      name: "metadata",
+      schema: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          keywords: {
+            type: "array",
+            items: { type: "string" },
           },
-          required: ["title", "description", "keywords"]
-        }
-      }
-    }
+        },
+        required: ["title", "description", "keywords"],
+      },
+    },
+    parser: (raw) => Metadata.parse(raw),
+    maxCompletionTokens: 500,
+    timeoutMs: AI_TIMEOUT_METADATA_MS,
   });
-  
-  const parsedResponse = Metadata.parse(JSON.parse(response.choices[0].message.content || "{}"));
-  return parsedResponse;
+};
+
+const generateServiceCopyPack = async ({
+  city,
+  industry,
+  keyword,
+  competitor1Url,
+  servicesOffered,
+}: {
+  city: string;
+  industry: string;
+  keyword: string;
+  competitor1Url?: string;
+  servicesOffered: string[];
+}) => {
+  const normalizedServices = servicesOffered
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a local SEO service-page copy specialist. IMPORTANT: Do not generate blog topics. Generate only concrete services provided by the business. Use concise conversion-focused copy.",
+      },
+      {
+        role: "user",
+        content: `Create a structured service copy pack for a ${industry} business in ${city}.\n\nPrimary keyword: ${keyword}\nCompetitor URL (optional): ${competitor1Url || "N/A"}\n\nServices offered by client (must remain service offerings, not blog ideas):\n${normalizedServices.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n\nRequirements:\n- Keep services aligned to the provided services list (can normalize naming only).\n- Do not output informational article topics (e.g. costs, benefits, regulations) as services.\n- Each service description must be 2-3 sentences focused on outcomes, deliverables, and local trust.\n- Include strong local SEO language naturally (city/service area).\n- Include hero + CTA suitable for a service business homepage.`,
+      },
+    ],
+    responseSchema: {
+      name: "service_copy_pack",
+      schema: {
+        type: "object",
+        properties: {
+          heroHeadline: { type: "string" },
+          heroSubheadline: { type: "string" },
+          ctaHeadline: { type: "string" },
+          ctaBody: { type: "string" },
+          services: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                slug: { type: "string" },
+                description: { type: "string" },
+                seoTitle: { type: "string" },
+                metaDescription: { type: "string" },
+                keywordTargets: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+              },
+              required: ["title", "slug", "description"],
+            },
+          },
+        },
+        required: [
+          "heroHeadline",
+          "heroSubheadline",
+          "ctaHeadline",
+          "ctaBody",
+          "services",
+        ],
+      },
+    },
+    parser: (raw) => ServiceCopyPack.parse(raw),
+    maxCompletionTokens: 1800,
+    timeoutMs: AI_TIMEOUT_CONTENT_MS,
+  });
+};
+
+const generateAboutCopyPack = async ({
+  city,
+  industry,
+  businessName,
+  aboutContext,
+}: {
+  city: string;
+  industry: string;
+  businessName: string;
+  aboutContext?: string;
+}) => {
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are an About-page copy specialist for local businesses. Write concise trust-building copy, not blog content.",
+      },
+      {
+        role: "user",
+        content: `Create an About copy pack for business ${businessName} in ${city} (${industry}).\n\nContext from admin: ${aboutContext || "N/A"}\n\nRequirements:\n- About body should be 2 concise paragraphs max.\n- Team bio should be practical and trust-focused.\n- CTA should invite contact/consultation.`,
+      },
+    ],
+    responseSchema: {
+      name: "about_copy_pack",
+      schema: {
+        type: "object",
+        properties: {
+          aboutHeadline: { type: "string" },
+          aboutBody: { type: "string" },
+          teamName: { type: "string" },
+          teamTitle: { type: "string" },
+          teamBio: { type: "string" },
+          contactCtaHeadline: { type: "string" },
+          contactCtaBody: { type: "string" },
+        },
+        required: [
+          "aboutHeadline",
+          "aboutBody",
+          "teamName",
+          "teamTitle",
+          "teamBio",
+          "contactCtaHeadline",
+          "contactCtaBody",
+        ],
+      },
+    },
+    parser: (raw) => AboutCopyPack.parse(raw),
+    maxCompletionTokens: 900,
+    timeoutMs: AI_TIMEOUT_OUTLINE_MS,
+  });
+};
+
+const generateBuiltInPageSeoPack = async ({
+  pageKey,
+  city,
+  industry,
+  keyword,
+  businessName,
+  recipe,
+  conversionMode,
+  themePack,
+  servicesOffered,
+  context,
+}: {
+  pageKey: "home" | "services" | "about" | "shop";
+  city: string;
+  industry: string;
+  keyword: string;
+  businessName?: string;
+  recipe?: string;
+  conversionMode?: string;
+  themePack?: string;
+  servicesOffered: string[];
+  context?: string;
+}) => {
+  const fieldList = BUILT_IN_PAGE_FIELDS[pageKey];
+
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a built-in page SEO specialist for local business websites. Return field-by-field copy only for the allowed CMS fields. Optimize for ranking and conversion without inventing facts.",
+      },
+      {
+        role: "user",
+        content: `Generate SEO-first built-in page copy for this page:
+
+Page key: ${pageKey}
+Business name: ${businessName || "Unknown business"}
+Business context/site profile: ${industry}
+City/service area: ${city}
+Target keyword: ${keyword}
+Recipe: ${recipe || "not provided"}
+Conversion mode: ${conversionMode || "not provided"}
+Theme pack: ${themePack || "not provided"}
+Services offered: ${servicesOffered.join(", ") || "not provided"}
+
+Allowed CMS fields for this page: ${fieldList.join(", ")}
+
+Additional trusted context:
+${context || "No additional context provided."}
+
+Requirements:
+- Return concise, implementation-ready copy for the allowed fields only.
+- Match local intent and conversion intent.
+- Do not invent licenses, awards, years in business, review counts, or neighborhoods.
+- If facts are missing, reflect that in missingInputs instead of fabricating them.
+- SEO title and SEO description must be specific and usable.
+- heroPrimaryCtaUrl and ctaButtonUrl may use #contact, /contact, /services, or /shop when appropriate.
+- For services/shop empty states, write only if useful for this page type.
+`,
+      },
+    ],
+    responseSchema: {
+      name: "built_in_page_seo_pack",
+      schema: {
+        type: "object",
+        properties: {
+          primaryKeyword: { type: "string" },
+          supportingTerms: {
+            type: "array",
+            items: { type: "string" },
+          },
+          recommendedFields: {
+            type: "object",
+            additionalProperties: { type: "string" },
+          },
+          seoTitle: { type: "string" },
+          seoDescription: { type: "string" },
+          missingInputs: {
+            type: "array",
+            items: { type: "string" },
+          },
+          rationale: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: [
+          "primaryKeyword",
+          "supportingTerms",
+          "recommendedFields",
+          "seoTitle",
+          "seoDescription",
+          "missingInputs",
+          "rationale",
+        ],
+      },
+    },
+    parser: (raw) => BuiltInPageSeoPack.parse(raw),
+    maxCompletionTokens: 1500,
+    timeoutMs: AI_TIMEOUT_CONTENT_MS,
+  });
 };
 
 export async function POST(request: Request) {
@@ -263,50 +1094,385 @@ export async function POST(request: Request) {
       }), { status: 500 });
     }
 
-    const { ourUrl, city, industry, keyword, competitor1Url, service, userChosenIdea, content } = await request.json();
+    const forwardedFor = request.headers.get("x-forwarded-for") || "unknown";
+    const ipKey = forwardedFor.split(",")[0]?.trim() || "unknown";
+    const limiter = await checkRateLimit({
+      namespace: "content-agent",
+      key: ipKey,
+      windowMs: AI_RATE_LIMIT_WINDOW_MS,
+      maxRequests: AI_RATE_LIMIT_MAX_REQUESTS,
+    });
+    if (!limiter.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: "Rate limit exceeded",
+          details: `Too many requests. Retry in ${limiter.retryAfter}s. (${limiter.source})`,
+        }),
+        {
+          status: 429,
+          headers: { "Retry-After": String(limiter.retryAfter) },
+        },
+      );
+    }
+
+    const body = RequestSchema.parse(await request.json());
+    const headerWebsiteId = request.headers.get("x-website-id");
+    const headerTenantId = request.headers.get("x-tenant-id");
+    const websiteId =
+      toPositiveInteger(body.websiteId) ?? toPositiveInteger(headerWebsiteId);
+    const authorizationHeader = request.headers.get("authorization");
+    const tokenPayload = decodeJwtPayload(authorizationHeader);
+    const tenantId =
+      toPositiveInteger(headerTenantId) ??
+      toPositiveInteger(tokenPayload?.tenant_id) ??
+      toPositiveInteger(tokenPayload?.tenantId) ??
+      toPositiveInteger(tokenPayload?.active_tenant_id) ??
+      toPositiveInteger(tokenPayload?.activeTenantId);
+    const role =
+      typeof tokenPayload?.role === "string" ? tokenPayload.role : null;
+    const bypassEntitlementsForRole =
+      role === "admin" || role === "platform_admin";
+    const userId = tokenPayload?.sub ? String(tokenPayload.sub) : "anonymous";
+    const usageKey = `website:${websiteId ?? "unscoped"}|user:${userId}|ip:${ipKey}`;
+
+    const usageCost = body.userChosenIdea && !body.content ? 3 : 1;
+    const entitlementUsage = bypassEntitlementsForRole
+      ? null
+      : await consumeBackendEntitlementUsage({
+          authorizationHeader,
+          tenantId,
+          featureKey: "ai.agent.generate",
+          amount: usageCost,
+          limitPerWindow: AI_DAILY_LIMIT,
+        });
+
+    if (entitlementUsage && !entitlementUsage.ok) {
+      const payload = entitlementUsage.payload as { code?: string; error?: string };
+      if (entitlementUsage.status === 403 || entitlementUsage.status === 429) {
+        return new Response(
+          JSON.stringify({
+            error:
+              entitlementUsage.status === 403
+                ? "AI feature access is not enabled for this tenant."
+                : "Daily AI usage limit reached for this tenant.",
+            code: payload?.code,
+            details: payload,
+          }),
+          { status: entitlementUsage.status },
+        );
+      }
+    }
+
+    const usage = consumeUsage(usageKey, usageCost);
+    if (!usage.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: "Daily AI usage limit reached for this workspace context.",
+          usage,
+        }),
+        { status: 429 },
+      );
+    }
+
+    const mode = body.mode ?? "standard";
+    const city = trimToCap(body.city, 120);
+    const industry = trimToCap(body.industry, 120);
+    const keyword = trimToCap(body.keyword, 160);
+    const competitor1Url = trimToCap(body.competitor1Url, 500);
+    const userChosenIdea = trimToCap(body.userChosenIdea, 400);
+    const content = trimToCap(body.content, AI_MAX_INPUT_CHARS);
+    const pageSlug = trimToCap(body.pageSlug, 120);
+    const pageTitle = trimToCap(body.pageTitle, 160);
+    const pageIntent = trimToCap(body.pageIntent, 80);
+    const pageGoal = trimToCap(body.pageGoal, 120);
+    const targetAudience = trimToCap(body.targetAudience, 180);
+    const primaryCta = trimToCap(body.primaryCta, 120);
+    const mustInclude = (body.mustInclude || [])
+      .map((s) => trimToCap(s, 120) || "")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    const mustAvoid = (body.mustAvoid || [])
+      .map((s) => trimToCap(s, 120) || "")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    const servicesOffered = (body.servicesOffered || [])
+      .map((s) => trimToCap(s, 120) || "")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    const pageKey = body.pageKey;
+    const normalizedBusinessName = trimToCap(body.businessName, 120) || undefined;
+
+    if (mode === "built_in_page_seo") {
+      if (!pageKey) {
+        return new Response(
+          JSON.stringify({
+            error: "Built-in page SEO mode requires pageKey.",
+          }),
+          { status: 400 },
+        );
+      }
+
+      const normalizedCity = city || "your service area";
+      const normalizedIndustry = industry || "local business";
+      const normalizedKeyword =
+        keyword || `${normalizedBusinessName || normalizedIndustry} ${normalizedCity}`;
+      const context = [
+        body.aboutContext ? `Trusted context:\n${body.aboutContext}` : null,
+        content ? `Existing draft content:\n${content}` : null,
+        pageIntent ? `Page intent: ${pageIntent}` : null,
+        pageGoal ? `Page goal: ${pageGoal}` : null,
+        targetAudience ? `Target audience: ${targetAudience}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const pack = await generateBuiltInPageSeoPack({
+        pageKey,
+        city: normalizedCity,
+        industry: normalizedIndustry,
+        keyword: normalizedKeyword,
+        businessName: normalizedBusinessName,
+        recipe: pageIntent || undefined,
+        conversionMode: primaryCta || undefined,
+        themePack: pageGoal || undefined,
+        servicesOffered,
+        context: context || undefined,
+      });
+
+      return new Response(
+        JSON.stringify({
+          role: "assistant",
+          step: "built_in_page_seo_generated",
+          message: "Built-in page SEO draft generated.",
+          usage,
+          ...pack,
+        }),
+        { status: 200 },
+      );
+    }
+
+    if (mode === "service_copy") {
+      if (!city || !industry || servicesOffered.length === 0) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Service copy mode requires city, industry, and at least one offered service.",
+          }),
+          { status: 400 },
+        );
+      }
+
+      const pack = await generateServiceCopyPack({
+        city,
+        industry,
+        keyword: keyword || `${industry} ${city}`,
+        competitor1Url,
+        servicesOffered,
+      });
+
+      return new Response(
+        JSON.stringify({
+          role: "assistant",
+          step: "service_copy_generated",
+          message: "Service-first AI copy pack generated.",
+          usage,
+          ...pack,
+        }),
+        { status: 200 },
+      );
+    }
+
+    if (mode === "about_copy") {
+      const businessName =
+        trimToCap(body.businessName, 120) || "Your Business";
+      const aboutContext = trimToCap(body.aboutContext, 1200);
+
+      if (!city || !industry) {
+        return new Response(
+          JSON.stringify({
+            error: "About copy mode requires city and industry.",
+          }),
+          { status: 400 },
+        );
+      }
+
+      const pack = await generateAboutCopyPack({
+        city,
+        industry,
+        businessName,
+        aboutContext,
+      });
+
+      return new Response(
+        JSON.stringify({
+          role: "assistant",
+          step: "about_copy_generated",
+          message: "About/Team AI copy pack generated.",
+          usage,
+          ...pack,
+        }),
+        { status: 200 },
+      );
+    }
+
     // Step 1: Generate content ideas (initial request)
-    if (!userChosenIdea && !content && city && industry && keyword) {
-      const contentIdeas = await generateContentIdeas({ city, industry, keyword });
+    if (!userChosenIdea && !content && industry && keyword) {
+      const normalizedCity = city || "your area";
+      const contentIdeas =
+        mode === "page_nav_copy"
+          ? await generateContentIdeasIntent({
+              city: normalizedCity,
+              industry,
+              keyword,
+              pageSlug,
+              pageTitle,
+              pageIntent,
+              pageGoal,
+              targetAudience,
+              primaryCta,
+              mustInclude,
+              mustAvoid,
+            })
+          : mode === "site_settings_orchestrator"
+            ? await generateSiteSettingsIdeas({
+                city: normalizedCity,
+                industry,
+                keyword,
+                service: trimToCap(body.service, 160),
+                competitor1Url,
+              })
+          : await generateContentIdeasStandard({ city: normalizedCity, industry, keyword });
       return new Response(JSON.stringify({ 
         ...contentIdeas,
         role: "assistant", 
         step: "ideas_generated",
-        message: "Here are 3 content ideas for you to choose from:"
+        message: "Here are 3 content ideas for you to choose from:",
+        usage,
       }), { status: 200 });
     }
 
     // Step 2: User has chosen an idea, now create outline, write content, analyze competitor, and generate metadata
     if (userChosenIdea && !content) {
+      if (mode === "site_settings_orchestrator") {
+        const outline = await createSiteSettingsOutline({
+          userChosenIdea,
+          city: city || "your area",
+          industry: industry || "local services",
+          keyword: keyword || "local service",
+        });
+
+        let markdownText = "";
+        try {
+          const markdownContent = await writeSiteSettingsMarkdown({
+            outline: outline.content,
+            userChosenIdea,
+            city: city || "your area",
+            industry: industry || "local services",
+            keyword: keyword || "local service",
+          });
+          markdownText = markdownContent.markdownContent;
+        } catch (error) {
+          console.warn("Site settings content fallback triggered:", error);
+          markdownText = `# ${userChosenIdea}\n\n${outline.content}`;
+        }
+
+        let metadata: z.infer<typeof Metadata> | null = null;
+        try {
+          metadata = await generateMetadata({ content: markdownText });
+        } catch (error) {
+          console.warn("Site settings metadata generation skipped due to error:", error);
+        }
+
+        return new Response(
+          JSON.stringify({
+            role: "assistant",
+            content: outline.content,
+            markdownContent: markdownText,
+            metadata,
+            step: "complete_workflow",
+            orchestration: {
+              orchestrator: "site_settings_orchestrator_v1",
+              gateway: "gatewayStructuredCall",
+              specialists: [
+                "positioning-specialist",
+                "local-seo-specialist",
+                "conversion-copy-specialist",
+              ],
+            },
+            message: "Site Settings orchestrated draft generated.",
+          }),
+          { status: 200 },
+        );
+      }
+
       // Create content outline
-      const outline = await createContentOutline({ userChosenIdea });
-      
-      // Generate the full markdown content based on the outline
-      const markdownContent = await writeMarkdownContent({ 
-        outline: outline.content, 
-        userChosenIdea, 
-        city, 
-        industry, 
-        keyword 
+      const outline = await createContentOutline({
+        userChosenIdea,
+        pageIntent,
+        pageGoal,
+        targetAudience,
+        primaryCta,
+        mustInclude,
+        mustAvoid,
       });
+      
+      // Generate the full markdown content based on the outline.
+      // Fail soft here so Site Settings can still receive usable draft text.
+      let markdownText = "";
+      try {
+        const markdownContent = await writeMarkdownContent({
+          outline: outline.content,
+          userChosenIdea,
+          city: city || "your area",
+          industry: industry || "local services",
+          keyword: keyword || "local service",
+          pageIntent,
+          pageGoal,
+          targetAudience,
+          primaryCta,
+          mustInclude,
+          mustAvoid,
+        });
+        markdownText = markdownContent.markdownContent;
+      } catch (error) {
+        console.warn("Content generation fallback triggered:", error);
+        markdownText = `# ${userChosenIdea}\n\n${outline.content}`;
+      }
       
       // Also analyze competitor gaps if we have competitor URL
       let competitorAnalysis = null;
       if (competitor1Url) {
-        const contentIdeas = [{ idea: userChosenIdea }];
-        competitorAnalysis = await analyzeCompetitorGaps({ contentIdeas, competitor1Url });
+        try {
+          const contentIdeas = [{ idea: userChosenIdea }];
+          competitorAnalysis = await analyzeCompetitorGaps({
+            contentIdeas,
+            competitor1Url,
+          });
+        } catch (error) {
+          console.warn("Competitor analysis skipped due to error:", error);
+        }
       }
       
       // Automatically generate metadata for the markdown content
-      const metadata = await generateMetadata({ content: markdownContent.markdownContent });
+      let metadata: z.infer<typeof Metadata> | null = null;
+      try {
+        metadata = await generateMetadata({ content: markdownText });
+      } catch (error) {
+        console.warn("Metadata generation skipped due to error:", error);
+      }
       
       return new Response(JSON.stringify({ 
         role: "assistant", 
         content: outline.content,
-        markdownContent: markdownContent.markdownContent,
+        markdownContent: markdownText,
         competitorAnalysis,
         metadata,
         step: "complete_workflow",
-        message: "Content outline, full markdown content, and SEO metadata have been generated. Here's your complete content strategy:"
+        message: "Content outline, full markdown content, and SEO metadata have been generated. Here's your complete content strategy:",
+        usage,
       }), { status: 200 });
     }
 
@@ -317,22 +1483,26 @@ export async function POST(request: Request) {
         role: "assistant", 
         content: JSON.stringify(metadata),
         step: "metadata_generated",
-        message: "SEO metadata has been generated for your content."
+        message: "SEO metadata has been generated for your content.",
+        usage,
       }), { status: 200 });
     }
 
     // Fallback for any other requests
     return new Response(JSON.stringify({ 
       error: "Invalid request. Please provide the required parameters.",
-      expectedFlow: "1. Provide city, industry, keyword to get ideas. 2. Choose an idea to get outline. 3. Provide content to get metadata."
+      expectedFlow: "1. Provide industry and keyword (city/service area optional) to get ideas. 2. Choose an idea to get outline. 3. Provide content to get metadata."
     }), { status: 400 });
     
   } catch (error) {
     console.error("API Error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    const isTimeoutError =
+      error instanceof Error && /timed out/i.test(error.message);
     return new Response(JSON.stringify({ 
-      error: "Internal server error", 
+      error: isTimeoutError ? "AI gateway timeout" : "Internal server error", 
       details: errorMessage 
-    }), { status: 500 });
+    }), { status: isTimeoutError ? 504 : 500 });
   }
 }

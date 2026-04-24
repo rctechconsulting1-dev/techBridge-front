@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { getRemoteImagePatterns } from "./src/lib/image-hosts";
 
 // Minimal, stable Next.js 15 config. Avoids custom chunking that can break
 // client-reference manifests and route transitions. See docs:
@@ -10,10 +11,10 @@ const nextConfig: NextConfig = {
       return [];
     }
 
-    const normalized = rawApiUrl.replace(/\/$/, '');
+    const normalized = rawApiUrl.replace(/\/$/, "");
     return [
       {
-        source: '/api/:path*',
+        source: "/api/:path*",
         destination: `${normalized}/:path*`,
       },
     ];
@@ -21,23 +22,27 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/:path*',
+        source: "/:path*",
         headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+      // Static branding assets (favicons, logos) are content-addressed and
+      // never change at runtime — cache aggressively.
+      {
+        source: "/branding/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
         ],
       },
     ];
   },
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "techconsulting-rc.s3.us-west-1.amazonaws.com",
-        port: "",
-        pathname: "/**",
-      },
-    ],
+    remotePatterns: getRemoteImagePatterns(),
   },
   webpack(config) {
     // High-priority SVGR loader for all SVG imports

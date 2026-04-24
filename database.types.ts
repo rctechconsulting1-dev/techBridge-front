@@ -149,7 +149,7 @@ export type Database = {
           rating: number | null
           review_count: number | null
           website_id: number | null
-          xUrl: string | null
+          x_url: string | null
         }
         Insert: {
           address?: string | null
@@ -167,7 +167,7 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           website_id?: number | null
-          xUrl?: string | null
+          x_url?: string | null
         }
         Update: {
           address?: string | null
@@ -185,7 +185,7 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           website_id?: number | null
-          xUrl?: string | null
+          x_url?: string | null
         }
         Relationships: [
           {
@@ -392,8 +392,16 @@ export type Database = {
           page_type: string | null
           parent_id: number | null
           sort_order: number
+          nav_order: number
           is_published: boolean
           is_main_nav: boolean
+          is_enabled: boolean
+          is_required: boolean
+          nav_placement: string | null
+          nav_style: string | null
+          nav_parent_id: number | null
+          nav_label: string | null
+          is_external_link: boolean
           template_type: string | null
           meta_description: string | null
           meta_keywords: string | null
@@ -412,8 +420,16 @@ export type Database = {
           page_type?: string | null
           parent_id?: number | null
           sort_order?: number
+          nav_order?: number
           is_published?: boolean
           is_main_nav?: boolean
+          is_enabled?: boolean
+          is_required?: boolean
+          nav_placement?: string | null
+          nav_style?: string | null
+          nav_parent_id?: number | null
+          nav_label?: string | null
+          is_external_link?: boolean
           template_type?: string | null
           meta_description?: string | null
           meta_keywords?: string | null
@@ -432,8 +448,16 @@ export type Database = {
           page_type?: string | null
           parent_id?: number | null
           sort_order?: number
+          nav_order?: number
           is_published?: boolean
           is_main_nav?: boolean
+          is_enabled?: boolean
+          is_required?: boolean
+          nav_placement?: string | null
+          nav_style?: string | null
+          nav_parent_id?: number | null
+          nav_label?: string | null
+          is_external_link?: boolean
           template_type?: string | null
           meta_description?: string | null
           meta_keywords?: string | null
@@ -452,6 +476,13 @@ export type Database = {
           {
             foreignKeyName: "page_parent_id_fkey"
             columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "page"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_nav_parent_id_fkey"
+            columns: ["nav_parent_id"]
             isOneToOne: false
             referencedRelation: "page"
             referencedColumns: ["id"]
@@ -633,6 +664,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string | null
+          featured_on_home: boolean
           id: number
           slug: string | null
           title: string | null
@@ -641,6 +673,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string | null
+          featured_on_home?: boolean
           id?: number
           slug?: string | null
           title?: string | null
@@ -649,6 +682,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string | null
+          featured_on_home?: boolean
           id?: number
           slug?: string | null
           title?: string | null

@@ -23,7 +23,7 @@ const Navbar = () => {
             <div className="flex items-center space-x-1">
               <span className="text-2xl font-bold text-[#CD7F32]">R</span>
               <div className="h-0.5 w-6 rounded-full bg-[#C41E3A]"></div>
-              <span className="text-2xl font-bold text-[#CD7F32]">C</span>
+              <span className="text-2xl font-bold text-[#CD7F32]">D</span>
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-sm font-bold tracking-wide text-[#CD7F32]">

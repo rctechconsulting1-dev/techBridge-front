@@ -75,34 +75,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          href="/branding/favicons/favicon-64x64.svg"
-        />
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          sizes="32x32"
-          href="/branding/favicons/favicon-32x32.svg"
-        />
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          sizes="16x16"
-          href="/branding/favicons/favicon-16x16.svg"
-        />
-        <link
-          rel="apple-touch-icon"
-          href="/branding/favicons/apple-touch-icon.svg"
-        />
-      </head>
-      <body className={`${outfit.className} dark:bg-gray-900`}>
+      <head />
+      <body
+        className={`${outfit.className} dark:bg-gray-900`}
+        suppressHydrationWarning
+      >
         <ThemeProvider>
           <SidebarProvider>{children}</SidebarProvider>
         </ThemeProvider>
-        <ToastContainer position="top-right" autoClose={false} hideProgressBar closeOnClick={false} newestOnTop theme="colored" style={{ top: "1rem", right: "1rem", width: "360px", zIndex: 999999 }} />
+        <ToastContainer
+          position="top-right"
+          autoClose={false}
+          hideProgressBar
+          closeOnClick={false}
+          newestOnTop
+          theme="colored"
+          style={{ top: "1rem", right: "1rem", width: "360px", zIndex: 999999 }}
+        />
       </body>
     </html>
   );

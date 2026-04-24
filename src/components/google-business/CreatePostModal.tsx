@@ -1,406 +1,281 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import Image from "next/image";
-import React, { useState } from "react";
-import type { Post } from "@/types/google-business";
+import React, { useEffect, useState } from "react";
+import { useS3Upload } from "@/hooks/useS3Upload";
+import { getApiBaseUrl } from "@/lib/api";
 
-export function CreatePostModal({ clientName, onClose, onCreatePost }: {
+const API_URL = getApiBaseUrl();
+
+interface MediaItem {
+    id: string;
+    url: string;
+    name: string;
+    uploading?: boolean;
+}
+
+export interface GmbPostPayload {
+    summary: string;
+    topicType: "STANDARD" | "EVENT" | "OFFER";
+    languageCode: string;
+    media: { mediaFormat: "PHOTO"; sourceUrl: string }[];
+    callToAction?: { actionType: string; url: string };
+    scheduleTime?: string;
+}
+
+interface Props {
     clientName: string;
+    websiteId?: number | null;
+    authHeaders: Record<string, string>;
     onClose: () => void;
-    onCreatePost: (posts: Post[]) => void;
-}) {
-    const [posts, setPosts] = useState<Post[]>([{
-        id: 1,
-        topicType: 'STANDARD',
-        languageCode: 'en-US',
-        summary: '',
-        callToAction: { actionType: 'LEARN_MORE', url: '' },
-        media: [],
-        event: null,
-        offer: null,
-        product: null,
-        scheduleTime: '',
-        alertType: 'NOT_SPECIFIED'
-    }]);
+    onSubmit: (post: GmbPostPayload) => Promise<void>;
+}
 
-    const topicTypes = [
-        { value: 'STANDARD', label: 'Standard' },
-        { value: 'EVENT', label: 'Event' },
-        { value: 'OFFER', label: 'Offer' },
-        { value: 'PRODUCT', label: 'Product' }
-    ];
+const TOPIC_TYPES = [
+    { value: "STANDARD", label: "Update" },
+    { value: "EVENT",    label: "Event"  },
+    { value: "OFFER",    label: "Offer"  },
+] as const;
 
-    const actionTypes = [
-        { value: 'LEARN_MORE', label: 'Learn More' },
-        { value: 'BOOK', label: 'Book' },
-        { value: 'ORDER_ONLINE', label: 'Order Online' },
-        { value: 'BUY', label: 'Buy' },
-        { value: 'SIGN_UP', label: 'Sign Up' },
-        { value: 'CALL', label: 'Call' }
-    ];
+const CTA_TYPES = [
+    { value: "NONE",         label: "No button"     },
+    { value: "LEARN_MORE",   label: "Learn More"    },
+    { value: "BOOK",         label: "Book"          },
+    { value: "ORDER_ONLINE", label: "Order Online"  },
+    { value: "BUY",          label: "Buy"           },
+    { value: "SIGN_UP",      label: "Sign Up"       },
+    { value: "CALL",         label: "Call"          },
+];
 
-    const alertTypes = [
-        { value: 'NOT_SPECIFIED', label: 'Not Specified' },
-        { value: 'COVID_19', label: 'COVID-19' }
-    ];
+export function CreatePostModal({ clientName, websiteId, authHeaders, onClose, onSubmit }: Props) {
+    const { uploadToS3 } = useS3Upload();
 
-    const addPost = () => {
-        setPosts([...posts, {
-            id: Date.now(),
-            topicType: 'STANDARD',
-            languageCode: 'en-US',
-            summary: '',
-            callToAction: { actionType: 'LEARN_MORE', url: '' },
-            media: [],
-            event: null,
-            offer: null,
-            product: null,
-            scheduleTime: '',
-            alertType: 'NOT_SPECIFIED'
-        }]);
-    };
+    const [topicType, setTopicType] = useState<"STANDARD" | "EVENT" | "OFFER">("STANDARD");
+    const [content, setContent]     = useState("");
+    const [postMode, setPostMode]   = useState<"now" | "schedule">("now");
+    const [scheduleTime, setScheduleTime] = useState("");
+    const [ctaType, setCtaType]     = useState("NONE");
+    const [ctaUrl, setCtaUrl]       = useState("");
+    const [mediaTab, setMediaTab]   = useState<"upload" | "assets">("upload");
+    const [media, setMedia]         = useState<MediaItem[]>([]);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError]         = useState<string | null>(null);
 
-    const updatePost = (id: number, field: string, value: string) => {
-        setPosts(posts.map(post => post.id === id ? { ...post, [field]: value } : post
-        ));
-    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [assets, setAssets]         = useState<any[]>([]);
+    const [assetsLoading, setAssetsLoading] = useState(false);
 
-    const updateCallToAction = (id: number, field: string, value: string) => {
-        setPosts(posts.map(post => post.id === id ? {
-            ...post,
-            callToAction: { ...post.callToAction, [field]: value }
-        } : post
-        ));
-    };
+    useEffect(() => {
+        if (mediaTab !== "assets" || !websiteId) return;
+        setAssetsLoading(true);
+        fetch(`${API_URL}/assets?website_id=${websiteId}&page=0&page_size=50`, { headers: authHeaders })
+            .then(r => r.json())
+            .then(data => setAssets(Array.isArray(data) ? data : []))
+            .catch(() => setAssets([]))
+            .finally(() => setAssetsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mediaTab, websiteId]);
 
-    const removePost = (id: number) => {
-        if (posts.length > 1) {
-            setPosts(posts.filter(post => post.id !== id));
+    const handleFileUpload = async (files: FileList | null) => {
+        if (!files) return;
+        for (const file of Array.from(files).slice(0, 10 - media.length)) {
+            const tempId = `tmp-${Date.now()}-${Math.random()}`;
+            setMedia(prev => [...prev, { id: tempId, url: "", name: file.name, uploading: true }]);
+            try {
+                const endpoint = `/api/s3-upload?scope=asset${websiteId ? `&websiteId=${websiteId}` : ""}&category=general`;
+                const { url } = await uploadToS3(file, { endpoint: { request: { url: endpoint } } });
+                setMedia(prev => prev.map(m => m.id === tempId ? { id: tempId, url, name: file.name } : m));
+            } catch {
+                setMedia(prev => prev.filter(m => m.id !== tempId));
+            }
         }
     };
 
-    const handleSubmit = () => {
-        onCreatePost(posts);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toggleAsset = (asset: any) => {
+        const url: string = asset.image?.url ?? "";
+        if (!url) return;
+        if (media.find(m => m.url === url)) {
+            setMedia(prev => prev.filter(m => m.url !== url));
+        } else if (media.length < 10) {
+            setMedia(prev => [...prev, { id: `asset-${asset.id}`, url, name: asset.image?.alt_text || `Asset ${asset.id}` }]);
+        }
     };
 
-    const handleImageUpload = (postId: number, files: FileList | null) => {
-        if (!files) return;
+    const removeMedia = (id: string) => setMedia(prev => prev.filter(m => m.id !== id));
 
-        const newMedia = Array.from(files).map(file => ({
-            id: Date.now() + Math.random(),
-            mediaFormat: 'PHOTO',
-            sourceUrl: URL.createObjectURL(file),
-            name: file.name,
-            file: file
-        }));
-
-        setPosts(posts.map(post => post.id === postId ? {
-            ...post,
-            media: [...post.media, ...newMedia].slice(0, 10)
-        } : post
-        ));
+    const handleSubmit = async () => {
+        if (!content.trim()) { setError("Post content is required."); return; }
+        if (postMode === "schedule" && !scheduleTime) { setError("Choose a schedule time."); return; }
+        if (ctaType !== "NONE" && !ctaUrl.trim()) { setError("Enter a URL for the button."); return; }
+        setError(null);
+        setSubmitting(true);
+        try {
+            const payload: GmbPostPayload = {
+                summary: content.trim(),
+                topicType,
+                languageCode: "en-US",
+                media: media.filter(m => m.url).map(m => ({ mediaFormat: "PHOTO" as const, sourceUrl: m.url })),
+                ...(ctaType !== "NONE" ? { callToAction: { actionType: ctaType, url: ctaUrl.trim() } } : {}),
+                ...(postMode === "schedule" && scheduleTime ? { scheduleTime: new Date(scheduleTime).toISOString() } : {}),
+            };
+            await onSubmit(payload);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to create post.");
+            setSubmitting(false);
+        }
     };
 
-    const removeMedia = (postId: number, mediaId: any) => {
-        setPosts(posts.map(post => post.id === postId ? {
-            ...post,
-            media: post.media.filter(m => m.id !== mediaId)
-        } : post
-        ));
-    };
+    const anyUploading  = media.some(m => m.uploading);
+    const minSchedule   = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16);
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-xl">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        Create Google My Business Posts for {clientName}
-                    </h3>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+
+                {/* Header */}
+                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create GMB Post</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{clientName}</p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
                 </div>
 
-                <div className="space-y-6">
-                    {posts.map((post, index) => (
-                        <div key={post.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h4 className="text-lg font-medium text-gray-900 dark:text-white">
-                                    Post {index + 1}
-                                </h4>
-                                {posts.length > 1 && (
-                                    <button
-                                        onClick={() => removePost(post.id)}
-                                        className="text-red-500 hover:text-red-700"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                )}
+                <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+                    {/* Post type pills */}
+                    <div className="flex gap-2">
+                        {TOPIC_TYPES.map(t => (
+                            <button key={t.value} onClick={() => setTopicType(t.value)}
+                                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${topicType === t.value ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:border-blue-400"}`}>
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Content */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Post Content</label>
+                        <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={1500} rows={5}
+                            placeholder="What's happening at your business?"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <p className="text-xs text-gray-400 mt-1 text-right">{content.length}/1500</p>
+                    </div>
+
+                    {/* Images */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Images (optional)</label>
+                            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                                <button onClick={() => setMediaTab("upload")}
+                                    className={`px-3 py-1 transition ${mediaTab === "upload" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+                                    Upload
+                                </button>
+                                <button onClick={() => setMediaTab("assets")}
+                                    className={`px-3 py-1 transition ${mediaTab === "assets" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+                                    From Assets
+                                </button>
                             </div>
+                        </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Topic Type */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Topic Type
-                                    </label>
-                                    <select
-                                        value={post.topicType}
-                                        onChange={(e) => updatePost(post.id, 'topicType', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    >
-                                        {topicTypes.map(type => (
-                                            <option key={type.value} value={type.value}>{type.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Language Code */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Language Code
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={post.languageCode}
-                                        onChange={(e) => updatePost(post.id, 'languageCode', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        placeholder="en-US" />
-                                </div>
-
-                                {/* Schedule Time */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Schedule Time (Optional)
-                                    </label>
-                                    <input
-                                        type="datetime-local"
-                                        value={post.scheduleTime}
-                                        onChange={(e) => updatePost(post.id, 'scheduleTime', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
-                                </div>
-
-                                {/* Alert Type */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Alert Type
-                                    </label>
-                                    <select
-                                        value={post.alertType}
-                                        onChange={(e) => updatePost(post.id, 'alertType', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    >
-                                        {alertTypes.map(type => (
-                                            <option key={type.value} value={type.value}>{type.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                        {/* Selected thumbnails */}
+                        {media.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                                {media.map(m => (
+                                    <div key={m.id} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group flex-shrink-0">
+                                        {m.uploading
+                                            ? <div className="w-full h-full flex items-center justify-center bg-gray-100"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" /></div>
+                                            : <Image src={m.url} alt={m.name} fill className="object-cover" />
+                                        }
+                                        <button onClick={() => removeMedia(m.id)}
+                                            className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                                    </div>
+                                ))}
                             </div>
+                        )}
 
-                            {/* Summary */}
-                            <div className="mt-4">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Summary (1500 characters max)
+                        {mediaTab === "upload" ? (
+                            media.length < 10 && (
+                                <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:border-blue-400 transition">
+                                    <svg className="w-7 h-7 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    <span className="text-sm text-gray-500">Click to upload images</span>
+                                    <span className="text-xs text-gray-400 mt-0.5">PNG, JPG, WEBP up to 10MB · {10 - media.length} remaining</span>
+                                    <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={e => handleFileUpload(e.target.files)} />
                                 </label>
-                                <textarea
-                                    value={post.summary}
-                                    onChange={(e) => updatePost(post.id, 'summary', e.target.value)}
-                                    maxLength={1500}
-                                    rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    placeholder="Enter your post content..." />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    {post.summary.length}/1500 characters
-                                </p>
+                            )
+                        ) : assetsLoading ? (
+                            <div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" /></div>
+                        ) : assets.length === 0 ? (
+                            <p className="text-sm text-gray-400 text-center py-6">No assets found for this client.</p>
+                        ) : (
+                            <div className="grid grid-cols-5 gap-2 max-h-52 overflow-y-auto pr-1">
+                                {assets.filter(a => a.image?.url).map(asset => {
+                                    const selected = media.some(m => m.url === asset.image?.url);
+                                    return (
+                                        <button key={asset.id} onClick={() => toggleAsset(asset)} title={asset.image?.alt_text || ""}
+                                            className={`relative aspect-square rounded-lg overflow-hidden border-2 transition ${selected ? "border-blue-500" : "border-transparent hover:border-gray-300"}`}>
+                                            <Image src={asset.image.url} alt={asset.image.alt_text || ""} fill className="object-cover" />
+                                            {selected && (
+                                                <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                                    <svg className="w-5 h-5 text-blue-700 drop-shadow" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
+                        )}
+                    </div>
 
-                            {/* Call to Action */}
-                            <div className="mt-4">
-                                <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                                    Call to Action
-                                </h5>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                                            Action Type
-                                        </label>
-                                        <select
-                                            value={post.callToAction.actionType}
-                                            onChange={(e) => updateCallToAction(post.id, 'actionType', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                                        >
-                                            {actionTypes.map(type => (
-                                                <option key={type.value} value={type.value}>{type.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                                            URL
-                                        </label>
-                                        <input
-                                            type="url"
-                                            value={post.callToAction.url}
-                                            onChange={(e) => updateCallToAction(post.id, 'url', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                                            placeholder="https://example.com" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Media Upload */}
-                            <div className="mt-4">
-                                <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                                    Images (Optional - Up to 10 images)
-                                </h5>
-
-                                {/* Current Images */}
-                                {post.media.length > 0 && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                        {post.media.map((media) => (
-                                            <div key={media.id} className="relative group">
-                                                <Image
-                                                    src={media.sourceUrl}
-                                                    alt={media.name}
-                                                    width={80}
-                                                    height={80}
-                                                    className="w-full h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-600" />
-                                                <button
-                                                    onClick={() => removeMedia(post.id, media.id)}
-                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    ×
-                                                </button>
-                                                <p className="text-xs text-gray-500 mt-1 truncate">{media.name}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Upload Button */}
-                                {post.media.length < 10 && (
-                                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            onChange={(e) => handleImageUpload(post.id, e.target.files)}
-                                            className="hidden"
-                                            id={`image-upload-${post.id}`} />
-                                        <label
-                                            htmlFor={`image-upload-${post.id}`}
-                                            className="cursor-pointer flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors"
-                                        >
-                                            <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            <span className="text-sm">Click to upload images</span>
-                                            <span className="text-xs text-gray-400 mt-1">
-                                                PNG, JPG up to 10MB each ({10 - post.media.length} remaining)
-                                            </span>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Event Fields (only show if topicType is EVENT) */}
-                            {post.topicType === 'EVENT' && (
-                                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                    <h5 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3">
-                                        Event Details
-                                    </h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <input
-                                            type="text"
-                                            placeholder="Event Title"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                                        <input
-                                            type="datetime-local"
-                                            placeholder="Start Time"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                                        <input
-                                            type="datetime-local"
-                                            placeholder="End Time"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Offer Fields (only show if topicType is OFFER) */}
-                            {post.topicType === 'OFFER' && (
-                                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                    <h5 className="text-sm font-medium text-green-900 dark:text-green-100 mb-3">
-                                        Offer Details
-                                    </h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <input
-                                            type="text"
-                                            placeholder="Coupon Code"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                                        <input
-                                            type="text"
-                                            placeholder="Redemption URL"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Product Fields (only show if topicType is PRODUCT) */}
-                            {post.topicType === 'PRODUCT' && (
-                                <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                                    <h5 className="text-sm font-medium text-purple-900 dark:text-purple-100 mb-3">
-                                        Product Details
-                                    </h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <input
-                                            type="text"
-                                            placeholder="Product Name"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                                        <input
-                                            type="text"
-                                            placeholder="Product Category"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                                    </div>
-                                </div>
+                    {/* CTA */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Button (optional)</label>
+                        <div className="flex gap-2">
+                            <select value={ctaType} onChange={e => setCtaType(e.target.value)}
+                                className="w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                {CTA_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
+                            {ctaType !== "NONE" && (
+                                <input type="url" value={ctaUrl} onChange={e => setCtaUrl(e.target.value)} placeholder="https://yoursite.com"
+                                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             )}
                         </div>
-                    ))}
+                    </div>
 
-                    {/* Add Post Button */}
-                    <button
-                        onClick={addPost}
-                        className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-colors"
-                    >
-                        + Add Another Post
-                    </button>
+                    {/* When to post */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">When to post</label>
+                        <div className="flex gap-3 mb-3">
+                            <button onClick={() => setPostMode("now")}
+                                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition ${postMode === "now" ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:border-blue-400"}`}>
+                                Post Now
+                            </button>
+                            <button onClick={() => setPostMode("schedule")}
+                                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition ${postMode === "schedule" ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:border-blue-400"}`}>
+                                Schedule
+                            </button>
+                        </div>
+                        {postMode === "schedule" && (
+                            <input type="datetime-local" value={scheduleTime} min={minSchedule} onChange={e => setScheduleTime(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        )}
+                    </div>
+
+                    {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Creating {posts.length} post{posts.length !== 1 ? 's' : ''}
-                    </p>
-                    <div className="flex space-x-3">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSubmit}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                        >
-                            Create Posts
-                        </button>
-                    </div>
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg">Cancel</button>
+                    <button onClick={handleSubmit} disabled={submitting || anyUploading || !content.trim()}
+                        className="px-6 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
+                        {(submitting || anyUploading) && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                        {anyUploading ? "Uploading…" : submitting ? "Posting…" : postMode === "now" ? "Publish Now" : "Schedule Post"}
+                    </button>
                 </div>
             </div>
         </div>

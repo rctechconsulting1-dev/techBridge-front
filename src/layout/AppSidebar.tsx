@@ -1,22 +1,30 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { apiClient } from "@/lib/api-client";
 import {
-  BoxCubeIcon,
-  CalenderIcon,
+  createEntitlementSnapshot,
+  hasAnyFeature,
+  hasAnyModule,
+  normalizeEntitlementValues,
+} from "@/lib/entitlements";
+import {
   ChevronDownIcon,
   FileIcon,
-  GridIcon,
   HorizontaLDots,
   ListIcon,
   PageIcon,
-  PieChartIcon,
   PlugInIcon,
-  TableIcon,
   UserCircleIcon,
   VideoIcon,
 } from "../icons/index";
@@ -26,6 +34,9 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
+  requiredModules?: string[];
+  requiredFeatures?: string[];
+  requiredRoles?: string[];
   subItems?: {
     name: string;
     path: string;
@@ -37,37 +48,25 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-  {
-    name: "Prompts",
+    name: "AI Tools",
     icon: <FileIcon />,
-    subItems: [{ name: "Chat GPT", path: "/chat-gpt", pro: false }],
-  },
-  {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [
-      { name: "Form Elements", path: "/form-elements", pro: false },
-      { name: "Main Pages", path: "/main-page", pro: false },
-    ],
+    subItems: [{ name: "Content Prompts", path: "/chat-gpt", pro: false }],
   },
   {
     name: "Google Business",
     icon: <PlugInIcon />,
     path: "/google-business",
+    requiredModules: ["google_business_management"],
+  },
+  {
+    name: "Marketing",
+    icon: <PageIcon />,
+    requiredModules: ["google_ads_optimization"],
+    subItems: [
+      { name: "Performance", path: "/marketing" },
+      { name: "Ad Requests", path: "/marketing/requests" },
+      { name: "Content", path: "/marketing/content" },
+    ],
   },
   {
     icon: <VideoIcon />,
@@ -75,15 +74,39 @@ const navItems: NavItem[] = [
     path: "/assets",
   },
   {
-    name: "Tables",
-    icon: <TableIcon />,
-    subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
+    icon: <UserCircleIcon />,
+    name: "Tenants",
+    path: "/tenants",
+    requiredRoles: ["admin", "platform_admin"],
   },
   {
-    name: "Pages",
+    icon: <ListIcon />,
+    name: "Payment Config",
+    path: "/payment-config",
+    requiredRoles: [
+      "admin",
+      "platform_admin",
+      "tenant_owner",
+      "tenant_manager",
+    ],
+  },
+  {
+    icon: <ListIcon />,
+    name: "Onboarding",
+    path: "/onboarding",
+    requiredRoles: ["admin", "platform_admin"],
+  },
+  {
+    name: "Site Content",
     icon: <PageIcon />,
     subItems: [
-      { name: "Site Settings", path: "/site-settings", pro: false },
+      { name: "Built-in Pages", path: "/built-in-pages", pro: false },
+      { name: "Managed Pages", path: "/managed-pages", pro: false },
+      { name: "Custom Pages", path: "/main-page", pro: false },
+      { name: "Branding", path: "/branding", pro: false },
+      { name: "Global Site Settings", path: "/site-settings", pro: false },
+      { name: "Testimonials", path: "/content-testimonials", pro: false },
+      { name: "FAQ Content", path: "/content-faq", pro: false },
       { name: "Blank Page", path: "/blank", pro: false },
       { name: "404 Error", path: "/error-404", pro: false },
     ],
@@ -91,26 +114,6 @@ const navItems: NavItem[] = [
 ];
 
 const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
   {
     icon: <PlugInIcon />,
     name: "Authentication",
@@ -121,40 +124,105 @@ const othersItems: NavItem[] = [
   },
 ];
 
+const SUBMENU_STORAGE_KEY = "sidebar_open_submenu";
+
 const AppSidebar = ({}) => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const [websiteId, setWebsiteId] = useState<number | null>(null);
+  const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
+  const [enabledFeatures, setEnabledFeatures] = useState<string[] | null>(null);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient.getSession().then((user) => {
-      const u = user as { website_id?: number } | null;
+      const u = user as {
+        website_id?: number;
+        enabledModules?: string[];
+        enabledFeatures?: string[];
+        role?: string;
+      } | null;
       if (u?.website_id) setWebsiteId(u.website_id);
+      if (Array.isArray(u?.enabledModules)) {
+        setEnabledModules(normalizeEntitlementValues(u.enabledModules));
+      }
+      if (Array.isArray(u?.enabledFeatures)) {
+        setEnabledFeatures(normalizeEntitlementValues(u.enabledFeatures));
+      }
+      if (u?.role) {
+        setCurrentRole(u.role);
+      }
     });
   }, []);
 
-  const computedNavItems = navItems.map((item) => {
-    if (item.name === "Pages") {
-      return {
-        ...item,
-        subItems: [
-          ...(item.subItems || []),
-          ...(websiteId
-            ? [
-                {
-                  name: "Landing Page",
-                  path: `/sites/${websiteId}`,
-                  pro: false,
-                  new: false,
-                  external: true,
-                },
-              ]
-            : []),
-        ],
-      };
-    }
-    return item;
-  });
+  const entitlementSnapshot = createEntitlementSnapshot(
+    enabledModules,
+    enabledFeatures,
+  );
+
+  const shouldShowNavItem = useCallback(
+    (item: NavItem): boolean => {
+      const hasEntitlementPayload =
+        (enabledModules && enabledModules.length > 0) ||
+        (enabledFeatures && enabledFeatures.length > 0);
+
+      // Keep backward-compatible behavior while backend entitlement payloads are rolling out.
+      if (!hasEntitlementPayload) {
+        if (item.requiredRoles?.length) {
+          return currentRole ? item.requiredRoles.includes(currentRole) : false;
+        }
+        return true;
+      }
+
+      const roleAllowed = item.requiredRoles?.length
+        ? currentRole
+          ? item.requiredRoles.includes(currentRole)
+          : false
+        : true;
+
+      return (
+        roleAllowed &&
+        hasAnyModule(entitlementSnapshot, item.requiredModules) &&
+        hasAnyFeature(entitlementSnapshot, item.requiredFeatures)
+      );
+    },
+    [currentRole, enabledModules, enabledFeatures, entitlementSnapshot],
+  );
+
+  const computedNavItems = useMemo(
+    () =>
+      navItems
+        .filter((item) => shouldShowNavItem(item))
+        .map((item) => {
+          if (item.name === "Site Content") {
+            return {
+              ...item,
+              subItems: [
+                ...(item.subItems || []),
+                ...(websiteId
+                  ? [
+                      {
+                        name: "Landing Page",
+                        path: `/sites/${websiteId}`,
+                        pro: false,
+                        new: false,
+                        external: true,
+                      },
+                    ]
+                  : []),
+              ],
+            };
+          }
+
+          return item;
+        }),
+    [shouldShowNavItem, websiteId],
+  );
+
+  const computedOthersItems = useMemo(
+    () => othersItems.filter((item) => shouldShowNavItem(item)),
+    [shouldShowNavItem],
+  );
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -288,39 +356,77 @@ const AppSidebar = ({}) => {
     type: "main" | "others";
     index: number;
   } | null>(null);
+
+  // Restore from localStorage before first paint so the height effect fires
+  // via a real state transition (lazy initializer skips the effect).
+  useLayoutEffect(() => {
+    try {
+      const stored = localStorage.getItem(SUBMENU_STORAGE_KEY);
+      if (stored) setOpenSubmenu(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+  }, []);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {},
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Persist submenu open state across navigation
+  useEffect(() => {
+    try {
+      if (openSubmenu === null) {
+        localStorage.removeItem(SUBMENU_STORAGE_KEY);
+      } else {
+        localStorage.setItem(SUBMENU_STORAGE_KEY, JSON.stringify(openSubmenu));
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [openSubmenu]);
+
   // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
-    // Check if the current path matches any submenu item
-    let submenuMatched = false;
+    let matchedSubmenu: { type: "main" | "others"; index: number } | null = null;
+    // If a submenu item matches the current route, open its parent.
+    // When no match is found we leave the current state alone so the
+    // user’s manually opened section persists across navigation.
     ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
+      const items = menuType === "main" ? computedNavItems : computedOthersItems;
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
+            if (!matchedSubmenu && isActive(subItem.path)) {
+              matchedSubmenu = {
                 type: menuType as "main" | "others",
                 index,
-              });
-              submenuMatched = true;
+              };
             }
           });
         }
       });
     });
 
-    // If no submenu item matches, close the open submenu
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
+    if (!matchedSubmenu) {
+      return;
     }
-  }, [pathname, isActive]);
+
+    const targetSubmenu: { type: "main" | "others"; index: number } =
+      matchedSubmenu;
+
+    setOpenSubmenu((currentOpenSubmenu) => {
+      if (
+        currentOpenSubmenu?.type === targetSubmenu.type &&
+        currentOpenSubmenu?.index === targetSubmenu.index
+      ) {
+        return currentOpenSubmenu;
+      }
+
+      return targetSubmenu;
+    });
+  }, [computedNavItems, computedOthersItems, isActive]);
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened
@@ -413,22 +519,24 @@ const AppSidebar = ({}) => {
               {renderMenuItems(computedNavItems, "main")}
             </div>
 
-            <div className="">
-              <h2
-                className={`mb-4 flex text-xs leading-[20px] text-gray-400 uppercase ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div>
+            {computedOthersItems.length > 0 ? (
+              <div>
+                <h2
+                  className={`mb-4 flex text-xs leading-[20px] text-gray-400 uppercase ${
+                    !isExpanded && !isHovered
+                      ? "lg:justify-center"
+                      : "justify-start"
+                  }`}
+                >
+                  {isExpanded || isHovered || isMobileOpen ? (
+                    "Others"
+                  ) : (
+                    <HorizontaLDots />
+                  )}
+                </h2>
+                {renderMenuItems(computedOthersItems, "others")}
+              </div>
+            ) : null}
           </div>
         </nav>
         {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}

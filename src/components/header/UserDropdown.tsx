@@ -1,15 +1,25 @@
 "use client";
-import Image from "next/image";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { apiClient } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
+import AvatarText from "@/components/ui/avatar/AvatarText";
 
 export default function UserDropdown() {
-  const router = useRouter()
+  const router = useRouter();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<{ email: string; firstName?: string; lastName?: string } | null>(null);
+
+  useEffect(() => {
+    apiClient.getSession().then((u) => setUser(u));
+  }, []);
+
+  const displayName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email
+    : "";
+  const displayEmail = user?.email ?? "";
 
 function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
   e.stopPropagation();
@@ -27,19 +37,17 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
   return (
     <div className="relative">
       <button
-        onClick={toggleDropdown} 
+        onClick={toggleDropdown}
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <Image
-            width={44}
-            height={44}
-            src="/images/user/owner.jpg"
-            alt="User"
+          <AvatarText
+            name={displayName || displayEmail || "User"}
+            className="h-11 w-11 text-base"
           />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">Musharof</span>
+        <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
 
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
@@ -68,10 +76,10 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Musharof Chowdhury
+            {displayName}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            randomuser@pimjo.com
+            {displayEmail}
           </span>
         </div>
 

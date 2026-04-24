@@ -1,9 +1,9 @@
 <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
   <rect width="64" height="64" fill="#CD7F32" rx="8"/>
-  
-  <!-- R and C with bridge -->
+
+  <!-- R and D with bridge -->
   <text x="16" y="40" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">R</text>
   <rect x="32" y="30" width="8" height="2" fill="#C41E3A"/>
-  <text x="44" y="40" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">C</text>
+  <text x="44" y="40" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">D</text>
 </svg>

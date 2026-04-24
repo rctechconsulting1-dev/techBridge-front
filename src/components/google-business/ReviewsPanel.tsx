@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
+import { getApiBaseUrl } from "@/lib/api";
+import { getStoredAuthToken } from "@/lib/auth-context";
+import { useSidebar } from "@/context/SidebarContext";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const API_URL = getApiBaseUrl();
 
 const STARS: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 
@@ -44,6 +47,7 @@ function QuotaNotice() {
 }
 
 export function ReviewsPanel({ locationId }: { locationId: string }) {
+    const { selectedClient } = useSidebar();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [meta, setMeta] = useState<{ averageRating?: number; totalReviewCount?: number }>({});
     const [loading, setLoading] = useState(true);
@@ -53,12 +57,24 @@ export function ReviewsPanel({ locationId }: { locationId: string }) {
     const [submitting, setSubmitting] = useState(false);
     const [filterRating, setFilterRating] = useState<number | null>(null);
     const [sortNewest, setSortNewest] = useState(true);
+    const [draftingFor, setDraftingFor] = useState<string | null>(null);
+    const [draftLoading, setDraftLoading] = useState(false);
+
+    const authHeaders = React.useMemo(() => {
+        const token = getStoredAuthToken();
+        const tenantId = selectedClient?.tenant_id;
+        return {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(tenantId ? { "x-tenant-id": String(tenantId) } : {}),
+        };
+    }, [selectedClient?.tenant_id]);
 
     const fetchReviews = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_URL}/google/reviews?locationId=${locationId}`);
+            const res = await fetch(`${API_URL}/google/reviews?locationId=${locationId}`, { headers: authHeaders });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             setReviews(data.reviews ?? []);
@@ -67,9 +83,37 @@ export function ReviewsPanel({ locationId }: { locationId: string }) {
             setError(e.message);
         }
         setLoading(false);
-    }, [locationId]);
+    }, [locationId, authHeaders]);
 
     useEffect(() => { fetchReviews(); }, [fetchReviews]);
+
+    const draftReply = async (review: Review) => {
+        setDraftingFor(review.reviewId);
+        setDraftLoading(true);
+        setReplyingTo(review.reviewId);
+        setReplyText("✨ Drafting with AI…");
+        try {
+            const res = await fetch(`${API_URL}/google/reviews/${review.reviewId}/draft-reply`, {
+                method: "POST",
+                headers: authHeaders,
+                body: JSON.stringify({
+                    locationId,
+                    reviewerName: review.reviewer?.isAnonymous ? "Anonymous" : review.reviewer?.displayName,
+                    starRating: review.starRating,
+                    reviewText: review.comment ?? "",
+                    existingReply: review.reviewReply?.comment ?? "",
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            setReplyText(data.draft ?? "");
+        } catch (e: any) {
+            setReplyText(review.reviewReply?.comment ?? "");
+            alert(`AI draft failed: ${e.message}`);
+        }
+        setDraftingFor(null);
+        setDraftLoading(false);
+    };
 
     const submitReply = async (reviewId: string) => {
         if (!replyText.trim()) return;
@@ -232,32 +276,54 @@ export function ReviewsPanel({ locationId }: { locationId: string }) {
                                 value={replyText}
                                 onChange={(e) => setReplyText(e.target.value)}
                                 rows={3}
+                                disabled={draftLoading && draftingFor === review.reviewId}
                                 placeholder="Write your reply…"
-                                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white resize-none"
+                                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white resize-none disabled:opacity-60"
                             />
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => submitReply(review.reviewId)}
-                                    disabled={submitting || !replyText.trim()}
-                                    className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-60 font-medium transition-colors"
-                                >
-                                    {submitting ? "Posting…" : "Post Reply"}
-                                </button>
-                                <button
-                                    onClick={() => { setReplyingTo(null); setReplyText(""); }}
-                                    className="px-4 py-1.5 text-gray-600 dark:text-gray-400 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    Cancel
-                                </button>
+                            <div className="flex items-center justify-between gap-2">
+                                <span className={`text-xs font-mono ${replyText.length > 4096 ? "text-red-500" : "text-gray-400"}`}>
+                                    {replyText.length}/4096
+                                </span>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => submitReply(review.reviewId)}
+                                        disabled={submitting || !replyText.trim() || (draftLoading && draftingFor === review.reviewId)}
+                                        className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-60 font-medium transition-colors"
+                                    >
+                                        {submitting ? "Posting…" : "Post Reply"}
+                                    </button>
+                                    <button
+                                        onClick={() => { setReplyingTo(null); setReplyText(""); setDraftingFor(null); }}
+                                        className="px-4 py-1.5 text-gray-600 dark:text-gray-400 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ) : (
-                        <button
-                            onClick={() => { setReplyingTo(review.reviewId); setReplyText(review.reviewReply?.comment ?? ""); }}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline ml-0"
-                        >
-                            {review.reviewReply ? "✏ Edit reply" : "↩ Reply"}
-                        </button>
+                        <div className="flex items-center gap-3 mt-1">
+                            <button
+                                onClick={() => { setReplyingTo(review.reviewId); setReplyText(review.reviewReply?.comment ?? ""); }}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                {review.reviewReply ? "✏ Edit reply" : "↩ Reply"}
+                            </button>
+                            <button
+                                onClick={() => draftReply(review)}
+                                disabled={draftingFor === review.reviewId && draftLoading}
+                                className="text-xs text-purple-600 dark:text-purple-400 hover:underline disabled:opacity-60 flex items-center gap-1"
+                            >
+                                {draftingFor === review.reviewId && draftLoading ? (
+                                    <>
+                                        <span className="inline-block w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                        Drafting…
+                                    </>
+                                ) : (
+                                    "✨ Draft with AI"
+                                )}
+                            </button>
+                        </div>
                     )}
                 </div>
             ))}

@@ -11,6 +11,8 @@ const schema = z.object({
    */
   token: z.string().optional(),
   userId: z.string().optional(),
+  tenantId: z.number().int().positive().optional(),
+  websiteId: z.number().int().positive().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -29,13 +31,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { to, firstName, token, userId } = parsed.data;
+  const { to, firstName, token, userId, tenantId, websiteId } = parsed.data;
 
   const { data, error } = await sendResetPasswordEmail({
     to,
     firstName,
     token,
     userId,
+    tenantId,
+    websiteId,
   });
 
   if (error) {

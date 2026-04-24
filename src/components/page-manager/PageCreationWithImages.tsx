@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PageCreationData } from '@/types/page';
+import { InitialPageDraft, Page, PageCreationData } from '@/types/page';
 import Button from '@/components/ui/button/Button';
 import MultipleFileInputExample, { MultipleFileInputRef } from '@/components/form/form-elements/MultipleFileInputExample';
 import PageCreationWizardEnhanced from './PageCreationWizardEnhanced';
@@ -7,15 +7,25 @@ import PageCreationWizardEnhanced from './PageCreationWizardEnhanced';
 interface PageCreationWithImagesProps {
   onCreatePage: (data: PageCreationData) => Promise<unknown>;
   onCancel: () => void;
+  onCreateDropdownParentDraft?: () => void;
   isLoading?: boolean;
   enableAIContent?: boolean;
+  initialPageDraft?: InitialPageDraft;
+  suggestedSlugs?: string[];
+  websiteId?: number;
+  availableParentPages?: Page[];
 }
 
 const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
   onCreatePage,
   onCancel,
+  onCreateDropdownParentDraft,
   isLoading = false,
   enableAIContent = false,
+  initialPageDraft,
+  suggestedSlugs,
+  websiteId,
+  availableParentPages,
 }) => {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [createdPageId, setCreatedPageId] = useState<number | null>(null);
@@ -41,6 +51,9 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
         // Check other possible response structures
         else if (resultObj.response && typeof resultObj.response === 'object') {
           const response = resultObj.response as Record<string, unknown>;
+          if (typeof response.id === 'number') {
+            pageId = response.id;
+          }
           if (response.page && typeof response.page === 'object') {
             const page = response.page as Record<string, unknown>;
             if (typeof page.id === 'number') {
@@ -62,6 +75,9 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
       if (pageId) {
         setCreatedPageId(pageId);
         setShowImageUpload(true);
+      } else {
+        // If backend response shape is unexpected, do not leave user stuck in wizard.
+        onCancel();
       }
       
       return result;
@@ -69,7 +85,7 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
       console.error('Error creating page:', error);
       throw error;
     }
-  }, [onCreatePage]);
+  }, [onCreatePage, onCancel]);
 
   const handleImageUploadComplete = useCallback(async () => {
     if (imageUploadRef.current && createdPageId) {
@@ -110,6 +126,7 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
           ref={imageUploadRef}
           imageUploadLocation={{ table: '/page_image', id: createdPageId }}
           idFieldName="page_id"
+          websiteId={websiteId}
         />
 
         <div className="flex gap-3 justify-end">
@@ -128,8 +145,12 @@ const PageCreationWithImages: React.FC<PageCreationWithImagesProps> = ({
     <PageCreationWizardEnhanced
       onCreatePage={handlePageCreation}
       onCancel={onCancel}
+      onCreateDropdownParentDraft={onCreateDropdownParentDraft}
       isLoading={isLoading}
       enableAIContent={enableAIContent}
+      initialPageDraft={initialPageDraft}
+      suggestedSlugs={suggestedSlugs}
+      availableParentPages={availableParentPages}
     />
   );
 };
