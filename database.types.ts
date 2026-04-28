@@ -145,6 +145,7 @@ export type Database = {
           listing_url: string | null
           other: string | null
           phone: string | null
+          place_id: string | null
           platform: string | null
           rating: number | null
           review_count: number | null
@@ -163,6 +164,7 @@ export type Database = {
           listing_url?: string | null
           other?: string | null
           phone?: string | null
+          place_id?: string | null
           platform?: string | null
           rating?: number | null
           review_count?: number | null
@@ -181,6 +183,7 @@ export type Database = {
           listing_url?: string | null
           other?: string | null
           phone?: string | null
+          place_id?: string | null
           platform?: string | null
           rating?: number | null
           review_count?: number | null

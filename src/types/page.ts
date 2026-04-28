@@ -16,6 +16,7 @@ export type TemplateType =
   | 'gallery'       // Gallery template
   | 'landing'       // Landing page template
   | 'contact'       // Contact page template
+  | 'location'      // City/location SEO page template
   | 'home';         // Homepage template
 
 export type PageRole = 'parent' | 'child';

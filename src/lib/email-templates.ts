@@ -202,6 +202,8 @@ interface IntakeContent {
   brandQs: string[];
   servicesQs: string[];
   mediaQs: string[];
+  onlinePresenceQs: string[];
+  setupQs: string[];
 }
 
 function getIntakeContent(businessType?: BusinessType): IntakeContent {
@@ -234,6 +236,22 @@ function getIntakeContent(businessType?: BusinessType): IntakeContent {
       'Any before/after shots, customer result photos, or portfolio images <span style="color:#C41E3A;font-weight:600;">[attach files]</span>',
       'Any video content, walkthroughs, testimonials, reels, or promo clips <span style="color:#C41E3A;font-weight:600;">[attach or share link]</span>',
       'Any review screenshots, press mentions, menus, brochures, or supporting files you want us to use <span style="color:#C41E3A;font-weight:600;">[attach files]</span>',
+      'Paste any existing customer testimonials or reviews you want featured on the site',
+    ],
+    onlinePresenceQs: [
+      'Do you have a Google Business Profile? Paste the URL — and please grant Manager access to <strong>rctechsolutions1@gmail.com</strong> so we can connect reviews and performance data',
+      'Facebook business page URL (if you have one)',
+      'Instagram profile URL or handle (if you have one)',
+      'Yelp profile URL (if you have one)',
+      'Any other review or directory profiles — Angi, Thumbtack, BBB, HomeAdvisor, etc.',
+      'Are you currently running Google Ads or Local Services Ads (LSA)?',
+      'Do you use any booking, scheduling, or CRM software? <span style="color:#6b7280;">(e.g. Jobber, ServiceTitan, Calendly, Housecall Pro)</span>',
+    ],
+    setupQs: [
+      'Do you have an existing website we should reference or pull content from?',
+      'Do you have a domain name you want to use? <span style="color:#6b7280;">(e.g. yourbusiness.com)</span>',
+      'Who is your domain registrar? <span style="color:#6b7280;">(e.g. GoDaddy, Namecheap, Google Domains)</span>',
+      'When do you want your site to go live? <span style="color:#6b7280;">(e.g. ASAP, within 2 weeks, flexible)</span>',
     ],
   };
 }
@@ -291,7 +309,9 @@ export function buildTenantIntakeHtml({
     ${sectionHtml("About Your Business", content.aboutQs)}
     ${sectionHtml("Your Brand", content.brandQs, "You'll be able to upload files directly in the form.")}
     ${sectionHtml("Your Services", content.servicesQs)}
+    ${sectionHtml("Online Presence &amp; Platforms", content.onlinePresenceQs)}
     ${sectionHtml("Photos &amp; Media", content.mediaQs, "You'll be able to upload files directly in the form.")}
+    ${sectionHtml("Website Setup &amp; Launch", content.setupQs)}
     ${ctaBlock}
     <p style="margin:24px 0 0;font-size:15px;color:#374151;">
       — The RD Tech Bridge Team

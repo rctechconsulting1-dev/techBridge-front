@@ -176,6 +176,7 @@ const RequestSchema = z.object({
       "page_nav_copy",
       "site_settings_orchestrator",
       "built_in_page_seo",
+      "location_page",
     ])
     .optional(),
   ourUrl: z.string().optional(),
@@ -290,6 +291,18 @@ const AboutCopyPack = z.object({
   teamBio: z.string(),
   contactCtaHeadline: z.string(),
   contactCtaBody: z.string(),
+});
+
+const LocationPageCopyPack = z.object({
+  heroHeadline: z.string(),
+  heroBody: z.string(),
+  bodyContent: z.string(),
+  whyUs: z.string(),
+  ctaHeadline: z.string(),
+  ctaBody: z.string(),
+  metaTitle: z.string(),
+  metaDescription: z.string(),
+  nearbyAreas: z.array(z.string()),
 });
 
 const BuiltInPageSeoPack = z.object({
@@ -982,6 +995,92 @@ const generateAboutCopyPack = async ({
   });
 };
 
+const generateLocationPageCopy = async ({
+  city,
+  service,
+  businessName,
+  industry,
+  servicesOffered,
+  nearbyAreas,
+  context,
+}: {
+  city: string;
+  service: string;
+  businessName: string;
+  industry: string;
+  servicesOffered: string[];
+  nearbyAreas?: string[];
+  context?: string;
+}) => {
+  const nearbyList = nearbyAreas && nearbyAreas.length > 0
+    ? nearbyAreas.join(", ")
+    : "N/A";
+
+  return gatewayStructuredCall({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a local SEO specialist writing city-specific service pages for small businesses. Write conversion-focused copy with genuine local intent. Do not fabricate awards, certifications, or years in business unless provided.",
+      },
+      {
+        role: "user",
+        content: `Generate a complete location page copy pack for:
+
+Business: ${businessName}
+Industry: ${industry}
+Primary Service: ${service}
+Target City: ${city}
+Other services: ${servicesOffered.join(", ") || "N/A"}
+Nearby areas to mention: ${nearbyList}
+Additional context: ${context || "N/A"}
+
+Requirements:
+- heroHeadline: H1 keyword-rich, e.g. "Professional Plumbing in San Jose, CA"
+- heroBody: 2 sentences max. Who, what, where, why call now.
+- bodyContent: 3–4 short paragraphs (markdown). Cover: what we do in ${city}, why local matters, process/approach, trust signals. Do NOT invent facts not provided.
+- whyUs: 2–3 bullet points (markdown) specific to the city and service.
+- ctaHeadline: Short, direct call to action headline.
+- ctaBody: 1 sentence reinforcing urgency or value.
+- metaTitle: SEO title, 50–60 chars, format: "${service} in ${city} | ${businessName}"
+- metaDescription: 140–160 chars, includes city + service + CTA signal.
+- nearbyAreas: array of 3–6 nearby cities/areas the business realistically serves from ${city}.`,
+      },
+    ],
+    responseSchema: {
+      name: "location_page_copy_pack",
+      schema: {
+        type: "object",
+        properties: {
+          heroHeadline: { type: "string" },
+          heroBody: { type: "string" },
+          bodyContent: { type: "string" },
+          whyUs: { type: "string" },
+          ctaHeadline: { type: "string" },
+          ctaBody: { type: "string" },
+          metaTitle: { type: "string" },
+          metaDescription: { type: "string" },
+          nearbyAreas: { type: "array", items: { type: "string" } },
+        },
+        required: [
+          "heroHeadline",
+          "heroBody",
+          "bodyContent",
+          "whyUs",
+          "ctaHeadline",
+          "ctaBody",
+          "metaTitle",
+          "metaDescription",
+          "nearbyAreas",
+        ],
+      },
+    },
+    parser: (raw) => LocationPageCopyPack.parse(raw),
+    maxCompletionTokens: 2000,
+    timeoutMs: AI_TIMEOUT_CONTENT_MS,
+  });
+};
+
 const generateBuiltInPageSeoPack = async ({
   pageKey,
   city,
@@ -1311,6 +1410,47 @@ export async function POST(request: Request) {
           role: "assistant",
           step: "about_copy_generated",
           message: "About/Team AI copy pack generated.",
+          usage,
+          ...pack,
+        }),
+        { status: 200 },
+      );
+    }
+
+    if (mode === "location_page") {
+      const locationCity = trimToCap(body.city, 120);
+      const locationService = trimToCap(body.service, 120);
+      const locationBusiness = trimToCap(body.businessName, 120) || "Your Business";
+      const locationIndustry = trimToCap(body.industry, 120);
+      const locationNearby = (body.mustInclude ?? [])
+        .map((s) => trimToCap(s, 80) || "")
+        .filter(Boolean)
+        .slice(0, 8);
+
+      if (!locationCity || !locationService || !locationIndustry) {
+        return new Response(
+          JSON.stringify({
+            error: "location_page mode requires city, service, and industry.",
+          }),
+          { status: 400 },
+        );
+      }
+
+      const pack = await generateLocationPageCopy({
+        city: locationCity,
+        service: locationService,
+        businessName: locationBusiness,
+        industry: locationIndustry,
+        servicesOffered,
+        nearbyAreas: locationNearby,
+        context: trimToCap(body.aboutContext, 500),
+      });
+
+      return new Response(
+        JSON.stringify({
+          role: "assistant",
+          step: "location_page_copy_generated",
+          message: `Location page copy generated for ${locationService} in ${locationCity}.`,
           usage,
           ...pack,
         }),

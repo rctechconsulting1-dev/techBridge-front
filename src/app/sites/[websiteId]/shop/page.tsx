@@ -41,6 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: pageContentRecord?.seo?.title ?? `Shop | ${siteName}`,
     description:
       pageContentRecord?.seo?.description ?? `Browse products from ${siteName}.`,
+    ...(!canonicalMetadata.alternates?.canonical && { robots: { index: false, follow: false } }),
     openGraph: {
       title: pageContentRecord?.seo?.title ?? `Shop | ${siteName}`,
       description:
