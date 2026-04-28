@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${product.title} | ${website.name}`,
     description: product.description ?? undefined,
+    ...(!canonicalMetadata.alternates?.canonical && { robots: { index: false, follow: false } }),
     openGraph: {
       ...(product.image_url ? { images: [{ url: product.image_url }] } : {}),
       ...canonicalMetadata.openGraph,

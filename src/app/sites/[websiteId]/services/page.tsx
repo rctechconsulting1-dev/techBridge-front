@@ -22,7 +22,8 @@ import ServicesListVariants from "@/components/built-in/services/ServicesListVar
 import ServicesFaqVariants from "@/components/built-in/services/ServicesFaqVariants";
 import ServicesCtaVariants from "@/components/built-in/services/ServicesCtaVariants";
 import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
-import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
+import { getPublicCanonicalMetadata, getPublicCanonicalUrl } from "@/lib/public-site-routing";
+import { BreadcrumbJsonLd, FAQJsonLd, ServiceListJsonLd } from "@/components/seo/JsonLd";
 
 export const revalidate = 60;
 
@@ -48,6 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description:
       pageContentRecord?.seo?.description ??
       `Explore the services offered by ${siteName}. ${pageContent.heroBody ?? ""}`.trim(),
+    ...(!canonicalMetadata.alternates?.canonical && { robots: { index: false, follow: false } }),
     openGraph: {
       title: pageContentRecord?.seo?.title ?? `Services | ${siteName}`,
       description:
@@ -62,6 +64,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ServicesPage({ params }: Props) {
   const { websiteId } = await params;
+  const canonicalUrl = await getPublicCanonicalUrl("/services");
+  const siteBase = canonicalUrl?.replace(/\/services$/, "") ?? null;
   const [website, settings, pages, pageContentRecord, services, faq] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
@@ -123,9 +127,14 @@ export default async function ServicesPage({ params }: Props) {
     ),
   };
 
+  const publishedFaq = faq.filter((f) => f.is_published);
+
   return (
     <>
       {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
+      {siteBase && <BreadcrumbJsonLd siteBase={siteBase} pageTitle="Services" pageSlug="services" />}
+      {siteBase && services.length > 0 && <ServiceListJsonLd services={services} siteBase={siteBase} />}
+      {publishedFaq.length > 0 && <FAQJsonLd items={publishedFaq} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
         <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
         {presentation.sectionOrder.map((slot) => (

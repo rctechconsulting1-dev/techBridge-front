@@ -113,6 +113,19 @@ const UNIVERSAL_ABOUT: IntakeSection = {
       type: "textarea",
       placeholder: "e.g. Same-day service, 20 years of experience, family-owned",
     },
+    {
+      id: "tagline",
+      label: "Do you have an existing slogan or tagline?",
+      type: "text",
+      placeholder: "e.g. \"Reliable repairs, every time\" — leave blank if you don't have one",
+      hint: "If you don't have one, we can help create one based on your brand.",
+    },
+    {
+      id: "topics_to_avoid",
+      label: "Are there services, topics, or competitors we should NOT mention on your site?",
+      type: "textarea",
+      placeholder: "e.g. We no longer offer pool service, don't mention Brand X",
+    },
   ],
 };
 
@@ -174,11 +187,11 @@ const UNIVERSAL_MEDIA: IntakeSection = {
       placeholder: "Paste YouTube, Vimeo, or other video links here",
     },
     {
-      id: "google_business_url",
-      label: "Do you have a Google Business Profile? If so, paste the URL.",
-      type: "text",
-      placeholder: "e.g. https://g.page/your-business",
-      hint: "This helps us pull in your reviews and show your rating on the site.",
+      id: "existing_testimonials",
+      label: "Do you have any existing testimonials or reviews you'd like us to use?",
+      type: "textarea",
+      placeholder: "Paste review text, customer quotes, or share a link to your reviews",
+      hint: "These can be from Google, Yelp, Facebook, or any other platform.",
     },
   ],
 };
@@ -220,10 +233,18 @@ const UNIVERSAL_CONTACT: IntakeSection = {
       hint: "Many clients look for this — we can feature it on your site.",
     },
     {
-      id: "social_media",
-      label: "What social media accounts do you have? Paste any links.",
-      type: "textarea",
-      placeholder: "e.g. Facebook: facebook.com/yourbiz\nInstagram: @yourbiz\nLinkedIn: linkedin.com/in/you",
+      id: "business_address",
+      label: "What is your business address?",
+      type: "text",
+      placeholder: "e.g. 123 Main St, Sacramento, CA 95814 — or \"Mobile / service area only\"",
+      hint: "Used for Google Maps, schema markup, and local SEO. If you don't have a storefront, just say mobile or service-area only.",
+    },
+    {
+      id: "content_approval_contact",
+      label: "Who should we contact for content approvals and edits?",
+      type: "text",
+      placeholder: "e.g. John Smith — john@yourbusiness.com — (916) 555-1234",
+      hint: "This is the person we'll reach out to when we need sign-off on copy or design decisions.",
     },
   ],
 };
@@ -281,6 +302,103 @@ const UNIVERSAL_OFFERINGS: IntakeSection = {
     },
   ],
 };
+// ─── Online presence section ─────────────────────────────────────────────────
+
+const UNIVERSAL_PLATFORMS: IntakeSection = {
+  id: "platforms",
+  title: "Online Presence & Platforms",
+  description: "Help us connect and sync all your existing online accounts.",
+  questions: [
+    {
+      id: "google_business_url",
+      label: "Do you have a Google Business Profile? Paste the URL or name.",
+      type: "text",
+      placeholder: "e.g. https://g.page/your-business or \"RnR Electric Sacramento\"",
+      hint: "To connect your profile, please grant Manager access to rctechsolutions1@gmail.com in your Google Business settings. This lets us manage reviews, posts, and performance data on your behalf.",
+    },
+    {
+      id: "facebook_url",
+      label: "Facebook business page URL",
+      type: "text",
+      placeholder: "e.g. https://www.facebook.com/yourbusiness",
+    },
+    {
+      id: "instagram_url",
+      label: "Instagram profile URL or handle",
+      type: "text",
+      placeholder: "e.g. https://www.instagram.com/yourbusiness or @yourbusiness",
+    },
+    {
+      id: "yelp_url",
+      label: "Yelp profile URL",
+      type: "text",
+      placeholder: "e.g. https://www.yelp.com/biz/your-business",
+    },
+    {
+      id: "other_review_platforms",
+      label: "Any other review or directory profiles? (Angi, Thumbtack, BBB, HomeAdvisor, etc.)",
+      type: "textarea",
+      placeholder: "Paste links or names of any other profiles you have",
+    },
+    {
+      id: "has_google_ads",
+      label: "Are you currently running Google Ads or Local Services Ads (LSA)?",
+      type: "select",
+      options: [
+        { value: "yes_google_ads", label: "Yes, Google Search Ads" },
+        { value: "yes_lsa", label: "Yes, Local Services Ads (LSA / Google Guaranteed)" },
+        { value: "yes_both", label: "Yes, both" },
+        { value: "no", label: "No, not currently" },
+        { value: "interested", label: "No, but I'm interested" },
+      ],
+      hint: "We'll use this to align your landing pages and CTAs with your ad strategy.",
+    },
+    {
+      id: "existing_booking_software",
+      label: "Do you currently use any booking, scheduling, or CRM software?",
+      type: "text",
+      placeholder: "e.g. Jobber, ServiceTitan, Calendly, Housecall Pro, Square, or None",
+      hint: "We'll make sure our booking integration doesn't conflict with what you already use.",
+    },
+  ],
+};
+
+// ─── Launch & setup section ───────────────────────────────────────────────────
+
+const UNIVERSAL_SETUP: IntakeSection = {
+  id: "setup",
+  title: "Website Setup & Launch",
+  description: "A few technical details to get your site live without any delays.",
+  questions: [
+    {
+      id: "existing_website_url",
+      label: "Do you have an existing website we should reference or pull content from?",
+      type: "text",
+      placeholder: "e.g. https://www.youroldbusiness.com — or leave blank if none",
+      hint: "If you have an existing site, we can save a lot of time by reusing approved copy and photos.",
+    },
+    {
+      id: "existing_domain",
+      label: "Do you have a domain name you want to use for your new site?",
+      type: "text",
+      placeholder: "e.g. yourbusiness.com — or \"No, I need one\" or \"Not sure\"",
+    },
+    {
+      id: "domain_registrar",
+      label: "Who is your domain registrar (where you bought the domain)?",
+      type: "text",
+      placeholder: "e.g. GoDaddy, Namecheap, Google Domains, Squarespace — or \"Not sure\"",
+      hint: "We'll walk you through the DNS changes needed to point your domain to your new site.",
+    },
+    {
+      id: "target_go_live",
+      label: "When do you want your site to go live?",
+      type: "text",
+      placeholder: "e.g. ASAP, within 2 weeks, by May 1st — or \"Flexible\"",
+    },
+  ],
+};
+
 // ─── Section builder ──────────────────────────────────────────────────────────
 
 function getOfferingsSection(_profile: BusinessType): IntakeSection {
@@ -292,8 +410,10 @@ export function getIntakeSections(businessType: BusinessType = "universal"): Int
     UNIVERSAL_ABOUT,
     UNIVERSAL_BRAND,
     getOfferingsSection(businessType),
+    UNIVERSAL_PLATFORMS,
     UNIVERSAL_MEDIA,
     UNIVERSAL_CONTACT,
+    UNIVERSAL_SETUP,
   ];
 }
 

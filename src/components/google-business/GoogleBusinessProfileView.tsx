@@ -48,9 +48,11 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export function GoogleBusinessProfileView({
     business,
+    authHeaders,
     onCreatePost,
 }: {
     business: any;
+    authHeaders: Record<string, string>;
     onCreatePost: () => void;
 }) {
     const [tab, setTab] = useState<Tab>("reviews");
@@ -107,9 +109,9 @@ export function GoogleBusinessProfileView({
             </div>
 
             {/* Tab panels */}
-            {tab === "reviews" && <ReviewsPanel locationId={business.gmb_Id} />}
-            {tab === "performance" && <PerformancePanel locationId={business.gmb_Id} />}
-            {tab === "profile" && <ProfilePanel locationId={business.gmb_Id} />}
+            {tab === "reviews" && <ReviewsPanel locationId={business.gmb_Id} placeId={business.place_id ?? null} />}
+            {tab === "performance" && <PerformancePanel locationId={business.gmb_Id} authHeaders={authHeaders} />}
+            {tab === "profile" && <ProfilePanel locationId={business.gmb_Id} authHeaders={authHeaders} />}
 
             {tab === "posts" && (
                 <div className="space-y-5">
@@ -127,25 +129,6 @@ export function GoogleBusinessProfileView({
                             </svg>
                             Create New Post
                         </button>
-                    </div>
-                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
-                            Google My Business API Setup Required
-                        </p>
-                        <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
-                            Live posting requires API access approval. Posts are currently saved to your database.
-                        </p>
-                        <a
-                            href="https://developers.google.com/my-business/content/prereqs#request-access"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-amber-800 dark:text-amber-200 hover:underline font-medium inline-flex items-center gap-1"
-                        >
-                            Request API access
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                        </a>
                     </div>
                 </div>
             )}
