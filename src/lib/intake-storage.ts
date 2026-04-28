@@ -134,7 +134,20 @@ export async function getLatestIntakeSubmission(params: {
       );
 
       const raw = await toUtf8(response.Body);
-      return JSON.parse(raw) as IntakeStoredSubmission;
+      const submission = JSON.parse(raw) as IntakeStoredSubmission;
+
+      // Guard against cross-tenant leakage when websiteIds are shared across tenants.
+      // If the caller specified a tenantId, the stored submission must match it.
+      if (
+        typeof params.tenantId === "number" &&
+        params.tenantId > 0 &&
+        typeof submission.tenantId === "number" &&
+        submission.tenantId !== params.tenantId
+      ) {
+        continue;
+      }
+
+      return submission;
     } catch (error) {
       if (error instanceof NoSuchKey) {
         continue;
