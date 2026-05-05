@@ -18,7 +18,7 @@ export interface GmbPostPayload {
     topicType: "STANDARD" | "EVENT" | "OFFER";
     languageCode: string;
     media: { mediaFormat: "PHOTO"; sourceUrl: string }[];
-    callToAction?: { actionType: string; url: string };
+    callToAction?: { actionType: string; url?: string };
     scheduleTime?: string;
 }
 
@@ -106,7 +106,7 @@ export function CreatePostModal({ clientName, websiteId, authHeaders, onClose, o
     const handleSubmit = async () => {
         if (!content.trim()) { setError("Post content is required."); return; }
         if (postMode === "schedule" && !scheduleTime) { setError("Choose a schedule time."); return; }
-        if (ctaType !== "NONE" && !ctaUrl.trim()) { setError("Enter a URL for the button."); return; }
+        if (ctaType !== "NONE" && ctaType !== "CALL" && !ctaUrl.trim()) { setError("Enter a URL for the button."); return; }
         setError(null);
         setSubmitting(true);
         try {
@@ -115,7 +115,7 @@ export function CreatePostModal({ clientName, websiteId, authHeaders, onClose, o
                 topicType,
                 languageCode: "en-US",
                 media: media.filter(m => m.url).map(m => ({ mediaFormat: "PHOTO" as const, sourceUrl: m.url })),
-                ...(ctaType !== "NONE" ? { callToAction: { actionType: ctaType, url: ctaUrl.trim() } } : {}),
+                ...(ctaType !== "NONE" ? { callToAction: { actionType: ctaType, ...(ctaType !== "CALL" ? { url: ctaUrl.trim() } : {}) } } : {}),
                 ...(postMode === "schedule" && scheduleTime ? { scheduleTime: new Date(scheduleTime).toISOString() } : {}),
             };
             await onSubmit(payload);
@@ -239,9 +239,14 @@ export function CreatePostModal({ clientName, websiteId, authHeaders, onClose, o
                                 className="w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 {CTA_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                             </select>
-                            {ctaType !== "NONE" && (
+                            {ctaType !== "NONE" && ctaType !== "CALL" && (
                                 <input type="url" value={ctaUrl} onChange={e => setCtaUrl(e.target.value)} placeholder="https://yoursite.com"
                                     className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            )}
+                            {ctaType === "CALL" && (
+                                <p className="flex-1 px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                    Uses your business phone number — no URL needed.
+                                </p>
                             )}
                         </div>
                     </div>
