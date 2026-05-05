@@ -3244,6 +3244,19 @@ export default function BuiltInPageEditorPage() {
               >
                 {activeAction === "draft" ? "Saving Draft..." : "Save Draft"}
               </button>
+              {websiteId ? (
+                <Link
+                  href={getBuiltInPageDraftPreviewPath(
+                    websiteId,
+                    pageKey,
+                    selectedTenantId,
+                  )}
+                  target="_blank"
+                  className="rounded-lg border border-[#CD7F32] px-4 py-2 text-sm font-semibold text-[#CD7F32] hover:bg-[#CD7F32]/10"
+                >
+                  Draft Preview
+                </Link>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
