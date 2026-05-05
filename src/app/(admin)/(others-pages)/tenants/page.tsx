@@ -656,6 +656,48 @@ export default function TenantsPage() {
     }
   };
 
+  const handleResendIntakeEmail = async (tenant: TenantListItem) => {
+    if (!tenant.owner_email) {
+      setTenantListError("Tenant owner email is missing.");
+      return;
+    }
+
+    setTenantListError(null);
+    setRowActionMessage(null);
+    setRowActionTenantId(tenant.id);
+
+    try {
+      const firstName = tenant.owner_name?.trim().split(/\s+/)[0] || undefined;
+      const intakeJob = {
+        key: "intake" as InviteEmailKey,
+        promise: apiClient.sendIntakeEmail(
+          tenant.owner_email,
+          tenant.id,
+          "universal",
+          firstName,
+          tenant.website_id ?? undefined,
+          tenant.name,
+        ),
+      };
+      const [result] = await Promise.allSettled([intakeJob.promise]);
+      await recordInviteAttempt(tenant.id, [{ key: intakeJob.key, result }]);
+
+      await loadTenants();
+
+      setRowActionMessage(
+        result.status === "fulfilled"
+          ? `Questionnaire email resent to ${tenant.owner_email}.`
+          : `Failed to resend questionnaire to ${tenant.owner_email}.`,
+      );
+    } catch (resendError) {
+      setTenantListError(
+        resendError instanceof Error ? resendError.message : "Failed to resend questionnaire email.",
+      );
+    } finally {
+      setRowActionTenantId(null);
+    }
+  };
+
   const handleSendBillingInvite = async (tenant: TenantListItem) => {
     if (!tenant.owner_email) {
       setTenantListError("Tenant owner email is missing.");
@@ -1261,6 +1303,15 @@ export default function TenantsPage() {
                             disabled={!tenant.owner_email || rowActionTenantId === tenant.id}
                           >
                             {rowActionTenantId === tenant.id ? "Working..." : "Resend Invite"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleResendIntakeEmail(tenant)}
+                            disabled={!tenant.owner_email || rowActionTenantId === tenant.id}
+                          >
+                            {rowActionTenantId === tenant.id ? "Working..." : "Resend Questionnaire"}
                           </Button>
                           <Button
                             type="button"
