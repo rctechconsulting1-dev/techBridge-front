@@ -4,7 +4,7 @@ import { getActiveTenantId, getStoredAuthToken } from '@/lib/auth-context';
 type ContentAgentProps = {
   websiteId?: number;
   tenantId?: number;
-  mode?: 'standard' | 'service_copy' | 'about_copy' | 'page_nav_copy' | 'site_settings_orchestrator' | 'built_in_page_seo';
+  mode?: 'standard' | 'service_copy' | 'about_copy' | 'page_nav_copy' | 'site_settings_orchestrator' | 'built_in_page_seo' | 'location_page';
   ourUrl?: string;
   city?: string;
   industry?: string;
@@ -24,6 +24,7 @@ type ContentAgentProps = {
   servicesOffered?: string[];
   businessName?: string;
   aboutContext?: string;
+  nearbyAreas?: string[];
   userChosenIdea?: string;
   content?: string;
   conversationHistory?: Record<string, unknown>[];

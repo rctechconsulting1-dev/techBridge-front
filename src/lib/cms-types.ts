@@ -358,7 +358,38 @@ export interface Page {
   excerpt: string | null;
   presentation?: {
     sectionVariants?: Record<string, string>;
+    /** Only present when template_type === "location" */
+    locationData?: LocationPagePresentation;
   } | null;
+}
+
+/**
+ * Structured data stored in page.presentation.locationData for location pages.
+ * template_type: "location" — slug format: {service-slug}-in-{city-slug}
+ */
+export interface LocationPagePresentation {
+  /** Display name of the city e.g. "San José" */
+  city: string;
+  /** URL-safe city slug e.g. "san-jose" */
+  citySlug: string;
+  /** Primary service name e.g. "Plumbing" */
+  service: string;
+  /** Primary service slug matching the Service record e.g. "plumbing" */
+  serviceSlug: string;
+  /** AI-generated hero headline */
+  heroHeadline: string | null;
+  /** AI-generated hero body */
+  heroBody: string | null;
+  /** AI-generated page intro / main body content (markdown) */
+  bodyContent: string | null;
+  /** Why choose us copy specific to this city */
+  whyUs: string | null;
+  /** CTA headline for this city page */
+  ctaHeadline: string | null;
+  /** CTA body for this city page */
+  ctaBody: string | null;
+  /** Nearby cities/areas served (optional) */
+  nearbyAreas: string[] | null;
 }
 
 export interface PageNavigationAssignment {

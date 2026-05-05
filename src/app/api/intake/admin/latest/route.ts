@@ -5,10 +5,35 @@ import { verifyAdminAuth } from "@/lib/route-auth";
 import { getApiBaseUrl } from "@/lib/api";
 
 const EDITABLE_ANSWER_KEYS = [
+  // Core business info
   "business_name",
-  "business_phone",
+  "owner_name",
   "location",
+  "business_phone",
+  "business_address",
+  "hours_service_area",
+  "tagline",
+  "topics_to_avoid",
+  "content_approval_contact",
+  // Services
+  "primary_offerings",
+  "pricing_packages",
+  "policies_guarantees",
+  "fulfillment_details",
+  // Online presence
   "google_business_url",
+  "facebook_url",
+  "instagram_url",
+  "yelp_url",
+  "other_review_platforms",
+  "has_google_ads",
+  "existing_booking_software",
+  // Setup & launch
+  "existing_website_url",
+  "existing_domain",
+  "domain_registrar",
+  "target_go_live",
+  // Legacy
   "service_list",
 ] as const;
 

@@ -103,6 +103,7 @@ const navItems: NavItem[] = [
       { name: "Built-in Pages", path: "/built-in-pages", pro: false },
       { name: "Managed Pages", path: "/managed-pages", pro: false },
       { name: "Custom Pages", path: "/main-page", pro: false },
+      { name: "Location Pages", path: "/location-pages", pro: false },
       { name: "Branding", path: "/branding", pro: false },
       { name: "Global Site Settings", path: "/site-settings", pro: false },
       { name: "Testimonials", path: "/content-testimonials", pro: false },
