@@ -25,7 +25,8 @@ import AboutTestimonialsVariants from "@/components/built-in/about/AboutTestimon
 import AboutCtaVariants from "@/components/built-in/about/AboutCtaVariants";
 import FAQSection from "@/components/sections/FAQSection";
 import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
-import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
+import { getPublicCanonicalMetadata, getPublicCanonicalUrl } from "@/lib/public-site-routing";
+import { BreadcrumbJsonLd, FAQJsonLd } from "@/components/seo/JsonLd";
 
 export const revalidate = 60;
 
@@ -51,6 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description:
       pageContentRecord?.seo?.description ??
       `Learn more about ${siteName} — our team, values, and mission. ${pageContent.heroBody ?? ""}`.trim(),
+    ...(!canonicalMetadata.alternates?.canonical && { robots: { index: false, follow: false } }),
     openGraph: {
       title: pageContentRecord?.seo?.title ?? `About | ${siteName}`,
       description:
@@ -65,6 +67,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AboutPage({ params }: Props) {
   const { websiteId } = await params;
+  const canonicalUrl = await getPublicCanonicalUrl("/about");
+  const siteBase = canonicalUrl?.replace(/\/about$/, "") ?? null;
   const [website, settings, pages, pageContentRecord, team, testimonials, faq] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
@@ -137,6 +141,8 @@ export default async function AboutPage({ params }: Props) {
   return (
     <>
       {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
+      {siteBase && <BreadcrumbJsonLd siteBase={siteBase} pageTitle="About" pageSlug="about" />}
+      {faq.filter((f) => f.is_published).length > 0 && <FAQJsonLd items={faq.filter((f) => f.is_published)} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
         <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
         {presentation.sectionOrder.map((slot) => (

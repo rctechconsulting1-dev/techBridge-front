@@ -19,7 +19,8 @@ import HomeTestimonialsVariants from "@/components/built-in/home/HomeTestimonial
 import HomeCtaVariants from "@/components/built-in/home/HomeCtaVariants";
 import HomeOfferSection from "@/components/built-in/home/HomeOfferSection";
 import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
-import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
+import { getPublicCanonicalMetadata, getPublicCanonicalUrl } from "@/lib/public-site-routing";
+import { LocalBusinessJsonLd, FAQJsonLd } from "@/components/seo/JsonLd";
 
 // Revalidate every 60 seconds (ISR). Admin panel can also trigger immediate
 // revalidation via POST /api/revalidate with the CMS_REVALIDATION_SECRET header.
@@ -49,6 +50,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: data.homePageContent?.seo?.title ?? siteName,
     description,
+    // Suppress indexing when served from the platform host (no canonical domain yet)
+    ...(!canonicalMetadata.alternates?.canonical && { robots: { index: false, follow: false } }),
     openGraph: {
       title: data.homePageContent?.seo?.title ?? siteName,
       description,
@@ -71,6 +74,9 @@ export default async function SiteLandingPage({ params }: Props) {
   const homeContent = getHomePageContent(homePageContent, website, settings);
   const homePresentation = getResolvedBuiltInPresentation("home", homePageContent);
   const chromeVariants = getGenericSectionVariants("home");
+
+  // Canonical URL for structured data
+  const canonicalUrl = await getPublicCanonicalUrl("/");
   const presentationSettings = settings
     ? {
         ...settings,
@@ -164,6 +170,16 @@ export default async function SiteLandingPage({ params }: Props) {
       {presentationSettings?.font_url && (
         <link rel="stylesheet" href={presentationSettings.font_url} />
       )}
+      {canonicalUrl && settings && (
+        <LocalBusinessJsonLd
+          website={website}
+          settings={settings}
+          services={services}
+          testimonials={testimonials}
+          canonicalUrl={canonicalUrl}
+        />
+      )}
+      {faq.length > 0 && <FAQJsonLd items={faq.filter((f) => f.is_published)} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
         <NavBar
           websiteId={websiteId}

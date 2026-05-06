@@ -25,7 +25,7 @@ function formatTime(t?: { hours?: number; minutes?: number }): string {
     return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-export function ProfilePanel({ locationId }: { locationId: string }) {
+export function ProfilePanel({ locationId, authHeaders }: { locationId: string; authHeaders: Record<string, string> }) {
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function ProfilePanel({ locationId }: { locationId: string }) {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_URL}/google/profile-info?locationId=${locationId}`);
+            const res = await fetch(`${API_URL}/google/profile-info?locationId=${locationId}`, { headers: authHeaders });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             setProfile(data);
@@ -49,7 +49,7 @@ export function ProfilePanel({ locationId }: { locationId: string }) {
             setError(e.message);
         }
         setLoading(false);
-    }, [locationId]);
+    }, [locationId, authHeaders]);
 
     useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
@@ -77,7 +77,7 @@ export function ProfilePanel({ locationId }: { locationId: string }) {
 
             const res = await fetch(`${API_URL}/google/profile-info`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: { ...authHeaders, "Content-Type": "application/json" },
                 body: JSON.stringify({ locationId, updateMask: masks.join(","), ...fields }),
             });
 

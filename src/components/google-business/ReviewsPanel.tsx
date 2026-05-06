@@ -46,7 +46,7 @@ function QuotaNotice() {
     );
 }
 
-export function ReviewsPanel({ locationId }: { locationId: string }) {
+export function ReviewsPanel({ locationId, placeId }: { locationId: string; placeId?: string | null }) {
     const { selectedClient } = useSidebar();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [meta, setMeta] = useState<{ averageRating?: number; totalReviewCount?: number }>({});
@@ -74,7 +74,13 @@ export function ReviewsPanel({ locationId }: { locationId: string }) {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_URL}/google/reviews?locationId=${locationId}`, { headers: authHeaders });
+            if (!placeId) {
+                setReviews([]);
+                setMeta({});
+                setLoading(false);
+                return;
+            }
+            const res = await fetch(`${API_URL}/google/reviews?placeId=${encodeURIComponent(placeId)}`, { headers: authHeaders });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             setReviews(data.reviews ?? []);
@@ -83,7 +89,7 @@ export function ReviewsPanel({ locationId }: { locationId: string }) {
             setError(e.message);
         }
         setLoading(false);
-    }, [locationId, authHeaders]);
+    }, [placeId, authHeaders]);
 
     useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
@@ -149,6 +155,22 @@ export function ReviewsPanel({ locationId }: { locationId: string }) {
     if (loading) return (
         <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        </div>
+    );
+
+    if (!placeId) return (
+        <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-center">
+            <p className="font-semibold text-amber-800 dark:text-amber-200 mb-1">Google Place ID required</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                To show reviews, enter your Google Place ID in the location settings above.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+                Find it at{" "}
+                <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="underline">
+                    Place ID Finder
+                </a>
+                {" "}(looks like ChIJ…)
+            </p>
         </div>
     );
 

@@ -85,7 +85,7 @@ function trendArrow(pct: number) {
     return <span className="text-gray-400 text-xs">—</span>;
 }
 
-export function PerformancePanel({ locationId }: { locationId: string }) {
+export function PerformancePanel({ locationId, authHeaders }: { locationId: string; authHeaders: Record<string, string> }) {
     const [data, setData] = useState<MetricSeries[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -95,7 +95,7 @@ export function PerformancePanel({ locationId }: { locationId: string }) {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_URL}/google/performance?locationId=${locationId}&days=${days}`);
+            const res = await fetch(`${API_URL}/google/performance?locationId=${locationId}&days=${days}`, { headers: authHeaders });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
 
@@ -128,7 +128,7 @@ export function PerformancePanel({ locationId }: { locationId: string }) {
             setError(e.message);
         }
         setLoading(false);
-    }, [locationId, days]);
+    }, [locationId, days, authHeaders]);
 
     useEffect(() => { fetchPerformance(); }, [fetchPerformance]);
 

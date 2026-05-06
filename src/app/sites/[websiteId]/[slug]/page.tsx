@@ -8,6 +8,9 @@ import {
   getPageImages,
   getSiteSettings,
   getWebsite,
+  getServices,
+  getTestimonials,
+  getFAQ,
 } from "@/lib/cms-api";
 import NavBar from "@/components/sections/NavBar";
 import CTASection from "@/components/sections/CTASection";
@@ -18,7 +21,9 @@ import {
   getGenericSectionVariants,
   type BlogListSectionVariant,
 } from "@/components/sections/sectionVariants";
-import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
+import LocationPage from "@/components/built-in/location/LocationPage";
+import { getPublicCanonicalMetadata, getPublicCanonicalUrl } from "@/lib/public-site-routing";
+import { BreadcrumbJsonLd, LocationServiceJsonLd } from "@/components/seo/JsonLd";
 
 export const revalidate = 60;
 
@@ -47,16 +52,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const siteName = website?.name ?? "Our Company";
   const pageTitle = page?.title ?? toReadableTitle(slug);
+  const loc = page?.presentation?.locationData;
 
   const canonicalMetadata = await getPublicCanonicalMetadata(`/${slug}`);
 
+  // Location page gets keyword-rich title + description
+  const title = loc
+    ? (page?.title ?? `${loc.service} in ${loc.city} | ${siteName}`)
+    : `${pageTitle} | ${siteName}`;
+  const description = loc
+    ? (page?.meta_description ??
+        `${siteName} provides professional ${loc.service} in ${loc.city}. ${loc.heroBody ?? ""}`.trim())
+    : (page?.meta_description ?? `Learn more about ${pageTitle} at ${siteName}.`);
+
   return {
-    title: `${pageTitle} | ${siteName}`,
-    description:
-      page?.meta_description ?? `Learn more about ${pageTitle} at ${siteName}.`,
+    title,
+    description,
+    ...(!canonicalMetadata.alternates?.canonical && { robots: { index: false, follow: false } }),
     openGraph: {
-      title: `${pageTitle} | ${siteName}`,
-      description: page?.meta_description ?? `Learn more about ${pageTitle}.`,
+      title,
+      description,
       ...canonicalMetadata.openGraph,
     },
     alternates: canonicalMetadata.alternates,
@@ -65,6 +80,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CustomPage({ params }: Props) {
   const { websiteId, slug } = await params;
+  const canonicalUrl = await getPublicCanonicalUrl(`/${slug}`);
+  const siteBase = canonicalUrl?.replace(new RegExp(`\\/${slug}$`), "") ?? null;
   const [website, settings, pages, page] = await Promise.all([
     getWebsite(websiteId),
     getSiteSettings(websiteId),
@@ -74,6 +91,70 @@ export default async function CustomPage({ params }: Props) {
 
   if (!website || !page) {
     notFound();
+  }
+
+  const primary = settings?.primary_color ?? "#CD7F32";
+  const cssVars = {
+    "--cms-primary": primary,
+    "--cms-secondary": settings?.secondary_color ?? "#ffffff",
+    "--cms-accent": settings?.accent_color ?? "#0070f3",
+    ...(settings?.font_family && { fontFamily: settings.font_family }),
+  } as React.CSSProperties;
+
+  // ── Location page branch ───────────────────────────────────────────────
+  const loc = page.presentation?.locationData;
+  if (page.template_type === "location" && loc) {
+    const [services, testimonials, faqItems] = await Promise.all([
+      getServices(websiteId),
+      getTestimonials(websiteId),
+      getFAQ(websiteId),
+    ]);
+
+    return (
+      <>
+        {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
+        {siteBase && (
+          <BreadcrumbJsonLd
+            siteBase={siteBase}
+            pageTitle={page.title ?? `${loc.service} in ${loc.city}`}
+            pageSlug={slug}
+          />
+        )}
+        {siteBase && (
+          <LocationServiceJsonLd
+            website={website}
+            settings={settings}
+            loc={loc}
+            canonicalUrl={canonicalUrl ?? `${siteBase}/${slug}`}
+          />
+        )}
+        <div style={cssVars}>
+          <NavBar
+            websiteId={websiteId}
+            website={website}
+            settings={settings}
+            pages={pages}
+            variant={getGenericSectionVariants("custom").navBar}
+          />
+          <LocationPage
+            websiteId={websiteId}
+            website={website}
+            settings={settings}
+            loc={loc}
+            services={services}
+            faq={faqItems}
+            testimonials={testimonials}
+          />
+          <FooterSection
+            websiteId={websiteId}
+            website={website}
+            settings={settings}
+            pages={pages}
+            variant={getGenericSectionVariants("custom").footer}
+          />
+        </div>
+      </>
+    );
   }
 
   const pageImages = await getPageImages(page.id);
@@ -92,17 +173,16 @@ export default async function CustomPage({ params }: Props) {
       : "editorial_grid";
   const isBlogListPage = page.template_type === "blog-list" || page.page_type === "blog-category";
 
-  const primary = settings?.primary_color ?? "#CD7F32";
-  const cssVars = {
-    "--cms-primary": primary,
-    "--cms-secondary": settings?.secondary_color ?? "#ffffff",
-    "--cms-accent": settings?.accent_color ?? "#0070f3",
-    ...(settings?.font_family && { fontFamily: settings.font_family }),
-  } as React.CSSProperties;
-
   return (
     <>
       {settings?.font_url && <link rel="stylesheet" href={settings.font_url} />}
+      {siteBase && (
+        <BreadcrumbJsonLd
+          siteBase={siteBase}
+          pageTitle={page.title ?? toReadableTitle(slug)}
+          pageSlug={slug}
+        />
+      )}
       <div style={cssVars} className="[scroll-behavior:smooth]">
         <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
 

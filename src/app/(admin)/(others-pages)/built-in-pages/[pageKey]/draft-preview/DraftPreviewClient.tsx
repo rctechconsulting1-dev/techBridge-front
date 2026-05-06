@@ -12,7 +12,9 @@ import {
   getResolvedBuiltInPresentation,
   getServicesPageContent,
   getShopPageContent,
+  BUILT_IN_PAGE_KEYS,
   BUILT_IN_PAGE_LABELS,
+  getBuiltInPageDraftPreviewPath,
 } from "@/lib/builtInPageContent";
 import type {
   BuiltInPageContentRecord,
@@ -278,6 +280,27 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
     [pageKey],
   );
 
+  // Rewrites live-site nav hrefs to their draft-preview equivalents so that
+  // clicking a nav item while in draft preview stays within the preview context.
+  const draftLinkRewriter = useMemo(() => {
+    const siteBase = `/sites/${websiteId}`;
+    const slugToKey: Record<string, string> = {
+      "": "home",
+      "/": "home",
+      "/services": "services",
+      "/about": "about",
+      "/shop": "shop",
+    };
+    return (href: string): string => {
+      if (!href.startsWith(siteBase)) return href;
+      const slug = href.slice(siteBase.length).split("#")[0] ?? "";
+      const anchor = href.includes("#") ? `#${href.split("#")[1]}` : "";
+      const key = slugToKey[slug] as string | undefined;
+      if (!key || !BUILT_IN_PAGE_KEYS.includes(key as BuiltInPageKey)) return href;
+      return `${getBuiltInPageDraftPreviewPath(websiteId, key as BuiltInPageKey, tenantId)}${anchor}`;
+    };
+  }, [websiteId, tenantId]);
+
   if (loading) {
     return (
       <>
@@ -440,11 +463,11 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
         {draftNotice}
         {presentationBadges}
         <div style={cssVars} className="[scroll-behavior:smooth]">
-          <NavBar websiteId={websiteId} website={website} settings={presentationSettings} pages={pages} variant={chromeVariants.navBar} />
+          <NavBar websiteId={websiteId} website={website} settings={presentationSettings} pages={pages} variant={chromeVariants.navBar} linkRewriter={draftLinkRewriter} />
           {homePresentation.sectionOrder.map((slot) => (
             <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
           ))}
-          <FooterSection websiteId={websiteId} website={website} settings={presentationSettings} pages={pages} variant={chromeVariants.footer} />
+          <FooterSection websiteId={websiteId} website={website} settings={presentationSettings} pages={pages} variant={chromeVariants.footer} linkRewriter={draftLinkRewriter} />
         </div>
       </>
     );
@@ -513,14 +536,14 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
         {draftNotice}
         {presentationBadges}
         <div style={cssVars} className="[scroll-behavior:smooth]">
-          <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
+          <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} linkRewriter={draftLinkRewriter} />
           {presentation.sectionOrder.map((slot) => (
             <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
           ))}
           {presentation.conversionMode === "appointment" ? (
             <BookingSection websiteId={websiteId} settings={settings} variant={chromeVariants.booking} />
           ) : null}
-          <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} />
+          <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} linkRewriter={draftLinkRewriter} />
         </div>
       </>
     );
@@ -596,7 +619,7 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
         {draftNotice}
         {presentationBadges}
         <div style={cssVars} className="[scroll-behavior:smooth]">
-          <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
+          <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} linkRewriter={draftLinkRewriter} />
           {presentation.sectionOrder.map((slot) => (
             <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
           ))}
@@ -604,7 +627,7 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
           {presentation.conversionMode === "appointment" ? (
             <BookingSection websiteId={websiteId} settings={settings} variant={chromeVariants.booking} />
           ) : null}
-          <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} />
+          <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} linkRewriter={draftLinkRewriter} />
         </div>
       </>
     );
@@ -622,7 +645,7 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
       {draftNotice}
       {presentationBadges}
       <div style={cssVars} className="[scroll-behavior:smooth]">
-        <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} />
+        <NavBar websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.navBar} linkRewriter={draftLinkRewriter} />
         {presentation.sectionOrder.map((slot) => {
           const sectionMap: Record<string, React.ReactNode> = {
             hero: (
@@ -680,7 +703,7 @@ export default function DraftPreviewClient({ pageKey, websiteId, tenantId }: Pro
 
           return <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>;
         })}
-        <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} />
+        <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} variant={chromeVariants.footer} linkRewriter={draftLinkRewriter} />
       </div>
     </>
   );
