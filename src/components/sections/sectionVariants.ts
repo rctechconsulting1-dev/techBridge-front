@@ -103,7 +103,7 @@ export const GENERIC_SECTION_VARIANT_PRESETS: Record<
     blogList: "editorial_grid",
   },
   services: {
-    navBar: "pill",
+    navBar: "centered",
     hero: "split_spotlight",
     cta: "solid_banner",
     footer: "grid_contact",

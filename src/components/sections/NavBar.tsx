@@ -14,9 +14,10 @@ interface Props {
   settings: SiteSettings | null;
   pages?: Page[] | null;
   variant?: NavBarVariant;
+  linkRewriter?: (href: string) => string;
 }
 
-export default function NavBar({ websiteId, website, settings, pages = [], variant = "inline" }: Props) {
+export default function NavBar({ websiteId, website, settings, pages = [], variant = "inline", linkRewriter }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -27,12 +28,18 @@ export default function NavBar({ websiteId, website, settings, pages = [], varia
   const logoUrl = settings?.logo_url;
   const siteName = website?.name ?? "RC Tech";
   const base = `/sites/${websiteId}`;
-  const NAV_LINKS = buildNavigationItems({
+  const rewrite = linkRewriter ?? ((h: string) => h);
+  const NAV_LINKS_RAW = buildNavigationItems({
     websiteId,
     settings,
     pages,
     placement: "header",
   });
+  const NAV_LINKS = NAV_LINKS_RAW.map((item) =>
+    item.type === "dropdown"
+      ? { ...item, href: rewrite(item.href), children: item.children.map((c) => ({ ...c, href: rewrite(c.href) })) }
+      : { ...item, href: rewrite(item.href) },
+  );
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -53,11 +60,7 @@ export default function NavBar({ websiteId, website, settings, pages = [], varia
     ? "hidden flex-1 items-center justify-center gap-10 md:flex"
     : "hidden items-center gap-10 md:flex";
 
-  const desktopCtaClassName = isPill
-    ? "hidden rounded-full px-5 py-2.5 text-xs font-semibold tracking-widest text-white uppercase transition-opacity hover:opacity-85 md:inline-block"
-    : isCentered
-      ? "hidden rounded-full border px-5 py-2.5 text-xs font-semibold tracking-widest uppercase transition-colors hover:text-white md:inline-block"
-      : "hidden px-6 py-2.5 text-xs font-semibold tracking-widest text-white uppercase transition-opacity hover:opacity-80 md:inline-block";
+  const desktopCtaClassName = "hidden rounded-full px-5 py-2.5 text-xs font-semibold tracking-widest text-white uppercase transition-opacity hover:opacity-85 md:inline-block";
 
   return (
     <nav
@@ -74,7 +77,7 @@ export default function NavBar({ websiteId, website, settings, pages = [], varia
       >
         {/* Logo / Brand */}
         <Link
-          href={base}
+          href={rewrite(base)}
           className={`flex items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 ${
             isCentered ? "md:flex-[0_0_220px]" : ""
           }`}
@@ -158,29 +161,9 @@ export default function NavBar({ websiteId, website, settings, pages = [], varia
 
         {/* CTA button (desktop) */}
         <Link
-          href={`${base}/contact`}
+          href={rewrite(`${base}/contact`)}
           className={desktopCtaClassName}
-          style={
-            isCentered
-              ? { borderColor: primary, color: primary }
-              : { backgroundColor: primary }
-          }
-          onMouseEnter={
-            isCentered
-              ? (e) => {
-                  e.currentTarget.style.backgroundColor = primary;
-                  e.currentTarget.style.color = "#ffffff";
-                }
-              : undefined
-          }
-          onMouseLeave={
-            isCentered
-              ? (e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = primary;
-                }
-              : undefined
-          }
+          style={{ backgroundColor: primary }}
         >
           Get in Touch
         </Link>
@@ -263,11 +246,9 @@ export default function NavBar({ websiteId, website, settings, pages = [], varia
             })}
             <li className="pt-3">
               <Link
-                href={`${base}/contact`}
+                href={rewrite(`${base}/contact`)}
                 onClick={() => setMenuOpen(false)}
-                className={`block w-full py-3 text-center text-xs font-semibold tracking-widest uppercase ${
-                  isCentered ? "rounded-full border" : "text-white"
-                }`}
+                className="block w-full rounded-full py-3 text-center text-xs font-semibold tracking-widest uppercase text-white"
                 style={{ backgroundColor: primary }}
               >
                 Get in Touch
