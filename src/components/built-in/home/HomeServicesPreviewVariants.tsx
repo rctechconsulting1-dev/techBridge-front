@@ -7,6 +7,8 @@ interface Props {
   themePack: BuiltInThemePack;
   services: Service[];
   settings: SiteSettings | null;
+  /** href for the full services listing page; defaults to "/services" */
+  servicesHref?: string;
 }
 
 const stripHtml = (value: string | null | undefined) => {
@@ -56,6 +58,7 @@ export default function HomeServicesPreviewVariants({
   themePack,
   services,
   settings,
+  servicesHref = "/services",
 }: Props) {
   const primary = settings?.primary_color ?? "#CD7F32";
   const accent = settings?.accent_color ?? "#111827";
@@ -89,17 +92,26 @@ export default function HomeServicesPreviewVariants({
                 >
                   {getServiceMonogram(service.title)}
                 </div>
-                <h3 className="mt-6 text-xl font-semibold text-white">{service.title}</h3>
+                <h3 className="mt-6 text-xl font-semibold text-white">
+                  <Link href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref} className="hover:underline">
+                    {service.title}
+                  </Link>
+                </h3>
                 {service.content ? (
                   <p className="mt-3 text-sm leading-relaxed text-slate-300">
                     {toExcerpt(service.content)}
                   </p>
                 ) : null}
-                <Link href="/contact" className="mt-5 inline-flex text-sm font-semibold uppercase tracking-wide" style={{ color: primary }}>
+                <Link href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref} className="mt-5 inline-flex text-sm font-semibold uppercase tracking-wide" style={{ color: primary }}>
                   Learn More
                 </Link>
               </div>
             ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Link href={servicesHref} className="inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold text-white/80 transition-colors hover:text-white" style={{ borderColor: "rgba(255,255,255,0.2)" }}>
+              View All Services →
+            </Link>
           </div>
         </div>
       </section>
@@ -130,18 +142,27 @@ export default function HomeServicesPreviewVariants({
                   {String(index + 1).padStart(2, "0")}
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{service.title}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    <Link href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref} className="hover:underline">
+                      {service.title}
+                    </Link>
+                  </h3>
                   {service.content ? (
                     <p className="mt-2 text-sm leading-relaxed text-gray-600">
                       {toExcerpt(service.content)}
                     </p>
                   ) : null}
                 </div>
-                <Link href="/contact" className="text-sm font-semibold uppercase tracking-wide" style={{ color: primary }}>
+                <Link href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref} className="text-sm font-semibold uppercase tracking-wide" style={{ color: primary }}>
                   Ask About This
                 </Link>
               </div>
             ))}
+          </div>
+          <div className="mt-10">
+            <Link href={servicesHref} className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: primary }}>
+              View All Services →
+            </Link>
           </div>
         </div>
       </section>
@@ -180,14 +201,18 @@ export default function HomeServicesPreviewVariants({
                 >
                   {index === featureIndex ? "Priority" : String(index + 1).padStart(2, "0")}
                 </span>
-                <h3 className={`mt-5 text-xl font-semibold ${index === featureIndex ? "text-white" : "text-gray-900"}`}>{service.title}</h3>
+                <h3 className={`mt-5 text-xl font-semibold ${index === featureIndex ? "text-white" : "text-gray-900"}`}>
+                  <Link href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref} className="hover:underline">
+                    {service.title}
+                  </Link>
+                </h3>
                 {service.content ? (
                   <p className={`mt-3 text-sm leading-relaxed ${index === featureIndex ? "text-white/84" : "text-gray-600"}`}>
                     {toExcerpt(service.content)}
                   </p>
                 ) : null}
                 <Link
-                  href="/contact"
+                  href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref}
                   className="mt-5 inline-flex rounded-full border px-5 py-3 text-sm font-semibold uppercase tracking-wide"
                   style={{ borderColor: index === featureIndex ? "rgba(255,255,255,0.5)" : `${accent}55`, color: index === featureIndex ? "#ffffff" : accent }}
                 >
@@ -195,6 +220,11 @@ export default function HomeServicesPreviewVariants({
                 </Link>
               </div>
             ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Link href={servicesHref} className="inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold text-gray-700 transition-colors hover:text-gray-900" style={{ borderColor: `${primary}44` }}>
+              View All Services →
+            </Link>
           </div>
         </div>
       </section>
@@ -225,17 +255,26 @@ export default function HomeServicesPreviewVariants({
               >
                 {getServiceMonogram(service.title)}
               </div>
-              <h3 className="mt-6 text-xl font-semibold text-gray-900">{service.title}</h3>
+              <h3 className="mt-6 text-xl font-semibold text-gray-900">
+                <Link href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref} className="hover:underline">
+                  {service.title}
+                </Link>
+              </h3>
               {service.content ? (
                 <p className="mt-3 text-sm leading-relaxed text-gray-600">
                   {toExcerpt(service.content)}
                 </p>
               ) : null}
-              <Link href="/contact" className="mt-5 inline-flex text-sm font-semibold uppercase tracking-wide" style={{ color: primary }}>
+              <Link href={service.slug ? `${servicesHref}#${service.slug}` : servicesHref} className="mt-5 inline-flex text-sm font-semibold uppercase tracking-wide" style={{ color: primary }}>
                 Learn More
               </Link>
             </div>
           ))}
+        </div>
+        <div className="mt-10 text-center">
+          <Link href={servicesHref} className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: primary }}>
+            View All Services →
+          </Link>
         </div>
       </div>
     </section>

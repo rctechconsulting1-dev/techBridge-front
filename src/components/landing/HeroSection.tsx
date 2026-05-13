@@ -26,14 +26,15 @@ const HeroSection = () => {
           {/* Left Column - Content */}
           <div className="text-center lg:text-left">
             <h1 className="mb-6 text-4xl leading-tight font-bold text-gray-900 lg:text-6xl">
-              <span className="text-[#CD7F32]">Bridging</span> Business &{" "}
-              <span className="text-[#C41E3A]">Technology</span>
+              Websites, Ads &{" "}
+              <span className="text-[#CD7F32]">AI Agents</span>{" "}
+              for Growing Businesses
             </h1>
 
             <p className="mb-8 text-xl leading-relaxed text-gray-600">
-              Focus on growing your business while we handle all the technical
-              obstacles. RC-ND Tech Bridge provides seamless technology
-              solutions that work behind the scenes.
+              RC Tech Bridge builds conversion-focused websites, runs Google &
+              Meta ad campaigns, and deploys AI agents that automate your
+              customer follow-up — so you can focus on the work, not the tech.
             </p>
 
             <div className="flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">

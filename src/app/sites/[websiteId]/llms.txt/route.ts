@@ -5,6 +5,7 @@ import {
   getServices,
   getFAQ,
   getPages,
+  getTeamMembers,
 } from "@/lib/cms-api";
 import { getPublicCanonicalUrl } from "@/lib/public-site-routing";
 
@@ -24,6 +25,8 @@ export async function GET(_req: Request, { params }: Context) {
     getFAQ(websiteId),
     getPages(websiteId),
   ]);
+
+  const team = await getTeamMembers(websiteId);
 
   if (!website) {
     return new NextResponse("Not found", { status: 404 });
@@ -56,10 +59,22 @@ export async function GET(_req: Request, { params }: Context) {
   if (settings?.ecommerce_enabled) lines.push(`- Shop: ${siteBase}/shop`);
 
   const publishedCustom = (pages ?? []).filter((p) => p.is_published && p.slug);
-  for (const page of publishedCustom) {
+  const locationPages = publishedCustom.filter((p) => p.template_type === "location");
+  const otherCustom = publishedCustom.filter((p) => p.template_type !== "location");
+
+  for (const page of otherCustom) {
     lines.push(`- ${page.title}: ${siteBase}/${page.slug}`);
   }
   lines.push("");
+
+  // ── Location / Service Area Pages ────────────────────────────────────────
+  if (locationPages.length > 0) {
+    lines.push("## Service Area Pages");
+    for (const page of locationPages) {
+      lines.push(`- ${page.title}: ${siteBase}/${page.slug}`);
+    }
+    lines.push("");
+  }
 
   // ── Services ─────────────────────────────────────────────────────────────
   const publishedServices = services ?? [];
@@ -79,6 +94,18 @@ export async function GET(_req: Request, { params }: Context) {
     for (const item of publishedFaq) {
       lines.push(`- Q: ${item.question}`);
       lines.push(`  A: ${item.answer}`);
+    }
+    lines.push("");
+  }
+
+  // ── Team ──────────────────────────────────────────────────────────────────
+  const publishedTeam = (team ?? []).filter((m) => m.is_published);
+  if (publishedTeam.length > 0) {
+    lines.push("## Team");
+    for (const member of publishedTeam) {
+      const role = member.title ? ` — ${member.title}` : "";
+      const bio = member.bio ? ` — ${member.bio.replace(/\n/g, " ").slice(0, 120)}` : "";
+      lines.push(`- ${member.name}${role}${bio}`);
     }
     lines.push("");
   }

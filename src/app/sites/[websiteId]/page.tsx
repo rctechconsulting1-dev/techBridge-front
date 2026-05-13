@@ -20,7 +20,8 @@ import HomeCtaVariants from "@/components/built-in/home/HomeCtaVariants";
 import HomeOfferSection from "@/components/built-in/home/HomeOfferSection";
 import { getGenericSectionVariants } from "@/components/sections/sectionVariants";
 import { getPublicCanonicalMetadata, getPublicCanonicalUrl } from "@/lib/public-site-routing";
-import { LocalBusinessJsonLd, FAQJsonLd } from "@/components/seo/JsonLd";
+import { LocalBusinessJsonLd, FAQJsonLd, WebSiteJsonLd } from "@/components/seo/JsonLd";
+import { ChatWidget } from "@/components/ai-agent/ChatWidget";
 
 // Revalidate every 60 seconds (ISR). Admin panel can also trigger immediate
 // revalidation via POST /api/revalidate with the CMS_REVALIDATION_SECRET header.
@@ -179,6 +180,9 @@ export default async function SiteLandingPage({ params }: Props) {
           canonicalUrl={canonicalUrl}
         />
       )}
+      {canonicalUrl && (
+        <WebSiteJsonLd siteUrl={canonicalUrl} siteName={website.name} />
+      )}
       {faq.length > 0 && <FAQJsonLd items={faq.filter((f) => f.is_published)} />}
       <div style={cssVars} className="[scroll-behavior:smooth]">
         <NavBar
@@ -192,6 +196,7 @@ export default async function SiteLandingPage({ params }: Props) {
           <Fragment key={slot}>{sectionMap[slot] ?? null}</Fragment>
         ))}
         <FooterSection websiteId={websiteId} website={website} settings={presentationSettings} pages={pages} variant={chromeVariants.footer} />
+        <ChatWidget websiteId={Number(websiteId)} />
       </div>
     </>
   );

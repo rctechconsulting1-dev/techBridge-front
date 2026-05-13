@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "../components/landing/Navbar";
 import HeroSection from "../components/landing/HeroSection";
 import ServicesSection from "../components/landing/ServicesSection";
+import AiFaqSection from "../components/landing/AiFaqSection";
 import AboutSection from "../components/landing/AboutSection";
 import ContactSection from "../components/landing/ContactSection";
 import Footer from "../components/landing/Footer";
@@ -10,11 +11,11 @@ const ROOT_LANDING_WEBSITE_ID =
   process.env.NEXT_PUBLIC_ROOT_LANDING_WEBSITE_ID || "1";
 
 export const metadata: Metadata = {
-  title: "RC Tech Bridge - Bridging Business & Technology",
+  title: "RC Tech Bridge — Websites, Ads & AI Agents for Small Businesses",
   description:
-    "Focus on growing your business while we handle all the technical obstacles. RC Tech Bridge provides seamless technology solutions that work behind the scenes.",
+    "RC Tech Bridge builds professional websites, manages Google & Meta ad campaigns, and deploys AI agents that automate customer follow-up for growing small businesses.",
   keywords:
-    "technology solutions, web development, business automation, technical support, small business tech",
+    "small business websites, Google ads management, Meta ads, AI agents, business automation, web development, RC Tech Bridge",
 };
 
 export default function HomePage() {
@@ -24,6 +25,7 @@ export default function HomePage() {
       <main>
         <HeroSection />
         <ServicesSection />
+        <AiFaqSection />
         <AboutSection />
         {/* TODO: PricingSection hidden — pricing to be updated in the future */}
         {/* <PricingSection /> */}
