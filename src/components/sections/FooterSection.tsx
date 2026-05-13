@@ -9,15 +9,31 @@ interface Props {
   settings: SiteSettings | null;
   pages?: Page[] | null;
   variant?: FooterSectionVariant;
+  linkRewriter?: (href: string) => string;
 }
 
-export default function FooterSection({ websiteId, website, settings, pages = [], variant = "classic_dark" }: Props) {
+export default function FooterSection({ websiteId, website, settings, pages = [], variant = "classic_dark", linkRewriter }: Props) {
+  const rewrite = linkRewriter ?? ((h: string) => h);
   const siteName = website?.name ?? "Your Business";
   const tagline = settings?.footer_tagline ?? website?.tagline ?? "";
   const copyright =
     settings?.footer_copyright ??
     `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
   const primary = settings?.primary_color ?? "#CD7F32";
+
+  const mapsEmbedUrl = (() => {
+    const url = settings?.google_maps_url?.trim();
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === "www.google.com" && parsed.pathname.startsWith("/maps/embed")) {
+        return url;
+      }
+    } catch {
+      // invalid URL
+    }
+    return null;
+  })();
   const footerNavItems = buildNavigationItems({
     websiteId: websiteId ?? website?.id ?? "",
     settings,
@@ -46,7 +62,7 @@ export default function FooterSection({ websiteId, website, settings, pages = []
               <ul className="mt-4 space-y-3 text-sm">
                 {footerNavItems.map((link) => (
                   <li key={link.href}>
-                    <Link href={link.href} className="transition-colors hover:text-white">{link.label}</Link>
+                    <Link href={rewrite(link.href)} className="transition-colors hover:text-white">{link.label}</Link>
                   </li>
                 ))}
               </ul>
@@ -71,9 +87,9 @@ export default function FooterSection({ websiteId, website, settings, pages = []
           </div>
         </div>
         <div className="border-t border-white/10 py-6 text-center text-xs text-gray-500">{copyright}</div>
-        {settings?.google_maps_url && (
+        {mapsEmbedUrl && (
           <div className="h-64 w-full border-t border-white/10">
-            <iframe src={settings.google_maps_url} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Location map" />
+            <iframe src={mapsEmbedUrl} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Location map" />
           </div>
         )}
       </footer>
@@ -93,7 +109,7 @@ export default function FooterSection({ websiteId, website, settings, pages = []
               <nav aria-label="Footer navigation">
                 <ul className="flex flex-wrap gap-4 text-sm font-medium text-gray-600">
                   {footerNavItems.map((link) => (
-                    <li key={link.href}><Link href={link.href} className="transition-colors hover:text-gray-900">{link.label}</Link></li>
+                    <li key={link.href}><Link href={rewrite(link.href)} className="transition-colors hover:text-gray-900">{link.label}</Link></li>
                   ))}
                 </ul>
               </nav>
@@ -115,9 +131,9 @@ export default function FooterSection({ websiteId, website, settings, pages = []
             <span className="text-xs text-gray-500">{copyright}</span>
           </div>
         </div>
-        {settings?.google_maps_url && (
+        {mapsEmbedUrl && (
           <div className="h-64 w-full border-t border-gray-200">
-            <iframe src={settings.google_maps_url} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Location map" />
+            <iframe src={mapsEmbedUrl} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Location map" />
           </div>
         )}
       </footer>
@@ -164,7 +180,7 @@ export default function FooterSection({ websiteId, website, settings, pages = []
               {footerNavItems.map((link) => (
                 <li key={link.href}>
                   <Link
-                    href={link.href}
+                    href={rewrite(link.href)}
                     className="text-sm transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2"
                   >
                     {link.label}
@@ -201,10 +217,10 @@ export default function FooterSection({ websiteId, website, settings, pages = []
       </div>
 
       {/* Google Maps embed */}
-      {settings?.google_maps_url && (
+      {mapsEmbedUrl && (
         <div className="h-64 w-full border-t border-gray-800">
           <iframe
-            src={settings.google_maps_url}
+            src={mapsEmbedUrl!}
             width="100%"
             height="100%"
             style={{ border: 0 }}

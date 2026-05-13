@@ -85,7 +85,7 @@ export default function RootLayout({
         </ThemeProvider>
         <ToastContainer
           position="top-right"
-          autoClose={false}
+          autoClose={10000}
           hideProgressBar
           closeOnClick={false}
           newestOnTop
