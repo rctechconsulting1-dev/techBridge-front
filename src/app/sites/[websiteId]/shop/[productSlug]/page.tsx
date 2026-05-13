@@ -5,7 +5,8 @@ import EditableImage from "@/components/ui/EditableImage";
 import { getWebsite, getSiteSettings, getProductBySlug, getPages } from "@/lib/cms-api";
 import NavBar from "@/components/sections/NavBar";
 import FooterSection from "@/components/sections/FooterSection";
-import { getPublicCanonicalMetadata } from "@/lib/public-site-routing";
+import { getPublicCanonicalMetadata, getPublicCanonicalUrl } from "@/lib/public-site-routing";
+import { ProductJsonLd, BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 import ProductActions from "./ProductActions";
 
 export const revalidate = 60;
@@ -52,6 +53,9 @@ export default async function ProductDetailPage({ params }: Props) {
   if (!settings?.ecommerce_enabled) notFound();
   if (!product || !product.is_published) notFound();
 
+  const canonicalUrl = await getPublicCanonicalUrl(`/shop/${productSlug}`);
+  const siteBase = canonicalUrl?.replace(new RegExp(`\\/shop\\/${productSlug}$`), "") ?? null;
+
   const primary = settings.primary_color ?? "#000000";
   const secondary = settings.secondary_color ?? "#ffffff";
   const shopHref = `/sites/${websiteId}/shop`;
@@ -63,6 +67,13 @@ export default async function ProductDetailPage({ params }: Props) {
   } as React.CSSProperties;
 
   return (
+    <>
+      {canonicalUrl && (
+        <ProductJsonLd product={product} canonicalUrl={canonicalUrl} siteName={website.name} />
+      )}
+      {siteBase && (
+        <BreadcrumbJsonLd siteBase={siteBase} pageTitle={product.title} pageSlug={`shop/${productSlug}`} />
+      )}
     <div
       style={cssVars}
       className="flex min-h-screen flex-col bg-white font-sans"
@@ -157,5 +168,6 @@ export default async function ProductDetailPage({ params }: Props) {
 
       <FooterSection websiteId={websiteId} website={website} settings={settings} pages={pages} />
     </div>
+    </>
   );
 }

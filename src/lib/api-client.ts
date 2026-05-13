@@ -291,6 +291,16 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
+  async patch<T = unknown>(endpoint: string, body?: unknown, includeAuth = true): Promise<T> {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(includeAuth),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    return this.handleResponse(response);
+  }
+
   // ─── Email helpers ────────────────────────────────────────────────────────────
   // These call the Next.js /api/email/* routes, which send via Resend.
 
@@ -403,6 +413,33 @@ class ApiClient {
     });
 
     return this.handleResponse(response);
+  }
+
+  // ─── AI Lead Agent ──────────────────────────────────────────────────────────
+
+  async getAiLeads(params?: { status?: string; limit?: number; offset?: number }) {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    if (params?.offset !== undefined) qs.set('offset', String(params.offset));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return this.get(`/ai-agent/leads${query}`);
+  }
+
+  async getAiLead(id: string) {
+    return this.get(`/ai-agent/leads/${id}`);
+  }
+
+  async updateAiLeadStatus(id: string, status: string) {
+    return this.patch(`/ai-agent/leads/${id}`, { status });
+  }
+
+  async getAiAgentConfig() {
+    return this.get('/ai-agent/config');
+  }
+
+  async updateAiAgentConfig(config: Record<string, unknown>) {
+    return this.put('/ai-agent/config', config);
   }
 }
 
