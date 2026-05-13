@@ -46,6 +46,7 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.5",
+    "react-hot-toast": "^2.6.0",
     "react-markdown": "^10.1.0",
     "react-toastify": "^11.0.5",
     "remark-gfm": "^4.0.1",
