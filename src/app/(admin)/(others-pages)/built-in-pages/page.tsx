@@ -10,6 +10,15 @@ import { getActiveTenantId, getStoredAuthToken } from "@/lib/auth-context";
 import { getBuiltInPagePreviewPath } from "@/lib/builtInPageContent";
 import type { FooterNavLink } from "@/lib/cms-types";
 
+type BusinessProfile = {
+  target_keyword_primary?: string | null;
+  target_cities?: string[] | null;
+  priority_services?: string[] | null;
+  ideal_customer?: string | null;
+  differentiator?: string | null;
+  trust_signals?: string | null;
+};
+
 type BuiltInPageCard = {
   title: string;
   route: string;
@@ -109,6 +118,9 @@ export default function BuiltInPagesPage() {
     Number(selectedClient?.tenant_id || getActiveTenantId() || 0) || null;
   const [ecommerceEnabled, setEcommerceEnabled] = useState<boolean | null>(null);
   const [headerNavLinks, setHeaderNavLinks] = useState<FooterNavLink[]>([]);
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null | undefined>(
+    undefined, // undefined = not yet fetched; null = fetched, not found
+  );
 
   const headerNavRouteSet = useMemo(
     () =>
@@ -181,6 +193,49 @@ export default function BuiltInPagesPage() {
     };
   }, [selectedTenantId, websiteId]);
 
+  useEffect(() => {
+    if (!websiteId) {
+      setBusinessProfile(undefined);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProfile = async () => {
+      try {
+        const token = getStoredAuthToken();
+        const res = await fetch(`/api/business-profile?websiteId=${websiteId}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(selectedTenantId ? { "x-tenant-id": String(selectedTenantId) } : {}),
+          },
+          cache: "no-store",
+        });
+
+        if (!cancelled) {
+          setBusinessProfile(res.ok ? ((await res.json()) as BusinessProfile) : null);
+        }
+      } catch {
+        if (!cancelled) setBusinessProfile(null);
+      }
+    };
+
+    void loadProfile();
+    return () => { cancelled = true; };
+  }, [selectedTenantId, websiteId]);
+
+  // Determine which canonical profile fields are missing so we can show a banner
+  const missingProfileFields = useMemo(() => {
+    if (!businessProfile) return [];
+    const missing: string[] = [];
+    if (!businessProfile.target_keyword_primary) missing.push("Primary keyword");
+    if (!businessProfile.target_cities?.length)   missing.push("Target cities");
+    if (!businessProfile.priority_services?.length) missing.push("Priority services");
+    if (!businessProfile.ideal_customer)          missing.push("Ideal customer");
+    if (!businessProfile.differentiator)          missing.push("Differentiator");
+    return missing;
+  }, [businessProfile]);
+
   return (
     <div className="space-y-6">
       <PageBreadcrumb pageTitle="Built-in Pages" />
@@ -197,6 +252,12 @@ export default function BuiltInPagesPage() {
             Use <strong>Custom Pages</strong> only for extra slugs beyond those built-ins.
           </p>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href="/business-profile"
+              className="rounded-lg border border-[#CD7F32] px-3 py-1.5 text-xs font-semibold text-[#CD7F32] hover:bg-[#CD7F32]/10 dark:border-[#CD7F32]/60 dark:text-[#CD7F32]/90"
+            >
+              {businessProfile ? "Edit Business Profile" : "Set Up Business Profile"}
+            </Link>
             <Link
               href="/managed-pages"
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
@@ -216,6 +277,33 @@ export default function BuiltInPagesPage() {
               Open Global Site Settings
             </Link>
           </div>
+
+          {/* Missing profile fields banner */}
+          {websiteId && businessProfile === null && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              <span className="font-semibold">Business Profile not set up yet.</span>{" "}
+              Every SEO Assistant will ask the same questions page by page until you{" "}
+              <Link href="/business-profile" className="underline hover:no-underline">
+                create the Business Profile
+              </Link>
+              .
+            </div>
+          )}
+          {websiteId && businessProfile && missingProfileFields.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              <span className="font-semibold">Business Profile incomplete.</span>{" "}
+              Missing: {missingProfileFields.join(" · ")}.{" "}
+              <Link href="/business-profile" className="underline hover:no-underline">
+                Fill them in →
+              </Link>
+            </div>
+          )}
+          {websiteId && businessProfile && missingProfileFields.length === 0 && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+              <span className="font-semibold">✓ Business Profile complete.</span>{" "}
+              All SEO Assistants will pre-populate from this profile automatically.
+            </div>
+          )}
         </div>
       </ComponentCard>
 
