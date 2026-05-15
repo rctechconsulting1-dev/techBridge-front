@@ -177,6 +177,7 @@ const RequestSchema = z.object({
       "site_settings_orchestrator",
       "built_in_page_seo",
       "location_page",
+      "suggest_seo_answers",
     ])
     .optional(),
   ourUrl: z.string().optional(),
@@ -200,6 +201,8 @@ const RequestSchema = z.object({
   aboutContext: z.string().optional(),
   userChosenIdea: z.string().optional(),
   content: z.string().optional(),
+  rawContext: z.string().optional(),
+  conversionMode: z.string().optional(),
 });
 
 function getOpenAI() {
@@ -1303,6 +1306,101 @@ export async function POST(request: Request) {
       .slice(0, 12);
     const pageKey = body.pageKey;
     const normalizedBusinessName = trimToCap(body.businessName, 120) || undefined;
+
+    // ── suggest_seo_answers ─────────────────────────────────────────────────
+    // Infers SEO question answers from all available tenant context so the
+    // admin doesn't have to know the tenant's trade/industry.
+    if (mode === "suggest_seo_answers") {
+      const rawContext = trimToCap(body.rawContext, 3000) || "";
+      const conversionMode = trimToCap(body.conversionMode, 80) || "call";
+
+      const SuggestedAnswers = z.object({
+        targetKeyword: z.string(),
+        targetCity: z.string(),
+        primaryService: z.string(),
+        idealCustomer: z.string(),
+        differentiator: z.string(),
+        trustSignals: z.string(),
+        conversionGoal: z.string(),
+        priorityServices: z.string().optional(),
+        customerProblems: z.string().optional(),
+        businessStory: z.string().optional(),
+        credibility: z.string().optional(),
+        productFocus: z.string().optional(),
+        customerFit: z.string().optional(),
+        storeDifferentiator: z.string().optional(),
+      });
+
+      const pack = await gatewayStructuredCall({
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You are an SEO strategist helping a platform admin build local-business websites.",
+              "Given the business context below, infer concise, factual answers for each SEO question field.",
+              "Rules:",
+              "- Never fabricate credentials, licenses, or claims not present in the context.",
+              "- targetKeyword: primary keyword phrase the home page should rank for, e.g. 'electrician sacramento'.",
+              "- targetCity: city or service area name only.",
+              "- primaryService: list the top 1-3 services/offers, one per line.",
+              "- idealCustomer: describe who needs this business (homeowners, restaurant owners, etc.).",
+              "- differentiator: 1-2 sentences on what makes this business stand out.",
+              "- trustSignals: bullet list of verifiable trust items (licenses, years, ratings, certifications).",
+              `- conversionGoal: one of 'Call us now', 'Request a free quote', 'Book an appointment', 'Make a reservation', 'Shop now' — pick based on conversion mode '${conversionMode}'.`,
+              "- For page-specific keys (priorityServices, businessStory, etc.) provide relevant content or leave blank if not applicable.",
+              "- Keep answers short enough to fit in a text input — no markdown headers, no long prose.",
+            ].join("\n"),
+          },
+          {
+            role: "user",
+            content: rawContext || "No context provided. Use generic placeholders.",
+          },
+        ],
+        responseSchema: {
+          name: "suggested_seo_answers",
+          schema: {
+            type: "object",
+            properties: {
+              targetKeyword: { type: "string" },
+              targetCity: { type: "string" },
+              primaryService: { type: "string" },
+              idealCustomer: { type: "string" },
+              differentiator: { type: "string" },
+              trustSignals: { type: "string" },
+              conversionGoal: { type: "string" },
+              priorityServices: { type: "string" },
+              customerProblems: { type: "string" },
+              businessStory: { type: "string" },
+              credibility: { type: "string" },
+              productFocus: { type: "string" },
+              customerFit: { type: "string" },
+              storeDifferentiator: { type: "string" },
+            },
+            required: [
+              "targetKeyword",
+              "targetCity",
+              "primaryService",
+              "idealCustomer",
+              "differentiator",
+              "trustSignals",
+              "conversionGoal",
+            ],
+          },
+        },
+        parser: (raw) => SuggestedAnswers.parse(raw),
+        maxCompletionTokens: 800,
+        timeoutMs: AI_TIMEOUT_MS,
+      });
+
+      return new Response(
+        JSON.stringify({
+          step: "seo_answers_suggested",
+          suggestedAnswers: pack,
+          usage,
+        }),
+        { status: 200 },
+      );
+    }
 
     if (mode === "built_in_page_seo") {
       if (!pageKey) {

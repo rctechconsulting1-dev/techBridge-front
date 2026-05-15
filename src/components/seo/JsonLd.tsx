@@ -4,13 +4,16 @@
  *
  * Covers:
  *  - LocalBusiness (home page)
+ *  - WebSite + SearchAction (home page, sitelinks search box)
  *  - FAQPage (pages with FAQ data)
  *  - BreadcrumbList (all inner pages)
  *  - ItemList (services overview)
  *  - LocationService (location pages)
+ *  - Product (shop product detail pages)
+ *  - Article (blog-type custom pages)
  */
 
-import type { Website, SiteSettings, Service, FAQItem, Testimonial, LocationPagePresentation } from "@/lib/cms-types";
+import type { Website, SiteSettings, Service, FAQItem, Testimonial, LocationPagePresentation, Product } from "@/lib/cms-types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -238,6 +241,159 @@ export function LocationServiceJsonLd({ website, settings, loc, canonicalUrl }: 
       ...(loc.nearbyAreas ?? []).map((area) => ({ "@type": "City", name: area })),
     ],
     serviceType: loc.service,
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
+}
+
+// ─── WebSite + SearchAction ───────────────────────────────────────────────────
+
+interface WebSiteJsonLdProps {
+  /** Canonical home URL e.g. https://example.com/ */
+  siteUrl: string;
+  siteName: string;
+}
+
+export function WebSiteJsonLd({ siteUrl, siteName }: WebSiteJsonLdProps) {
+  const base = siteUrl.replace(/\/$/, "");
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: siteName,
+    url: siteUrl,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${base}/search?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
+}
+
+// ─── Product ──────────────────────────────────────────────────────────────────
+
+interface ProductJsonLdProps {
+  product: Product;
+  /** Full canonical URL for this product page e.g. https://example.com/shop/widget */
+  canonicalUrl: string;
+  siteName: string;
+}
+
+export function ProductJsonLd({ product, canonicalUrl, siteName }: ProductJsonLdProps) {
+  const price = parseFloat(product.price);
+  const compareAtPrice = product.compare_at_price ? parseFloat(product.compare_at_price) : null;
+
+  const aggregateRating =
+    product.review_count > 0
+      ? {
+          "@type": "AggregateRating",
+          ratingValue: product.average_rating,
+          reviewCount: String(product.review_count),
+          bestRating: "5",
+          worstRating: "1",
+        }
+      : undefined;
+
+  const schema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    url: canonicalUrl,
+    ...(product.description && { description: product.description }),
+    ...(product.image_url && { image: product.image_url }),
+    brand: {
+      "@type": "Brand",
+      name: siteName,
+    },
+    offers: {
+      "@type": "Offer",
+      url: canonicalUrl,
+      priceCurrency: "USD",
+      price: isNaN(price) ? "0" : price.toFixed(2),
+      availability:
+        product.stock_quantity > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      ...(compareAtPrice && !isNaN(compareAtPrice) && compareAtPrice > price
+        ? { priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] }
+        : {}),
+    },
+    ...(aggregateRating && { aggregateRating }),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
+}
+
+// ─── Article (blog posts / editorial pages) ───────────────────────────────────
+
+interface ArticleJsonLdProps {
+  title: string;
+  description: string;
+  /** Full canonical URL for this article e.g. https://example.com/blog/post-slug */
+  canonicalUrl: string;
+  /** ISO date string */
+  datePublished: string;
+  /** ISO date string */
+  dateModified: string;
+  authorName: string;
+  publisherName: string;
+  publisherLogoUrl?: string;
+  imageUrl?: string;
+}
+
+export function ArticleJsonLd({
+  title,
+  description,
+  canonicalUrl,
+  datePublished,
+  dateModified,
+  authorName,
+  publisherName,
+  publisherLogoUrl,
+  imageUrl,
+}: ArticleJsonLdProps) {
+  const schema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: title.slice(0, 110),
+    description,
+    url: canonicalUrl,
+    datePublished,
+    dateModified,
+    author: {
+      "@type": "Person",
+      name: authorName,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: publisherName,
+      ...(publisherLogoUrl && {
+        logo: {
+          "@type": "ImageObject",
+          url: publisherLogoUrl,
+        },
+      }),
+    },
+    ...(imageUrl && { image: imageUrl }),
   };
 
   return (

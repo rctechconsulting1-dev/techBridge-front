@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getWebsite, getSiteSettings, getPages, getProducts } from "@/lib/cms-api";
+import { getWebsite, getSiteSettings, getPages, getProducts, getBuiltInPageContent } from "@/lib/cms-api";
 import { getPublicCanonicalUrl, isPlatformHost } from "@/lib/public-site-routing";
 
 export const revalidate = 300;
@@ -17,7 +17,11 @@ export default async function sitemap({ params }: Props): Promise<MetadataRoute.
     getPages(websiteId),
   ]);
 
-  const products = settings?.ecommerce_enabled ? await getProducts(websiteId) : [];
+  const [products, servicesContent, aboutContent] = await Promise.all([
+    settings?.ecommerce_enabled ? getProducts(websiteId) : Promise.resolve([]),
+    getBuiltInPageContent(websiteId, "services"),
+    getBuiltInPageContent(websiteId, "about"),
+  ]);
 
   if (!website) return [];
 
@@ -41,11 +45,14 @@ export default async function sitemap({ params }: Props): Promise<MetadataRoute.
   });
 
   // Built-in pages: services, about
-  const builtInSlugs = ["services", "about"];
-  for (const slug of builtInSlugs) {
+  const builtInPages: Array<{ slug: string; content: { updated_at?: string | null } | null }> = [
+    { slug: "services", content: servicesContent },
+    { slug: "about", content: aboutContent },
+  ];
+  for (const { slug, content } of builtInPages) {
     entries.push({
       url: `${siteBase}/${slug}`,
-      lastModified: now,
+      lastModified: content?.updated_at ? new Date(content.updated_at) : now,
       changeFrequency: "monthly",
       priority: 0.8,
     });
@@ -74,13 +81,16 @@ export default async function sitemap({ params }: Props): Promise<MetadataRoute.
   }
 
   // Custom pages (published only)
+  // Location pages get a higher priority since they are keyword-targeted landing pages
   const publishedPages = (pages ?? []).filter((p) => p.is_published && p.slug);
   for (const page of publishedPages) {
+    const isLocation = page.template_type === "location";
+    const isBlogPost = page.page_type === "blog-post" || page.template_type === "blog-post";
     entries.push({
       url: `${siteBase}/${page.slug}`,
       lastModified: page.updated_at ? new Date(page.updated_at) : now,
-      changeFrequency: "monthly",
-      priority: 0.6,
+      changeFrequency: isBlogPost ? "yearly" : "monthly",
+      priority: isLocation ? 0.7 : isBlogPost ? 0.5 : 0.6,
     });
   }
 

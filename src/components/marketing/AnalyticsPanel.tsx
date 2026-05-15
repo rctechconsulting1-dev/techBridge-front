@@ -55,12 +55,21 @@ export function AnalyticsPanel() {
         "x-tenant-id": String(selectedClient.tenant_id),
       },
     })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else setData(d);
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          throw new Error(
+            (d as { error?: string; message?: string }).error ??
+            (d as { error?: string; message?: string }).message ??
+            `Server error (${r.status})`,
+          );
+        }
+        if ((d as { error?: string }).error) throw new Error((d as { error: string }).error);
+        setData(d as AnalyticsData);
       })
-      .catch(() => setError("Failed to load analytics"))
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : "Failed to load analytics"),
+      )
       .finally(() => setLoading(false));
   }, [selectedClient?.tenant_id, dateRange]);
 

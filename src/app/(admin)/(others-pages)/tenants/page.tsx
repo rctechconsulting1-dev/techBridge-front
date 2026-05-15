@@ -109,18 +109,23 @@ type TenantListItem = {
   last_attempted_at: string | null;
   last_sent_at: string | null;
   last_error: string | null;
-  delivery_results: Record<string, {
-    status: "accepted" | "failed" | "skipped";
-    providerId: string | null;
-    message: string | null;
-    at: string | null;
-  }> | null;
+  delivery_results: Record<
+    string,
+    {
+      status: "accepted" | "failed" | "skipped";
+      providerId: string | null;
+      message: string | null;
+      at: string | null;
+    }
+  > | null;
   enabled_modules: string[];
 };
 
 type InviteEmailKey = "welcome" | "reset_password" | "intake";
 
-type InviteDeliveryResultRecord = NonNullable<TenantListItem["delivery_results"]>;
+type InviteDeliveryResultRecord = NonNullable<
+  TenantListItem["delivery_results"]
+>;
 
 type InviteDeliveryResult = {
   status: "accepted" | "failed" | "skipped";
@@ -156,10 +161,14 @@ const initialState: FormState = {
 
 export default function TenantsPage() {
   const router = useRouter();
-  const { setSelectedClient } = useSidebar();
+  const { setSelectedClient, selectedClient } = useSidebar();
   const [form, setForm] = useState<FormState>(initialState);
-  const [selectedAdditionalPages, setSelectedAdditionalPages] = useState<OptionalSystemPageSlug[]>([]);
-  const [featureToggles, setFeatureToggles] = useState<TenantFeatureToggles>(initialFeatureToggles);
+  const [selectedAdditionalPages, setSelectedAdditionalPages] = useState<
+    OptionalSystemPageSlug[]
+  >([]);
+  const [featureToggles, setFeatureToggles] = useState<TenantFeatureToggles>(
+    initialFeatureToggles,
+  );
   const [enabledModules, setEnabledModules] = useState<string[]>([
     "website_core",
     "seo_content",
@@ -178,7 +187,9 @@ export default function TenantsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [inviteFilter, setInviteFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
-  const [rowActionTenantId, setRowActionTenantId] = useState<number | null>(null);
+  const [rowActionTenantId, setRowActionTenantId] = useState<number | null>(
+    null,
+  );
   const [rowActionMessage, setRowActionMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tenantListError, setTenantListError] = useState<string | null>(null);
@@ -194,7 +205,8 @@ export default function TenantsPage() {
     primary_domain?: string | null;
     website_domain?: string | null;
   }) => {
-    const resolvedDomain = tenant.primary_domain ?? tenant.website_domain ?? null;
+    const resolvedDomain =
+      tenant.primary_domain ?? tenant.website_domain ?? null;
     setActiveTenantId(tenant.id);
     setSelectedClient({
       id: tenant.owner_user_id ?? tenant.id,
@@ -204,7 +216,8 @@ export default function TenantsPage() {
       email: tenant.owner_email ?? "",
       role: tenant.owner_role ?? "tenant_owner",
       domain: resolvedDomain,
-      temporaryDomainAssigned: resolvedDomain?.endsWith(".rctechbridge.com") ?? false,
+      temporaryDomainAssigned:
+        resolvedDomain?.endsWith(".rctechbridge.com") ?? false,
     });
   };
 
@@ -217,7 +230,9 @@ export default function TenantsPage() {
       setTenants(Array.isArray(response) ? response : []);
     } catch (loadError) {
       setTenantListError(
-        loadError instanceof Error ? loadError.message : "Failed to load tenants.",
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load tenants.",
       );
     } finally {
       setIsLoadingTenants(false);
@@ -236,7 +251,9 @@ export default function TenantsPage() {
       ownerEmail: tenant.owner_email ?? "",
       ownerPhone: tenant.owner_phone ?? "",
     });
-    setEditModules(Array.isArray(tenant.enabled_modules) ? tenant.enabled_modules : []);
+    setEditModules(
+      Array.isArray(tenant.enabled_modules) ? tenant.enabled_modules : [],
+    );
     setTenantListError(null);
     setIsEditOpen(true);
   };
@@ -251,17 +268,21 @@ export default function TenantsPage() {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
     const next = tenants.filter((tenant) => {
-      const matchesSearch = !normalizedSearch || [
-        tenant.name,
-        tenant.slug,
-        tenant.owner_name ?? "",
-        tenant.owner_email ?? "",
-        tenant.primary_domain ?? tenant.website_domain ?? "",
-      ].some((value) => value.toLowerCase().includes(normalizedSearch));
+      const matchesSearch =
+        !normalizedSearch ||
+        [
+          tenant.name,
+          tenant.slug,
+          tenant.owner_name ?? "",
+          tenant.owner_email ?? "",
+          tenant.primary_domain ?? tenant.website_domain ?? "",
+        ].some((value) => value.toLowerCase().includes(normalizedSearch));
 
-      const matchesStatus = statusFilter === "all" || tenant.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || tenant.status === statusFilter;
       const inviteStatus = tenant.invite_status ?? "not_sent";
-      const matchesInvite = inviteFilter === "all" || inviteStatus === inviteFilter;
+      const matchesInvite =
+        inviteFilter === "all" || inviteStatus === inviteFilter;
 
       return matchesSearch && matchesStatus && matchesInvite;
     });
@@ -269,16 +290,25 @@ export default function TenantsPage() {
     next.sort((left, right) => {
       switch (sortOrder) {
         case "oldest":
-          return new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+          return (
+            new Date(left.created_at).getTime() -
+            new Date(right.created_at).getTime()
+          );
         case "name_asc":
           return left.name.localeCompare(right.name);
         case "name_desc":
           return right.name.localeCompare(left.name);
         case "status":
-          return left.status.localeCompare(right.status) || left.name.localeCompare(right.name);
+          return (
+            left.status.localeCompare(right.status) ||
+            left.name.localeCompare(right.name)
+          );
         case "newest":
         default:
-          return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+          return (
+            new Date(right.created_at).getTime() -
+            new Date(left.created_at).getTime()
+          );
       }
     });
 
@@ -331,7 +361,10 @@ export default function TenantsPage() {
   };
 
   const buildInviteDeliveryResults = (
-    results: Array<{ key: InviteEmailKey; result: PromiseSettledResult<{ id: string }> }>,
+    results: Array<{
+      key: InviteEmailKey;
+      result: PromiseSettledResult<{ id: string }>;
+    }>,
   ) => {
     const now = new Date().toISOString();
 
@@ -368,21 +401,29 @@ export default function TenantsPage() {
 
   const recordInviteAttempt = async (
     tenantId: number,
-    results: Array<{ key: InviteEmailKey; result: PromiseSettledResult<{ id: string }> }>,
+    results: Array<{
+      key: InviteEmailKey;
+      result: PromiseSettledResult<{ id: string }>;
+    }>,
   ) => {
     const rawResults = results.map((entry) => entry.result);
-    const rejected = rawResults.filter((result) => result.status === "rejected");
-    const status = rejected.length === 0
-      ? "sent"
-      : rejected.length === rawResults.length
-        ? "failed"
-        : "partial_failure";
+    const rejected = rawResults.filter(
+      (result) => result.status === "rejected",
+    );
+    const status =
+      rejected.length === 0
+        ? "sent"
+        : rejected.length === rawResults.length
+          ? "failed"
+          : "partial_failure";
     const lastError = rejected
       .map((result) => {
         if (result.status !== "rejected") {
           return null;
         }
-        return result.reason instanceof Error ? result.reason.message : String(result.reason);
+        return result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason);
       })
       .filter(Boolean)
       .join(" | ");
@@ -425,7 +466,9 @@ export default function TenantsPage() {
   }, [form.tenantName, form.tenantSlug]);
 
   const temporaryHostnamePreview = useMemo(() => {
-    return slugPreview ? `${slugPreview}.rctechbridge.com` : "tenant.rctechbridge.com";
+    return slugPreview
+      ? `${slugPreview}.rctechbridge.com`
+      : "tenant.rctechbridge.com";
   }, [slugPreview]);
 
   const handleChange = (field: keyof FormState, value: string) => {
@@ -490,7 +533,10 @@ export default function TenantsPage() {
       });
 
       const firstName = form.ownerName.trim().split(/\s+/)[0] || undefined;
-      const inviteJobs: Array<{ key: InviteEmailKey; promise: Promise<{ id: string }> }> = [
+      const inviteJobs: Array<{
+        key: InviteEmailKey;
+        promise: Promise<{ id: string }>;
+      }> = [
         {
           key: "welcome",
           promise: apiClient.sendWelcomeEmailForTenant(
@@ -521,10 +567,15 @@ export default function TenantsPage() {
           ),
         },
       ];
-      const emailResults = await Promise.allSettled(inviteJobs.map((job) => job.promise));
+      const emailResults = await Promise.allSettled(
+        inviteJobs.map((job) => job.promise),
+      );
       const inviteAttempt = await recordInviteAttempt(
         response.tenant.id,
-        inviteJobs.map((job, index) => ({ key: job.key, result: emailResults[index] })),
+        inviteJobs.map((job, index) => ({
+          key: job.key,
+          result: emailResults[index],
+        })),
       );
 
       await loadTenants();
@@ -542,18 +593,42 @@ export default function TenantsPage() {
         router.push("/onboarding");
       }, 600);
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Failed to create tenant.",
-      );
+      const err = submitError as {
+        message?: string;
+        code?: string;
+        statusCode?: number;
+      };
+      if (err.statusCode === 409) {
+        if (err.code === "OWNER_EMAIL_IN_USE") {
+          setError(
+            `The email address "${form.ownerEmail}" is already associated with an existing account. Please use a different owner email.`,
+          );
+        } else if (err.code === "TENANT_DOMAIN_IN_USE") {
+          setError(
+            `The domain "${form.domain}" is already assigned to another tenant. Please use a different domain or leave it blank to auto-assign one.`,
+          );
+        } else if (err.code === "TENANT_SLUG_IN_USE") {
+          setError(
+            `The tenant slug "${form.tenantSlug}" is already in use. Please choose a different slug.`,
+          );
+        } else {
+          setError(
+            err.message ??
+              "A conflict occurred. Please check the form values and try again.",
+          );
+        }
+      } else {
+        setError(err.message ?? "Failed to create tenant.");
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleEditChange = (field: keyof EditFormState, value: string) => {
-    setEditForm((current) => (current ? { ...current, [field]: value } : current));
+    setEditForm((current) =>
+      current ? { ...current, [field]: value } : current,
+    );
   };
 
   const handleSaveEdit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -584,7 +659,9 @@ export default function TenantsPage() {
       closeEditModal();
     } catch (saveError) {
       setTenantListError(
-        saveError instanceof Error ? saveError.message : "Failed to update tenant.",
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to update tenant.",
       );
     } finally {
       setIsSavingEdit(false);
@@ -603,7 +680,10 @@ export default function TenantsPage() {
 
     try {
       const firstName = tenant.owner_name?.trim().split(/\s+/)[0] || undefined;
-      const inviteJobs: Array<{ key: InviteEmailKey; promise: Promise<{ id: string }> }> = [
+      const inviteJobs: Array<{
+        key: InviteEmailKey;
+        promise: Promise<{ id: string }>;
+      }> = [
         {
           key: "welcome",
           promise: apiClient.sendWelcomeEmailForTenant(
@@ -634,10 +714,15 @@ export default function TenantsPage() {
           ),
         },
       ];
-      const emailResults = await Promise.allSettled(inviteJobs.map((job) => job.promise));
+      const emailResults = await Promise.allSettled(
+        inviteJobs.map((job) => job.promise),
+      );
       const inviteAttempt = await recordInviteAttempt(
         tenant.id,
-        inviteJobs.map((job, index) => ({ key: job.key, result: emailResults[index] })),
+        inviteJobs.map((job, index) => ({
+          key: job.key,
+          result: emailResults[index],
+        })),
       );
 
       await loadTenants();
@@ -649,7 +734,9 @@ export default function TenantsPage() {
       );
     } catch (inviteError) {
       setTenantListError(
-        inviteError instanceof Error ? inviteError.message : "Failed to resend tenant owner emails.",
+        inviteError instanceof Error
+          ? inviteError.message
+          : "Failed to resend tenant owner emails.",
       );
     } finally {
       setRowActionTenantId(null);
@@ -691,7 +778,9 @@ export default function TenantsPage() {
       );
     } catch (resendError) {
       setTenantListError(
-        resendError instanceof Error ? resendError.message : "Failed to resend questionnaire email.",
+        resendError instanceof Error
+          ? resendError.message
+          : "Failed to resend questionnaire email.",
       );
     } finally {
       setRowActionTenantId(null);
@@ -758,7 +847,10 @@ export default function TenantsPage() {
     }
   };
 
-  const handleTenantStatus = async (tenant: TenantListItem, nextStatus: "active" | "suspended") => {
+  const handleTenantStatus = async (
+    tenant: TenantListItem,
+    nextStatus: "active" | "suspended",
+  ) => {
     setTenantListError(null);
     setRowActionMessage(null);
     setRowActionTenantId(tenant.id);
@@ -775,7 +867,9 @@ export default function TenantsPage() {
       );
     } catch (statusError) {
       setTenantListError(
-        statusError instanceof Error ? statusError.message : "Failed to update tenant status.",
+        statusError instanceof Error
+          ? statusError.message
+          : "Failed to update tenant status.",
       );
     } finally {
       setRowActionTenantId(null);
@@ -783,7 +877,11 @@ export default function TenantsPage() {
   };
 
   if (loadingSession) {
-    return <div className="text-sm text-gray-500 dark:text-gray-300">Loading tenant provisioning console...</div>;
+    return (
+      <div className="text-sm text-gray-500 dark:text-gray-300">
+        Loading tenant provisioning console...
+      </div>
+    );
   }
 
   if (!isAuthorized) {
@@ -828,7 +926,9 @@ export default function TenantsPage() {
                 <Input
                   id="tenantName"
                   value={form.tenantName}
-                  onChange={(event) => handleChange("tenantName", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("tenantName", event.target.value)
+                  }
                   placeholder="Acme Electric"
                   required
                 />
@@ -838,7 +938,9 @@ export default function TenantsPage() {
                 <Input
                   id="tenantSlug"
                   value={form.tenantSlug}
-                  onChange={(event) => handleChange("tenantSlug", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("tenantSlug", event.target.value)
+                  }
                   placeholder="acme-electric"
                   hint={`Slug preview: ${slugPreview || "tenant"}`}
                 />
@@ -848,7 +950,9 @@ export default function TenantsPage() {
                 <Input
                   id="domain"
                   value={form.domain}
-                  onChange={(event) => handleChange("domain", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("domain", event.target.value)
+                  }
                   placeholder="acme.example.com"
                   hint={`Optional. If left blank, a stable temporary hostname like ${temporaryHostnamePreview} will be assigned automatically.`}
                 />
@@ -858,8 +962,10 @@ export default function TenantsPage() {
                 <select
                   id="planKey"
                   value={form.planKey}
-                  onChange={(event) => handleChange("planKey", event.target.value)}
-                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  onChange={(event) =>
+                    handleChange("planKey", event.target.value)
+                  }
+                  className="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                 >
                   {PLAN_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -873,7 +979,9 @@ export default function TenantsPage() {
                 <Input
                   id="timezone"
                   value={form.timezone}
-                  onChange={(event) => handleChange("timezone", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("timezone", event.target.value)
+                  }
                   placeholder="America/Chicago"
                 />
               </div>
@@ -882,7 +990,12 @@ export default function TenantsPage() {
                 <Input
                   id="defaultCurrency"
                   value={form.defaultCurrency}
-                  onChange={(event) => handleChange("defaultCurrency", event.target.value.toUpperCase())}
+                  onChange={(event) =>
+                    handleChange(
+                      "defaultCurrency",
+                      event.target.value.toUpperCase(),
+                    )
+                  }
                   placeholder="USD"
                 />
               </div>
@@ -890,14 +1003,19 @@ export default function TenantsPage() {
 
             <div className="space-y-4 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
               <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">Site Structure</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Site Structure
+                </p>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Tenant setup now starts from one universal page model. Core pages are included automatically, and any extra route-backed parent pages below will be created after the tenant is provisioned.
+                  Tenant setup now starts from one universal page model. Core
+                  pages are included automatically, and any extra route-backed
+                  parent pages below will be created after the tenant is
+                  provisioned.
                 </p>
               </div>
 
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <p className="mb-3 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                   Core Pages Included
                 </p>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -911,17 +1029,20 @@ export default function TenantsPage() {
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Home, Services, and About are platform-managed built-ins. Contact is created as a route-backed page during provisioning.
+                  Home, Services, and About are platform-managed built-ins.
+                  Contact is created as a route-backed page during provisioning.
                 </p>
               </div>
 
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <p className="mb-3 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                   Additional Pages Needed
                 </p>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {OPTIONAL_TENANT_PAGE_OPTIONS.map((option) => {
-                    const checked = selectedAdditionalPages.includes(option.slug);
+                    const checked = selectedAdditionalPages.includes(
+                      option.slug,
+                    );
                     return (
                       <label
                         key={option.slug}
@@ -931,10 +1052,12 @@ export default function TenantsPage() {
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleAdditionalPage(option.slug)}
-                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                          className="text-brand-500 focus:ring-brand-500 mt-0.5 h-4 w-4 rounded border-gray-300"
                         />
                         <span>
-                          <span className="block font-medium">{option.title}</span>
+                          <span className="block font-medium">
+                            {option.title}
+                          </span>
                           <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
                             {option.description}
                           </span>
@@ -944,12 +1067,13 @@ export default function TenantsPage() {
                   })}
                 </div>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Use the feature toggles below for Shop and Reservations. This checklist is for extra route-backed parent pages only.
+                  Use the feature toggles below for Shop and Reservations. This
+                  checklist is for extra route-backed parent pages only.
                 </p>
               </div>
 
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <p className="mb-3 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                   Feature Toggles
                 </p>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -958,12 +1082,13 @@ export default function TenantsPage() {
                       type="checkbox"
                       checked={featureToggles.shop}
                       onChange={() => toggleFeature("shop")}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                      className="text-brand-500 focus:ring-brand-500 mt-0.5 h-4 w-4 rounded border-gray-300"
                     />
                     <span>
                       <span className="block font-medium">Shop</span>
                       <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-                        Enables the built-in Shop route and ecommerce checkout settings during tenant provisioning.
+                        Enables the built-in Shop route and ecommerce checkout
+                        settings during tenant provisioning.
                       </span>
                     </span>
                   </label>
@@ -972,12 +1097,13 @@ export default function TenantsPage() {
                       type="checkbox"
                       checked={featureToggles.reservations}
                       onChange={() => toggleFeature("reservations")}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                      className="text-brand-500 focus:ring-brand-500 mt-0.5 h-4 w-4 rounded border-gray-300"
                     />
                     <span>
                       <span className="block font-medium">Reservations</span>
                       <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-                        Creates the Reservations parent page and activates reservation settings for the tenant.
+                        Creates the Reservations parent page and activates
+                        reservation settings for the tenant.
                       </span>
                     </span>
                   </label>
@@ -991,7 +1117,9 @@ export default function TenantsPage() {
                 <Input
                   id="ownerName"
                   value={form.ownerName}
-                  onChange={(event) => handleChange("ownerName", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("ownerName", event.target.value)
+                  }
                   placeholder="Alex Owner"
                   required
                 />
@@ -1002,7 +1130,9 @@ export default function TenantsPage() {
                   id="ownerEmail"
                   type="email"
                   value={form.ownerEmail}
-                  onChange={(event) => handleChange("ownerEmail", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("ownerEmail", event.target.value)
+                  }
                   placeholder="owner@acme.com"
                   required
                   autoComplete="email"
@@ -1014,7 +1144,9 @@ export default function TenantsPage() {
                   id="ownerPassword"
                   type="password"
                   value={form.ownerPassword}
-                  onChange={(event) => handleChange("ownerPassword", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("ownerPassword", event.target.value)
+                  }
                   placeholder="Create a temporary password"
                   required
                   autoComplete="new-password"
@@ -1025,7 +1157,9 @@ export default function TenantsPage() {
                 <Input
                   id="ownerPhone"
                   value={form.ownerPhone}
-                  onChange={(event) => handleChange("ownerPhone", event.target.value)}
+                  onChange={(event) =>
+                    handleChange("ownerPhone", event.target.value)
+                  }
                   placeholder="(555) 555-5555"
                 />
               </div>
@@ -1045,7 +1179,7 @@ export default function TenantsPage() {
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleModule(option.value)}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                        className="text-brand-500 focus:ring-brand-500 h-4 w-4 rounded border-gray-300"
                       />
                       <span>{option.label}</span>
                     </label>
@@ -1053,7 +1187,8 @@ export default function TenantsPage() {
                 })}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Baseline modules are provisioned automatically. Add-on selections seed tenant entitlements and initial feature flags.
+                Baseline modules are provisioned automatically. Add-on
+                selections seed tenant entitlements and initial feature flags.
               </p>
             </div>
 
@@ -1065,7 +1200,11 @@ export default function TenantsPage() {
                   setForm(initialState);
                   setSelectedAdditionalPages([]);
                   setFeatureToggles(initialFeatureToggles);
-                  setEnabledModules(["website_core", "seo_content", "lead_capture"]);
+                  setEnabledModules([
+                    "website_core",
+                    "seo_content",
+                    "lead_capture",
+                  ]);
                   setError(null);
                   setSuccessMessage(null);
                 }}
@@ -1093,7 +1232,7 @@ export default function TenantsPage() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              className="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
             >
               <option value="all">All Statuses</option>
               <option value="active">Active</option>
@@ -1103,7 +1242,7 @@ export default function TenantsPage() {
             <select
               value={inviteFilter}
               onChange={(event) => setInviteFilter(event.target.value)}
-              className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              className="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
             >
               <option value="all">All Invite States</option>
               <option value="not_sent">Not Sent</option>
@@ -1115,7 +1254,7 @@ export default function TenantsPage() {
               <select
                 value={sortOrder}
                 onChange={(event) => setSortOrder(event.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                className="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
@@ -1123,15 +1262,26 @@ export default function TenantsPage() {
                 <option value="name_desc">Name Z-A</option>
                 <option value="status">Status</option>
               </select>
-              <Button type="button" variant="outline" onClick={loadTenants} disabled={isLoadingTenants}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={loadTenants}
+                disabled={isLoadingTenants}
+              >
                 {isLoadingTenants ? "Refreshing..." : "Refresh"}
               </Button>
             </div>
           </div>
 
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>{filteredTenants.length} tenant{filteredTenants.length === 1 ? "" : "s"} shown</span>
-            <span>Invite tracking shows persisted status, attempts, and last send result.</span>
+            <span>
+              {filteredTenants.length} tenant
+              {filteredTenants.length === 1 ? "" : "s"} shown
+            </span>
+            <span>
+              Invite tracking shows persisted status, attempts, and last send
+              result.
+            </span>
           </div>
 
           {tenantListError ? (
@@ -1147,7 +1297,9 @@ export default function TenantsPage() {
           ) : null}
 
           {isLoadingTenants ? (
-            <p className="text-sm text-gray-500 dark:text-gray-300">Loading tenants...</p>
+            <p className="text-sm text-gray-500 dark:text-gray-300">
+              Loading tenants...
+            </p>
           ) : null}
 
           {!isLoadingTenants && filteredTenants.length === 0 ? (
@@ -1160,7 +1312,7 @@ export default function TenantsPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <tr className="text-left text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
                     <th className="px-4 py-3">Tenant</th>
                     <th className="px-4 py-3">Owner</th>
                     <th className="px-4 py-3">Plan</th>
@@ -1173,37 +1325,65 @@ export default function TenantsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-900">
                   {filteredTenants.map((tenant) => (
-                    <tr key={tenant.id}>
+                    <tr
+                      key={tenant.id}
+                      className={
+                        selectedClient?.tenant_id === tenant.id
+                          ? "bg-[#CD7F32]/8 dark:bg-[#CD7F32]/10"
+                          : undefined
+                      }
+                    >
                       <td className="px-4 py-4 align-top">
-                        <p className="font-medium text-gray-900 dark:text-white">{tenant.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">slug: {tenant.slug}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {tenant.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          slug: {tenant.slug}
+                        </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {tenant.status}
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <p className="text-gray-900 dark:text-white">{tenant.owner_name ?? "Unassigned"}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{tenant.owner_email ?? "No owner email"}</p>
+                        <p className="text-gray-900 dark:text-white">
+                          {tenant.owner_name ?? "Unassigned"}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {tenant.owner_email ?? "No owner email"}
+                        </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <span className="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium capitalize text-gray-700 dark:text-gray-300">
+                        <span className="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium text-gray-700 capitalize dark:text-gray-300">
                           {tenant.plan_key ?? "none"}
                         </span>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <p className="text-gray-900 dark:text-white">{tenant.primary_domain ?? tenant.website_domain ?? "No domain"}</p>
+                        <p className="text-gray-900 dark:text-white">
+                          {tenant.primary_domain ??
+                            tenant.website_domain ??
+                            "No domain"}
+                        </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {tenant.primary_domain_status ?? "domain not configured"}
+                          {tenant.primary_domain_status ??
+                            "domain not configured"}
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {tenant.seat_used}{tenant.seat_limit != null ? ` / ${tenant.seat_limit}` : ""}
+                          {tenant.seat_used}
+                          {tenant.seat_limit != null
+                            ? ` / ${tenant.seat_limit}`
+                            : ""}
                         </p>
-                        {tenant.seat_limit != null && tenant.seat_used >= tenant.seat_limit ? (
-                          <span className="text-xs font-medium text-red-600 dark:text-red-400">At limit</span>
+                        {tenant.seat_limit != null &&
+                        tenant.seat_used >= tenant.seat_limit ? (
+                          <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                            At limit
+                          </span>
                         ) : tenant.seat_limit == null ? (
-                          <span className="text-xs text-gray-400">Unlimited</span>
+                          <span className="text-xs text-gray-400">
+                            Unlimited
+                          </span>
                         ) : null}
                       </td>
                       <td className="px-4 py-4 align-top">
@@ -1214,27 +1394,45 @@ export default function TenantsPage() {
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${inviteBadgeClasses(tenant.invite_status)}`}>
-                          {(tenant.invite_status ?? "not_sent").replace(/_/g, " ")}
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${inviteBadgeClasses(tenant.invite_status)}`}
+                        >
+                          {(tenant.invite_status ?? "not_sent").replace(
+                            /_/g,
+                            " ",
+                          )}
                         </span>
                         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                           Attempts: {tenant.invite_attempt_count ?? 0}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Last attempt: {formatTimestamp(tenant.last_attempted_at)}
+                          Last attempt:{" "}
+                          {formatTimestamp(tenant.last_attempted_at)}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Last sent: {formatTimestamp(tenant.last_sent_at)}
                         </p>
                         {tenant.delivery_results ? (
                           <div className="mt-2 space-y-2">
-                            {(Object.entries(tenant.delivery_results) as Array<[InviteEmailKey, InviteDeliveryResultRecord[InviteEmailKey]]>).map(([key, result]) => (
-                              <div key={`${tenant.id}-${key}`} className="rounded-lg border border-gray-200 p-2 dark:border-gray-800">
+                            {(
+                              Object.entries(tenant.delivery_results) as Array<
+                                [
+                                  InviteEmailKey,
+                                  InviteDeliveryResultRecord[InviteEmailKey],
+                                ]
+                              >
+                            ).map(([key, result]) => (
+                              <div
+                                key={`${tenant.id}-${key}`}
+                                className="rounded-lg border border-gray-200 p-2 dark:border-gray-800"
+                              >
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                  <span className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                                     {inviteEmailLabels[key]}
                                   </span>
-                                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${deliveryBadgeClasses(result.status)}`}>
+                                  <span
+                                    className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${deliveryBadgeClasses(result.status)}`}
+                                  >
                                     {result.status}
                                   </span>
                                 </div>
@@ -1300,36 +1498,61 @@ export default function TenantsPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleResendOwnerEmails(tenant)}
-                            disabled={!tenant.owner_email || rowActionTenantId === tenant.id}
+                            disabled={
+                              !tenant.owner_email ||
+                              rowActionTenantId === tenant.id
+                            }
                           >
-                            {rowActionTenantId === tenant.id ? "Working..." : "Resend Invite"}
+                            {rowActionTenantId === tenant.id
+                              ? "Working..."
+                              : "Resend Invite"}
                           </Button>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => handleResendIntakeEmail(tenant)}
-                            disabled={!tenant.owner_email || rowActionTenantId === tenant.id}
+                            disabled={
+                              !tenant.owner_email ||
+                              rowActionTenantId === tenant.id
+                            }
                           >
-                            {rowActionTenantId === tenant.id ? "Working..." : "Resend Questionnaire"}
+                            {rowActionTenantId === tenant.id
+                              ? "Working..."
+                              : "Resend Questionnaire"}
                           </Button>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => handleSendBillingInvite(tenant)}
-                            disabled={!tenant.owner_email || !tenant.plan_key || rowActionTenantId === tenant.id}
+                            disabled={
+                              !tenant.owner_email ||
+                              !tenant.plan_key ||
+                              rowActionTenantId === tenant.id
+                            }
                           >
-                            {rowActionTenantId === tenant.id ? "Working..." : "Billing Invite"}
+                            {rowActionTenantId === tenant.id
+                              ? "Working..."
+                              : "Billing Invite"}
                           </Button>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => handleTenantStatus(tenant, tenant.status === "active" ? "suspended" : "active")}
+                            onClick={() =>
+                              handleTenantStatus(
+                                tenant,
+                                tenant.status === "active"
+                                  ? "suspended"
+                                  : "active",
+                              )
+                            }
                             disabled={rowActionTenantId === tenant.id}
                           >
-                            {tenant.status === "active" ? "Suspend" : "Reactivate"}
+                            {tenant.status === "active"
+                              ? "Suspend"
+                              : "Reactivate"}
                           </Button>
                         </div>
                       </td>
@@ -1341,12 +1564,19 @@ export default function TenantsPage() {
           ) : null}
         </ComponentCard>
 
-        <Modal isOpen={isEditOpen} onClose={closeEditModal} className="max-w-[840px] m-4">
-          <div className="relative w-full rounded-3xl bg-white p-6 dark:bg-gray-900 lg:p-8">
+        <Modal
+          isOpen={isEditOpen}
+          onClose={closeEditModal}
+          className="m-4 max-w-[840px]"
+        >
+          <div className="relative w-full rounded-3xl bg-white p-6 lg:p-8 dark:bg-gray-900">
             <div className="mb-6 pr-10">
-              <h4 className="text-2xl font-semibold text-gray-800 dark:text-white/90">Edit Tenant</h4>
+              <h4 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
+                Edit Tenant
+              </h4>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Update tenant metadata, owner contact details, and managed add-on modules.
+                Update tenant metadata, owner contact details, and managed
+                add-on modules.
               </p>
             </div>
 
@@ -1355,35 +1585,91 @@ export default function TenantsPage() {
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div>
                     <Label htmlFor="editTenantName">Tenant Name</Label>
-                    <Input id="editTenantName" value={editForm.tenantName} onChange={(event) => handleEditChange("tenantName", event.target.value)} required />
+                    <Input
+                      id="editTenantName"
+                      value={editForm.tenantName}
+                      onChange={(event) =>
+                        handleEditChange("tenantName", event.target.value)
+                      }
+                      required
+                    />
                   </div>
                   <div>
                     <Label htmlFor="editTenantSlug">Tenant Slug</Label>
-                    <Input id="editTenantSlug" value={editForm.tenantSlug} onChange={(event) => handleEditChange("tenantSlug", event.target.value)} required />
+                    <Input
+                      id="editTenantSlug"
+                      value={editForm.tenantSlug}
+                      onChange={(event) =>
+                        handleEditChange("tenantSlug", event.target.value)
+                      }
+                      required
+                    />
                   </div>
                   <div>
                     <Label htmlFor="editTimezone">Timezone</Label>
-                    <Input id="editTimezone" value={editForm.timezone} onChange={(event) => handleEditChange("timezone", event.target.value)} />
+                    <Input
+                      id="editTimezone"
+                      value={editForm.timezone}
+                      onChange={(event) =>
+                        handleEditChange("timezone", event.target.value)
+                      }
+                    />
                   </div>
                   <div>
                     <Label htmlFor="editCurrency">Default Currency</Label>
-                    <Input id="editCurrency" value={editForm.defaultCurrency} onChange={(event) => handleEditChange("defaultCurrency", event.target.value.toUpperCase())} />
+                    <Input
+                      id="editCurrency"
+                      value={editForm.defaultCurrency}
+                      onChange={(event) =>
+                        handleEditChange(
+                          "defaultCurrency",
+                          event.target.value.toUpperCase(),
+                        )
+                      }
+                    />
                   </div>
                   <div>
                     <Label htmlFor="editDomain">Primary Domain</Label>
-                    <Input id="editDomain" value={editForm.domain} onChange={(event) => handleEditChange("domain", event.target.value)} />
+                    <Input
+                      id="editDomain"
+                      value={editForm.domain}
+                      onChange={(event) =>
+                        handleEditChange("domain", event.target.value)
+                      }
+                    />
                   </div>
                   <div>
                     <Label htmlFor="editOwnerName">Owner Name</Label>
-                    <Input id="editOwnerName" value={editForm.ownerName} onChange={(event) => handleEditChange("ownerName", event.target.value)} required />
+                    <Input
+                      id="editOwnerName"
+                      value={editForm.ownerName}
+                      onChange={(event) =>
+                        handleEditChange("ownerName", event.target.value)
+                      }
+                      required
+                    />
                   </div>
                   <div>
                     <Label htmlFor="editOwnerEmail">Owner Email</Label>
-                    <Input id="editOwnerEmail" type="email" value={editForm.ownerEmail} onChange={(event) => handleEditChange("ownerEmail", event.target.value)} required />
+                    <Input
+                      id="editOwnerEmail"
+                      type="email"
+                      value={editForm.ownerEmail}
+                      onChange={(event) =>
+                        handleEditChange("ownerEmail", event.target.value)
+                      }
+                      required
+                    />
                   </div>
                   <div>
                     <Label htmlFor="editOwnerPhone">Owner Phone</Label>
-                    <Input id="editOwnerPhone" value={editForm.ownerPhone} onChange={(event) => handleEditChange("ownerPhone", event.target.value)} />
+                    <Input
+                      id="editOwnerPhone"
+                      value={editForm.ownerPhone}
+                      onChange={(event) =>
+                        handleEditChange("ownerPhone", event.target.value)
+                      }
+                    />
                   </div>
                 </div>
 
@@ -1393,12 +1679,15 @@ export default function TenantsPage() {
                     {MODULE_OPTIONS.map((option) => {
                       const checked = editModules.includes(option.value);
                       return (
-                        <label key={option.value} className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                        <label
+                          key={option.value}
+                          className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-200"
+                        >
                           <input
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleEditModule(option.value)}
-                            className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                            className="text-brand-500 focus:ring-brand-500 h-4 w-4 rounded border-gray-300"
                           />
                           <span>{option.label}</span>
                         </label>
@@ -1408,7 +1697,12 @@ export default function TenantsPage() {
                 </div>
 
                 <div className="flex items-center justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={closeEditModal} disabled={isSavingEdit}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeEditModal}
+                    disabled={isSavingEdit}
+                  >
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isSavingEdit}>

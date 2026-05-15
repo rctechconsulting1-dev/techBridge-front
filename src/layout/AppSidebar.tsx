@@ -19,6 +19,7 @@ import {
   normalizeEntitlementValues,
 } from "@/lib/entitlements";
 import {
+  BoltIcon,
   ChevronDownIcon,
   FileIcon,
   HorizontaLDots,
@@ -53,6 +54,15 @@ const navItems: NavItem[] = [
     subItems: [{ name: "Content Prompts", path: "/chat-gpt", pro: false }],
   },
   {
+    name: "AI Agent",
+    icon: <BoltIcon />,
+    requiredModules: ["custom_ai_agent"],
+    subItems: [
+      { name: "Leads",    path: "/ai-leads" },
+      { name: "Settings", path: "/ai-agent-settings" },
+    ],
+  },
+  {
     name: "Google Business",
     icon: <PlugInIcon />,
     path: "/google-business",
@@ -65,6 +75,7 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Performance", path: "/marketing" },
       { name: "Ad Requests", path: "/marketing/requests" },
+      { name: "Workflow Runs", path: "/marketing/workflow-runs" },
       { name: "Content", path: "/marketing/content" },
     ],
   },

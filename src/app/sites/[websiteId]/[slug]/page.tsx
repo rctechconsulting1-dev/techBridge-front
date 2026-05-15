@@ -23,7 +23,7 @@ import {
 } from "@/components/sections/sectionVariants";
 import LocationPage from "@/components/built-in/location/LocationPage";
 import { getPublicCanonicalMetadata, getPublicCanonicalUrl } from "@/lib/public-site-routing";
-import { BreadcrumbJsonLd, LocationServiceJsonLd } from "@/components/seo/JsonLd";
+import { BreadcrumbJsonLd, LocationServiceJsonLd, ArticleJsonLd } from "@/components/seo/JsonLd";
 
 export const revalidate = 60;
 
@@ -181,6 +181,20 @@ export default async function CustomPage({ params }: Props) {
           siteBase={siteBase}
           pageTitle={page.title ?? toReadableTitle(slug)}
           pageSlug={slug}
+        />
+      )}
+      {/* Article schema for individual blog posts */}
+      {(page.page_type === "blog-post" || page.template_type === "blog-post") && canonicalUrl && (
+        <ArticleJsonLd
+          title={page.title ?? toReadableTitle(slug)}
+          description={page.meta_description ?? page.excerpt ?? ""}
+          canonicalUrl={canonicalUrl}
+          datePublished={page.created_at}
+          dateModified={page.updated_at ?? page.created_at}
+          authorName={website.name}
+          publisherName={website.name}
+          publisherLogoUrl={settings?.logo_url ?? undefined}
+          imageUrl={page.featured_image_url ?? undefined}
         />
       )}
       <div style={cssVars} className="[scroll-behavior:smooth]">

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
+import { toast } from "react-toastify";
 import { getStoredAuthToken } from "@/lib/auth-context";
 import { useSidebar } from "@/context/SidebarContext";
 
@@ -43,6 +44,9 @@ export function MarketingRequestsTable() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  // Reject-with-reason modal state
+  const [rejectTarget, setRejectTarget] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const token = getStoredAuthToken();
   const tenantId = selectedClient?.tenant_id;
@@ -72,29 +76,91 @@ export function MarketingRequestsTable() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function doAction(id: number, action: "approve" | "reject" | "execute") {
+  async function doAction(id: number, action: "approve" | "execute", body: Record<string, unknown> = {}) {
     setActionLoading(id);
     try {
       const res = await fetch(`/api/marketing/requests/${id}/${action}`, {
         method: "POST",
         headers,
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || `Action '${action}' failed`);
+        toast.error(data.error || `Action '${action}' failed`);
       } else {
+        toast.success(action === "approve" ? "Request approved." : "Request executed.");
         load();
       }
     } catch {
-      alert("Action failed — check your connection.");
+      toast.error("Action failed — check your connection.");
     } finally {
       setActionLoading(null);
     }
   }
 
+  async function submitReject() {
+    if (rejectTarget === null) return;
+    const id = rejectTarget;
+    setRejectTarget(null);
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/marketing/requests/${id}/reject`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Rejection failed.");
+      } else {
+        toast.success("Request rejected.");
+        load();
+      }
+    } catch {
+      toast.error("Rejection failed — check your connection.");
+    } finally {
+      setActionLoading(null);
+      setRejectReason("");
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+      {/* Reject-with-reason modal */}
+      {rejectTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6 space-y-4">
+            <h3 className="text-base font-semibold text-gray-800 dark:text-white">
+              Reject request #{rejectTarget}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Optionally provide a reason. This will be saved with the audit record.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Reason for rejection (optional)"
+              rows={3}
+              maxLength={500}
+              className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-2 text-sm text-gray-800 dark:text-white focus:outline-none focus:border-red-400"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setRejectTarget(null); setRejectReason(""); }}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitReject}
+                className="rounded-lg bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm font-medium"
+              >
+                Confirm Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">
           Ad Action Requests
@@ -187,7 +253,7 @@ export function MarketingRequestsTable() {
                             Approve
                           </button>
                           <button
-                            onClick={() => doAction(r.id, "reject")}
+                            onClick={() => { setRejectTarget(r.id); setRejectReason(""); }}
                             disabled={actionLoading === r.id}
                             className="rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 px-2.5 py-1 text-xs font-medium disabled:opacity-50"
                           >

@@ -98,6 +98,17 @@ type BuiltInSeoAssistantResponse = {
   rationale?: string[];
 };
 
+type BusinessProfile = {
+  target_keyword_primary?: string | null;
+  target_cities?: string[] | null;
+  priority_services?: string[] | null;
+  ideal_customer?: string | null;
+  differentiator?: string | null;
+  trust_signals?: string | null;
+  brand_voice_words?: string[] | null;
+  primary_conversion_mode?: string | null;
+};
+
 type WorkflowAction = "draft" | "submit" | "approve" | "reject";
 
 type SectionSourceKind = "page" | "global" | "collection" | "computed";
@@ -1343,18 +1354,51 @@ const pickAnswer = (
 const buildSeoAssistantPrefill = (
   pageKey: BuiltInPageKey,
   submission: IntakeStoredSubmission | null,
+  profile?: BusinessProfile | null,
 ) => {
   const questions = SEO_ASSISTANT_QUESTIONS[pageKey];
 
-  return Object.fromEntries(
+  // Intake-derived base answers (always populated first)
+  const intakeAnswers = Object.fromEntries(
     questions.map((question) => {
       const value = question.intakeKeys?.length
         ? pickAnswer(submission, ...question.intakeKeys)
         : "";
-
       return [question.key, value];
     }),
   ) as Record<string, string>;
+
+  if (!profile) return intakeAnswers;
+
+  // Business profile overrides intake for the canonical cross-page fields.
+  // Only override when the profile field is non-empty — never blank out an
+  // intake answer with an empty profile value.
+  const profileOverrides: Partial<Record<string, string>> = {};
+
+  const str = (v: unknown): string =>
+    typeof v === "string" && v.trim() ? v.trim() : "";
+  const arr = (v: unknown): string =>
+    Array.isArray(v) ? (v as string[]).filter(Boolean).join("\n") : "";
+
+  const city = arr(profile.target_cities);
+  const services = arr(profile.priority_services);
+
+  if (city) profileOverrides.targetCity = city;
+  if (services) {
+    profileOverrides.primaryService   = services;
+    profileOverrides.priorityServices = services;
+    profileOverrides.productFocus     = services;
+  }
+  if (str(profile.ideal_customer))  profileOverrides.idealCustomer   = str(profile.ideal_customer);
+  if (str(profile.ideal_customer))  profileOverrides.customerProblems = str(profile.ideal_customer);
+  if (str(profile.ideal_customer))  profileOverrides.customerFit     = str(profile.ideal_customer);
+  if (str(profile.differentiator))  profileOverrides.differentiator  = str(profile.differentiator);
+  if (str(profile.differentiator))  profileOverrides.businessStory   = str(profile.differentiator);
+  if (str(profile.differentiator))  profileOverrides.storeDifferentiator = str(profile.differentiator);
+  if (str(profile.trust_signals))   profileOverrides.trustSignals    = str(profile.trust_signals);
+  if (str(profile.trust_signals))   profileOverrides.credibility     = str(profile.trust_signals);
+
+  return { ...intakeAnswers, ...profileOverrides } as Record<string, string>;
 };
 
 const buildSeoAssistantContext = (
@@ -1398,7 +1442,7 @@ function TextField({
   hint,
   textarea = false,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   onChange: (nextValue: string) => void;
   hint?: string;
@@ -1548,6 +1592,9 @@ export default function BuiltInPageEditorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeAction, setActiveAction] = useState<WorkflowAction | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [aiSuggestedFields, setAiSuggestedFields] = useState<Set<string>>(new Set());
+  const [isAiSuggestLoading, setIsAiSuggestLoading] = useState(false);
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
   const { trigger: triggerContentAgent, isLoading: isSeoAssistantLoading } = useContentAgent();
 
   const pageKey = useMemo(() => {
@@ -1564,6 +1611,7 @@ export default function BuiltInPageEditorPage() {
     setSeoAssistantAnswers({});
     setSeoAssistantResult(null);
     setActiveSectionConfig(null);
+    setAiSuggestedFields(new Set());
   }, [pageKey]);
 
   const websiteId = Number(selectedClient?.website_id || 0) || null;
@@ -1695,6 +1743,44 @@ export default function BuiltInPageEditorPage() {
       cancelled = true;
     };
   }, [selectedTenantId, websiteId]);
+
+  // Load business profile — used to pre-populate the SEO assistant so that
+  // tenant-level answers set once flow into every page editor automatically.
+  useEffect(() => {
+    if (!websiteId) {
+      setBusinessProfile(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadBusinessProfile = async () => {
+      try {
+        const response = await fetch(`/api/business-profile?websiteId=${websiteId}`, {
+          headers: authHeaders(),
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          const profile = (await response.json()) as BusinessProfile;
+          if (!cancelled) setBusinessProfile(profile);
+        } else {
+          // 404 = not created yet; just leave null so intake prefill runs instead
+          if (!cancelled) setBusinessProfile(null);
+        }
+      } catch {
+        if (!cancelled) setBusinessProfile(null);
+      }
+    };
+
+    void loadBusinessProfile();
+
+    return () => {
+      cancelled = true;
+    };
+    // authHeaders is a module-level constant; websiteId drives re-fetches
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [websiteId]);
 
   useEffect(() => {
     if (!pageKey || !websiteId) {
@@ -2149,13 +2235,27 @@ export default function BuiltInPageEditorPage() {
     "Universal website";
 
   const prefillSeoAssistantFromIntake = useCallback(() => {
-    if (!latestIntakeSubmission) {
-      toast.error("No intake submission found for this tenant.");
+    if (!latestIntakeSubmission && !businessProfile) {
+      toast.error("No intake submission or business profile found for this tenant.");
       return;
     }
 
-    const nextAnswers = buildSeoAssistantPrefill(activePageKey, latestIntakeSubmission);
-    const city = nextAnswers.targetCity?.trim() || pickAnswer(latestIntakeSubmission, "location");
+    // Business profile is merged on top of intake — profile values win for the
+    // canonical cross-page fields so admins don't have to re-enter them here.
+    const nextAnswers = buildSeoAssistantPrefill(
+      activePageKey,
+      latestIntakeSubmission,
+      businessProfile,
+    );
+
+    // Derive target city from answers or intake directly
+    const city =
+      nextAnswers.targetCity?.trim() ||
+      pickAnswer(latestIntakeSubmission, "location") ||
+      (Array.isArray(businessProfile?.target_cities) && businessProfile.target_cities[0]
+        ? businessProfile.target_cities[0]
+        : "");
+
     const serviceLikeAnswer =
       nextAnswers.primaryService?.trim() ||
       nextAnswers.priorityServices?.trim() ||
@@ -2163,7 +2263,30 @@ export default function BuiltInPageEditorPage() {
       activePageKey;
 
     if (!nextAnswers.targetKeyword?.trim()) {
-      nextAnswers.targetKeyword = `${toServiceLines(serviceLikeAnswer)[0] ?? activePageKey} ${city}`.trim();
+      // Prefer the profile's primary keyword if available
+      const profileKeyword =
+        typeof businessProfile?.target_keyword_primary === "string"
+          ? businessProfile.target_keyword_primary.trim()
+          : "";
+      nextAnswers.targetKeyword =
+        profileKeyword ||
+        `${toServiceLines(serviceLikeAnswer)[0] ?? activePageKey} ${city}`.trim();
+    }
+
+    if (!nextAnswers.conversionGoal?.trim()) {
+      const CONVERSION_MODE_LABELS: Record<string, string> = {
+        call: "Call us now",
+        email: "Request a free quote via email",
+        appointment: "Book an appointment",
+        reservation: "Make a reservation",
+        checkout: "Shop now",
+      };
+      // Use profile's conversion mode if present, fall back to page presentation
+      const mode =
+        (typeof businessProfile?.primary_conversion_mode === "string"
+          ? businessProfile.primary_conversion_mode
+          : null) ?? presentationState.conversionMode;
+      nextAnswers.conversionGoal = CONVERSION_MODE_LABELS[mode] ?? "";
     }
 
     setSeoAssistantAnswers((current) => ({
@@ -2172,17 +2295,122 @@ export default function BuiltInPageEditorPage() {
         Object.entries(current).filter(([, value]) => typeof value === "string" && value.trim().length > 0),
       ),
     }));
-  }, [activePageKey, latestIntakeSubmission]);
+  }, [activePageKey, businessProfile, latestIntakeSubmission, presentationState.conversionMode]);
 
+  // Auto-prefill whenever intake or business profile first becomes available
+  // and the admin hasn't typed anything yet. Business profile wins for shared fields.
   useEffect(() => {
-    if (!latestIntakeSubmission) {
+    if (!latestIntakeSubmission && !businessProfile) {
       return;
     }
 
     if (Object.values(seoAssistantAnswers).every((value) => !value?.trim())) {
       prefillSeoAssistantFromIntake();
     }
-  }, [latestIntakeSubmission, prefillSeoAssistantFromIntake, seoAssistantAnswers]);
+  }, [businessProfile, latestIntakeSubmission, prefillSeoAssistantFromIntake, seoAssistantAnswers]);
+
+  // Calls the AI to suggest answers for all SEO question fields from available
+  // tenant data. Only fills fields that are currently empty so manual edits
+  // are preserved. AI-suggested fields get a badge so admins know to verify.
+  const suggestSeoAnswersFromContext = useCallback(async () => {
+    if (!websiteId) {
+      toast.error("Select a tenant first.");
+      return;
+    }
+
+    const contextLines: string[] = [];
+    if (selectedClient?.name) contextLines.push(`Business name: ${selectedClient.name}`);
+
+    const settings = homeSourceSummary.settings;
+    if (settings?.address) contextLines.push(`Address: ${settings.address}`);
+    if (settings?.contact_phone) contextLines.push(`Phone: ${settings.contact_phone}`);
+    if (settings?.contact_email) contextLines.push(`Email: ${settings.contact_email}`);
+    if (settings?.average_rating && settings.review_count) {
+      contextLines.push(`Rating: ${settings.average_rating}/5 from ${settings.review_count} reviews`);
+    }
+
+    contextLines.push(`Page type: ${activePageKey} built-in page`);
+    contextLines.push(`Conversion mode: ${presentationState.conversionMode}`);
+    contextLines.push(`Recipe: ${presentationState.recipe}`);
+
+    if (homeSourceSummary.serviceCount > 0) {
+      contextLines.push(`Number of services on file: ${homeSourceSummary.serviceCount}`);
+    }
+
+    if (latestIntakeSubmission?.answers) {
+      const answers = latestIntakeSubmission.answers as Record<string, unknown>;
+      const relevantKeys = [
+        "business_name", "location", "service_area_details", "service_list",
+        "appointment_types", "primary_offerings", "ideal_client", "differentiator",
+        "credentials", "years_in_business", "has_insurance", "google_business_url",
+        "hours_locations", "product_list", "reservation_types", "service_product_list",
+      ];
+      contextLines.push("\nIntake answers:");
+      for (const key of relevantKeys) {
+        const val = asAnswerString(answers[key]);
+        if (val) contextLines.push(`  ${key}: ${val}`);
+      }
+    }
+
+    if (seo.title || seo.description) {
+      contextLines.push(`\nCurrent SEO title: ${seo.title || "(none)"}`);
+      contextLines.push(`Current SEO description: ${seo.description || "(none)"}`);
+    }
+
+    setIsAiSuggestLoading(true);
+    try {
+      const data = (await triggerContentAgent({
+        mode: "suggest_seo_answers",
+        businessName: selectedClient?.name,
+        rawContext: contextLines.join("\n"),
+        conversionMode: presentationState.conversionMode,
+        pageKey: activePageKey,
+        websiteId,
+      })) as { step?: string; suggestedAnswers?: Record<string, string> };
+
+      if (data.step !== "seo_answers_suggested") {
+        throw new Error("AI did not return suggested answers.");
+      }
+
+      const suggested = data.suggestedAnswers ?? {};
+      const newAiFields = new Set<string>();
+
+      setSeoAssistantAnswers((current) => {
+        const next = { ...current };
+        for (const [key, value] of Object.entries(suggested)) {
+          if (typeof value === "string" && value.trim() && !next[key]?.trim()) {
+            next[key] = value;
+            newAiFields.add(key);
+          }
+        }
+        return next;
+      });
+
+      setAiSuggestedFields((prev) => new Set([...prev, ...newAiFields]));
+
+      if (newAiFields.size === 0) {
+        toast.success("All fields already filled — nothing new to suggest.");
+      } else {
+        toast.success(
+          `AI suggested ${newAiFields.size} answer${newAiFields.size !== 1 ? "s" : ""}. Review and adjust before generating.`,
+        );
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to suggest answers.");
+    } finally {
+      setIsAiSuggestLoading(false);
+    }
+  }, [
+    activePageKey,
+    homeSourceSummary,
+    latestIntakeSubmission,
+    presentationState.conversionMode,
+    presentationState.recipe,
+    selectedClient,
+    seo,
+    triggerContentAgent,
+    websiteId,
+  ]);
 
   const generateSeoAssistantDraft = useCallback(async () => {
     if (!websiteId || !pageKey) {
@@ -2678,20 +2906,56 @@ export default function BuiltInPageEditorPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
-                    SEO Assistant
+                    SEO Assistant — {BUILT_IN_PAGE_LABELS[activePageKey]} Page
                   </p>
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    This assistant now lives inside Built-in Pages. It uses the current recipe, conversion mode, draft content, and latest intake answers to stage ranking-focused copy directly into this editor.
+                    This assistant uses the current recipe, conversion mode, draft content, and business profile to stage ranking-focused copy directly into this editor.
+                    {businessProfile ? (
+                      <span className="ml-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                        ✓ Business profile active
+                      </span>
+                    ) : (
+                      <Link
+                        href="/business-profile"
+                        className="ml-1 inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:underline dark:bg-amber-950/30 dark:text-amber-300"
+                      >
+                        ⚠ Set up Business Profile →
+                      </Link>
+                    )}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {websiteId && (
+                    <Link
+                      href="/business-profile"
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Edit Business Profile
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={prefillSeoAssistantFromIntake}
-                    disabled={latestIntakeLoading || !latestIntakeSubmission}
+                    disabled={latestIntakeLoading || (!latestIntakeSubmission && !businessProfile)}
                     className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                   >
-                    Use Latest Intake
+                    {businessProfile ? "Prefill from Profile" : "Use Latest Intake"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void suggestSeoAnswersFromContext().catch((error) => {
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Failed to suggest SEO answers.",
+                        );
+                      });
+                    }}
+                    disabled={isAiSuggestLoading || isSeoAssistantLoading || !websiteId}
+                    className="rounded-lg border border-[#CD7F32]/40 px-3 py-1.5 text-xs font-semibold text-[#CD7F32] hover:bg-[#CD7F32]/5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isAiSuggestLoading ? "Suggesting…" : "✦ AI Suggest Answers"}
                   </button>
                   <button
                     type="button"
@@ -2704,7 +2968,7 @@ export default function BuiltInPageEditorPage() {
                         );
                       });
                     }}
-                    disabled={isSeoAssistantLoading || !websiteId}
+                    disabled={isSeoAssistantLoading || isAiSuggestLoading || !websiteId}
                     className="rounded-lg bg-[#CD7F32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#b06d2b] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSeoAssistantLoading ? "Generating..." : "Generate SEO Draft"}
@@ -2719,14 +2983,33 @@ export default function BuiltInPageEditorPage() {
                     className={question.textarea ? "lg:col-span-2" : undefined}
                   >
                     <TextField
-                      label={`${question.label}${question.required ? " *" : ""}`}
+                      label={
+                        aiSuggestedFields.has(question.key) ? (
+                          <span className="flex items-center gap-1">
+                            {question.label}
+                            {question.required ? " *" : ""}
+                            <span className="rounded bg-[#CD7F32]/10 px-1 py-0.5 text-[10px] font-semibold text-[#CD7F32]">
+                              ✦ AI
+                            </span>
+                          </span>
+                        ) : (
+                          `${question.label}${question.required ? " *" : ""}`
+                        )
+                      }
                       value={seoAssistantAnswers[question.key] ?? ""}
-                      onChange={(nextValue) =>
+                      onChange={(nextValue) => {
                         setSeoAssistantAnswers((current) => ({
                           ...current,
                           [question.key]: nextValue,
-                        }))
-                      }
+                        }));
+                        if (aiSuggestedFields.has(question.key)) {
+                          setAiSuggestedFields((prev) => {
+                            const next = new Set(prev);
+                            next.delete(question.key);
+                            return next;
+                          });
+                        }
+                      }}
                       hint={question.hint}
                       textarea={question.textarea}
                     />
