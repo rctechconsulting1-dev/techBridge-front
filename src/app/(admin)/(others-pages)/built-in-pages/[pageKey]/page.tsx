@@ -85,6 +85,9 @@ type SeoAssistantQuestion = {
   textarea?: boolean;
   required?: boolean;
   intakeKeys?: string[];
+  /** "tenant" questions come from the business profile and are shown read-only.
+   *  "page" questions are page-specific and shown as editable inputs. */
+  scope?: "tenant" | "page";
 };
 
 type BuiltInSeoAssistantResponse = {
@@ -159,19 +162,21 @@ const SEO_ASSISTANT_QUESTIONS: Record<BuiltInPageKey, SeoAssistantQuestion[]> = 
   home: [
     {
       key: "targetKeyword",
-      label: "What should this Home page rank for locally?",
+      label: "Primary local keyword",
       hint: "Example: electrician sacramento or hvac repair roseville",
       required: true,
+      scope: "tenant",
     },
     {
       key: "targetCity",
-      label: "What city or service area should the page target?",
+      label: "Target city or service area",
       required: true,
       intakeKeys: ["location", "service_area_details", "hours_locations"],
+      scope: "tenant",
     },
     {
       key: "primaryService",
-      label: "What is the main service or offer to lead with?",
+      label: "What is the main service or offer to lead with on this page?",
       required: true,
       textarea: true,
       intakeKeys: [
@@ -181,43 +186,50 @@ const SEO_ASSISTANT_QUESTIONS: Record<BuiltInPageKey, SeoAssistantQuestion[]> = 
         "reservation_types",
         "service_product_list",
       ],
+      scope: "page",
     },
     {
       key: "idealCustomer",
-      label: "Who is the ideal customer for this page?",
+      label: "Ideal customer",
       textarea: true,
       intakeKeys: ["ideal_client"],
+      scope: "tenant",
     },
     {
       key: "differentiator",
-      label: "Why should someone choose this business instead of competitors?",
+      label: "Why this business over competitors",
       textarea: true,
       intakeKeys: ["differentiator"],
+      scope: "tenant",
     },
     {
       key: "trustSignals",
-      label: "What trust signals can we mention truthfully?",
+      label: "Trust signals",
       hint: "Licenses, insurance, years in business, certifications, Google Business, etc.",
       textarea: true,
       intakeKeys: ["credentials", "years_in_business", "has_insurance", "google_business_url"],
+      scope: "tenant",
     },
     {
       key: "conversionGoal",
-      label: "What action should visitors take next?",
+      label: "Primary conversion action",
       hint: "Call, request quote, book appointment, contact form, shop now",
+      scope: "tenant",
     },
   ],
   services: [
     {
       key: "targetKeyword",
-      label: "What local service keyword should this page target?",
+      label: "Primary local keyword",
       required: true,
+      scope: "tenant",
     },
     {
       key: "targetCity",
-      label: "What city or service area should the Services page target?",
+      label: "Target city or service area",
       required: true,
       intakeKeys: ["location", "service_area_details", "hours_locations"],
+      scope: "tenant",
     },
     {
       key: "priorityServices",
@@ -231,93 +243,109 @@ const SEO_ASSISTANT_QUESTIONS: Record<BuiltInPageKey, SeoAssistantQuestion[]> = 
         "reservation_types",
         "service_product_list",
       ],
+      scope: "page",
     },
     {
       key: "customerProblems",
-      label: "What customer problems or needs should the intro speak to?",
+      label: "Customer problems or needs",
       textarea: true,
       intakeKeys: ["ideal_client"],
+      scope: "tenant",
     },
     {
       key: "differentiator",
-      label: "What makes these services better or more trustworthy?",
+      label: "What makes these services better or more trustworthy",
       textarea: true,
       intakeKeys: ["differentiator", "credentials"],
+      scope: "tenant",
     },
     {
       key: "conversionGoal",
-      label: "What is the main CTA for this page?",
+      label: "Primary conversion action",
+      scope: "tenant",
     },
   ],
   about: [
     {
       key: "targetKeyword",
-      label: "What local brand or about-page keyword should this page support?",
+      label: "Primary local keyword",
       required: true,
+      scope: "tenant",
     },
     {
       key: "targetCity",
-      label: "What city or region should the About page reference?",
+      label: "Target city or region",
       required: true,
       intakeKeys: ["location", "service_area_details", "hours_locations"],
+      scope: "tenant",
     },
     {
       key: "businessStory",
-      label: "What is the business story, mission, or reason it exists?",
+      label: "What is the business story, mission, or reason it exists for this About page?",
       textarea: true,
       required: true,
       intakeKeys: ["differentiator", "ideal_client"],
+      scope: "page",
     },
     {
       key: "credibility",
-      label: "What credibility details can we mention?",
+      label: "Credibility details",
       textarea: true,
       intakeKeys: ["credentials", "years_in_business", "has_insurance", "google_business_url"],
+      scope: "tenant",
     },
     {
       key: "idealCustomer",
-      label: "Who does the business help most?",
+      label: "Who the business helps most",
       textarea: true,
       intakeKeys: ["ideal_client"],
+      scope: "tenant",
     },
     {
       key: "conversionGoal",
-      label: "What should someone do after reading About?",
+      label: "Primary conversion action",
+      scope: "tenant",
     },
   ],
   shop: [
     {
       key: "targetKeyword",
-      label: "What product or shop keyword should this page target?",
+      label: "Primary local keyword",
       required: true,
+      scope: "tenant",
     },
     {
       key: "targetCity",
-      label: "What city, region, or delivery area matters for this Shop page?",
+      label: "Target city, region, or delivery area",
       intakeKeys: ["location"],
+      scope: "tenant",
     },
     {
       key: "productFocus",
-      label: "What product categories or featured items should the page lead with?",
+      label: "What product categories or featured items should this page lead with?",
       textarea: true,
       required: true,
       intakeKeys: ["product_list", "service_product_list"],
+      scope: "page",
     },
     {
       key: "customerFit",
-      label: "Who are these products for?",
+      label: "Who these products are for",
       textarea: true,
       intakeKeys: ["ideal_client"],
+      scope: "tenant",
     },
     {
       key: "storeDifferentiator",
-      label: "What makes this shop or product line stand out?",
+      label: "What makes this shop or product line stand out",
       textarea: true,
       intakeKeys: ["differentiator"],
+      scope: "tenant",
     },
     {
       key: "conversionGoal",
-      label: "What should shoppers do next?",
+      label: "Primary conversion action",
+      scope: "tenant",
     },
   ],
 };
@@ -1560,6 +1588,14 @@ const normalizePresentationState = (
   };
 };
 
+const CONVERSION_MODE_LABELS: Record<string, string> = {
+  call: "Call us now",
+  email: "Request a free quote via email",
+  appointment: "Book an appointment",
+  reservation: "Make a reservation",
+  checkout: "Shop now",
+};
+
 export default function BuiltInPageEditorPage() {
   const params = useParams<{ pageKey: string }>();
   const { selectedClient } = useSidebar();
@@ -2229,6 +2265,20 @@ export default function BuiltInPageEditorPage() {
     updatedAt;
   const workflowStatus = workflow?.status ?? "published";
   const seoAssistantQuestions = SEO_ASSISTANT_QUESTIONS[activePageKey];
+  const tenantScopeQuestions = seoAssistantQuestions.filter((q) => q.scope === "tenant");
+  const pageScopeQuestions = seoAssistantQuestions.filter((q) => q.scope !== "tenant");
+
+  // conversionGoal read-only display falls back to the page's conversion mode label
+  // when the answer hasn't been prefilled yet, so the panel is always meaningful.
+  const resolvedTenantAnswer = (key: string): string => {
+    const stored = seoAssistantAnswers[key]?.trim();
+    if (stored) return stored;
+    if (key === "conversionGoal") {
+      return CONVERSION_MODE_LABELS[presentationState.conversionMode] ?? "";
+    }
+    return "";
+  };
+
   const derivedBusinessContext =
     pickAnswer(latestIntakeSubmission, "primary_offerings") ||
     pickAnswer(latestIntakeSubmission, "ideal_client") ||
@@ -2274,13 +2324,6 @@ export default function BuiltInPageEditorPage() {
     }
 
     if (!nextAnswers.conversionGoal?.trim()) {
-      const CONVERSION_MODE_LABELS: Record<string, string> = {
-        call: "Call us now",
-        email: "Request a free quote via email",
-        appointment: "Book an appointment",
-        reservation: "Make a reservation",
-        checkout: "Shop now",
-      };
       // Use profile's conversion mode if present, fall back to page presentation
       const mode =
         (typeof businessProfile?.primary_conversion_mode === "string"
@@ -2425,7 +2468,18 @@ export default function BuiltInPageEditorPage() {
       seoAssistantAnswers.priorityServices?.trim() ||
       seoAssistantAnswers.productFocus?.trim() ||
       "";
-    const missingRequiredQuestion = seoAssistantQuestions.find(
+    // Tenant-scope required fields (e.g. targetKeyword, targetCity) must be
+    // present — they come from the Business Profile, not user input here.
+    const missingTenantRequired = seoAssistantQuestions.find(
+      (question) => question.scope === "tenant" && question.required && !seoAssistantAnswers[question.key]?.trim(),
+    );
+    if (missingTenantRequired) {
+      toast.error(`Fill "${missingTenantRequired.label}" in the Business Profile before generating.`);
+      return;
+    }
+
+    // Page-scope required fields are entered directly in this panel.
+    const missingRequiredQuestion = pageScopeQuestions.find(
       (question) => question.required && !seoAssistantAnswers[question.key]?.trim(),
     );
 
@@ -2473,33 +2527,68 @@ export default function BuiltInPageEditorPage() {
       throw new Error("AI did not return a built-in page SEO draft.");
     }
 
+    // Compute the next content and SEO values locally so we can pass them
+    // directly to the draft save — setContent/setSeo are async and the stale
+    // closure values would be sent otherwise.
     const nextFields = response.recommendedFields ?? {};
-    setContent((current) => ({
-      ...current,
+    const nextContent = {
+      ...content,
       ...Object.fromEntries(
         Object.entries(nextFields).filter(
           ([key, value]) => typeof key === "string" && typeof value === "string",
         ),
       ),
-    }));
-    setSeo((current) => ({
-      title: response.seoTitle ?? current.title,
-      description: response.seoDescription ?? current.description,
-    }));
+    };
+    const nextSeo = {
+      title: response.seoTitle ?? seo.title,
+      description: response.seoDescription ?? seo.description,
+    };
+
+    setContent(nextContent);
+    setSeo(nextSeo);
     setSeoAssistantResult(response);
-    toast.success(`${BUILT_IN_PAGE_LABELS[activePageKey]} SEO draft staged in the editor.`);
+
+    // Auto-save draft so the generated copy is persisted immediately.
+    // We inline the fetch here (rather than calling runEditorAction) because
+    // runEditorAction is declared after this callback in the component body.
+    setActiveAction("draft");
+    try {
+      const saveResponse = await fetch(
+        `${getApiBaseUrl()}/built-in-page-content/editor/${pageKey}/draft`,
+        {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            website_id: websiteId,
+            content: nextContent,
+            seo: nextSeo,
+            presentation: presentationState,
+          }),
+        },
+      );
+
+      if (!saveResponse.ok) {
+        const payload = await saveResponse.json().catch(() => null);
+        throw new Error(payload?.error || "Failed to auto-save draft.");
+      }
+
+      const savedPayload = await saveResponse.json();
+      applyEditorPayload(savedPayload as BuiltInPageEditorRecord<BuiltInPageKey>);
+      toast.success(`${BUILT_IN_PAGE_LABELS[activePageKey]} SEO draft generated and saved.`);
+    } finally {
+      setActiveAction(null);
+    }
   }, [
     activePageKey,
+    applyEditorPayload,
     content,
     derivedBusinessContext,
     latestIntakeSubmission,
     pageKey,
-    presentationState.conversionMode,
-    presentationState.recipe,
-    presentationState.themePack,
+    presentationState,
     selectedClient?.name,
-    seo.description,
-    seo.title,
+    seo,
+    pageScopeQuestions,
     seoAssistantAnswers,
     seoAssistantQuestions,
     triggerContentAgent,
@@ -2976,46 +3065,91 @@ export default function BuiltInPageEditorPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {seoAssistantQuestions.map((question) => (
-                  <div
-                    key={question.key}
-                    className={question.textarea ? "lg:col-span-2" : undefined}
-                  >
-                    <TextField
-                      label={
-                        aiSuggestedFields.has(question.key) ? (
-                          <span className="flex items-center gap-1">
-                            {question.label}
-                            {question.required ? " *" : ""}
-                            <span className="rounded bg-[#CD7F32]/10 px-1 py-0.5 text-[10px] font-semibold text-[#CD7F32]">
-                              ✦ AI
-                            </span>
-                          </span>
-                        ) : (
-                          `${question.label}${question.required ? " *" : ""}`
-                        )
-                      }
-                      value={seoAssistantAnswers[question.key] ?? ""}
-                      onChange={(nextValue) => {
-                        setSeoAssistantAnswers((current) => ({
-                          ...current,
-                          [question.key]: nextValue,
-                        }));
-                        if (aiSuggestedFields.has(question.key)) {
-                          setAiSuggestedFields((prev) => {
-                            const next = new Set(prev);
-                            next.delete(question.key);
-                            return next;
-                          });
-                        }
-                      }}
-                      hint={question.hint}
-                      textarea={question.textarea}
-                    />
+              {/* Tenant-level context: read-only, sourced from Business Profile */}
+              {tenantScopeQuestions.length > 0 && (
+                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Business Profile Context
+                      </p>
+                      <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                        Shared across all pages
+                      </span>
+                    </div>
+                    <Link
+                      href="/business-profile"
+                      className="text-[11px] font-semibold text-[#CD7F32] hover:underline"
+                    >
+                      Edit in Business Profile →
+                    </Link>
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-1 gap-0 divide-y divide-gray-200 dark:divide-gray-800 border-t border-gray-200 dark:border-gray-800">
+                    {tenantScopeQuestions.map((question) => {
+                      const value = resolvedTenantAnswer(question.key);
+                      return (
+                        <div key={question.key} className="flex items-start gap-3 px-4 py-2.5">
+                          <p className="min-w-[160px] shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 pt-0.5">
+                            {question.label}
+                          </p>
+                          <p className={`flex-1 text-sm ${value ? "text-gray-700 dark:text-gray-200" : "text-gray-400 italic dark:text-gray-500"}`}>
+                            {value || "Not set — edit Business Profile to fill this in"}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Page-specific questions: editable inputs */}
+              {pageScopeQuestions.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Page-Specific Inputs
+                  </p>
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {pageScopeQuestions.map((question) => (
+                      <div
+                        key={question.key}
+                        className={question.textarea ? "lg:col-span-2" : undefined}
+                      >
+                        <TextField
+                          label={
+                            aiSuggestedFields.has(question.key) ? (
+                              <span className="flex items-center gap-1">
+                                {question.label}
+                                {question.required ? " *" : ""}
+                                <span className="rounded bg-[#CD7F32]/10 px-1 py-0.5 text-[10px] font-semibold text-[#CD7F32]">
+                                  ✦ AI
+                                </span>
+                              </span>
+                            ) : (
+                              `${question.label}${question.required ? " *" : ""}`
+                            )
+                          }
+                          value={seoAssistantAnswers[question.key] ?? ""}
+                          onChange={(nextValue) => {
+                            setSeoAssistantAnswers((current) => ({
+                              ...current,
+                              [question.key]: nextValue,
+                            }));
+                            if (aiSuggestedFields.has(question.key)) {
+                              setAiSuggestedFields((prev) => {
+                                const next = new Set(prev);
+                                next.delete(question.key);
+                                return next;
+                              });
+                            }
+                          }}
+                          hint={question.hint}
+                          textarea={question.textarea}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
