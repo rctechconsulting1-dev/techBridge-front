@@ -4,11 +4,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 
 const NAV_LINKS = [
-  { label: "Home", href: "#home" },
-  { label: "Services", href: "#services" },
-  { label: "About", href: "#about" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Contact", href: "#contact" },
+  { label: "Home", href: "/" },
+  { label: "Services", href: "/#services" },
+  { label: "About", href: "/#about" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 const Navbar = () => {
@@ -57,10 +56,10 @@ const Navbar = () => {
               Admin Login
             </Link>
             <Link
-              href="#contact"
+              href="/#contact"
               className="transform rounded-lg bg-[#CD7F32] px-6 py-2 font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#8B4513] hover:shadow-lg"
             >
-              Get Started
+              Book a free demo
             </Link>
           </div>
 
@@ -111,11 +110,11 @@ const Navbar = () => {
                   Admin Login
                 </Link>
                 <Link
-                  href="#contact"
+                  href="/#contact"
                   className="block w-full rounded-lg bg-[#CD7F32] px-4 py-2 text-center font-semibold text-white transition-colors hover:bg-[#8B4513]"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Get Started
+                  Book a free demo
                 </Link>
               </div>
             </div>

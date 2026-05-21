@@ -397,8 +397,13 @@ const AppSidebar = ({}) => {
     }
   }, [openSubmenu]);
 
-  // const isActive = (path: string) => path === pathname;
-  const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  const isActive = useCallback(
+    (path: string) => {
+      if (path === "/") return pathname === "/";
+      return pathname === path || pathname.startsWith(path + "/");
+    },
+    [pathname],
+  );
 
   useEffect(() => {
     let matchedSubmenu: { type: "main" | "others"; index: number } | null = null;

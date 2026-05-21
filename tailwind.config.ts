@@ -25,6 +25,16 @@ const config: Config = {
           "bronze-light": "#DEB887",
           "red-dark": "#8B0000",
         },
+        // Public site design system tokens
+        "deep-navy": "#0A0F1E",
+        "golden-amber": "#C67C2A",
+        "emerald-ai": "#1ED28C",
+        "ice-blue-bg": "#F5F7FF",
+        "pure-white": "#FFFFFF",
+        "surface-variant": "#e0e2ea",
+        "on-surface-variant": "#46464c",
+        "surface-container": "#ebeef6",
+        "on-surface": "#181c21",
       },
       fontFamily: {
         brand: ["Inter", "Arial", "sans-serif"],

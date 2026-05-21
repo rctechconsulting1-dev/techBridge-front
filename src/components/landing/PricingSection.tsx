@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import Link from "next/link";
 
 /* ────────────────────────────── Types ───────────────────────────── */
 
@@ -302,12 +303,18 @@ const PricingSection = () => {
               and create a tailored solution that fits your goals and budget.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-[#CD7F32] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#8B4513] transition-colors duration-300">
+              <Link
+                href="/#contact"
+                className="inline-block bg-[#CD7F32] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#8B4513] transition-colors duration-300"
+              >
                 Schedule Consultation
-              </button>
-              <button className="border-2 border-[#CD7F32] text-[#CD7F32] px-8 py-3 rounded-lg font-semibold hover:bg-[#CD7F32] hover:text-white transition-colors duration-300">
-                View Portfolio
-              </button>
+              </Link>
+              <Link
+                href="/#services"
+                className="inline-block border-2 border-[#CD7F32] text-[#CD7F32] px-8 py-3 rounded-lg font-semibold hover:bg-[#CD7F32] hover:text-white transition-colors duration-300"
+              >
+                View Services
+              </Link>
             </div>
           </div>
         </div>

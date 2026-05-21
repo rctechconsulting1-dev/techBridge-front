@@ -140,6 +140,7 @@ class ApiClient {
   }
 
   async signIn(email: string, password: string): Promise<AuthResponse> {
+    clearActiveTenantId();
     const response = await fetch(`${API_URL}/auth/signin`, {
       method: 'POST',
       headers: this.getHeaders(false),
