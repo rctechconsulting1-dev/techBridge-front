@@ -50,9 +50,8 @@ export const metadata: Metadata = {
     siteName: "RC Tech Bridge",
     images: [
       {
-        url: "/branding/logos/primary-logo.svg",
-        width: 300,
-        height: 120,
+        url: "/branding/jpg/logos/horizontal-logo-1200w.jpg",
+        width: 1200,
         alt: "RC Tech Bridge Logo",
       },
     ],
@@ -64,7 +63,7 @@ export const metadata: Metadata = {
     title: "RC Tech Bridge - Bridging Business & Technology",
     description:
       "Focus on growing your business while we handle all the technical obstacles.",
-    images: ["/branding/logos/primary-logo.svg"],
+    images: ["/branding/jpg/logos/horizontal-logo-1200w.jpg"],
   },
 };
 
