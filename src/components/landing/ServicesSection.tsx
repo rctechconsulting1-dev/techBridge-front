@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 const ServicesSection = () => {
   const services = [
@@ -9,6 +10,7 @@ const ServicesSection = () => {
         </svg>
       ),
       title: "Web Development",
+      href: "/services/web-development",
       description:
         "Custom websites and web applications that grow with your business. Modern, responsive, and optimized for performance.",
       features: [
@@ -29,6 +31,7 @@ const ServicesSection = () => {
         </svg>
       ),
       title: "System Integration",
+      href: "/services/workflow-automation",
       description:
         "Seamlessly connect your existing tools and processes. We make your technology stack work together harmoniously.",
       features: [
@@ -49,6 +52,7 @@ const ServicesSection = () => {
         </svg>
       ),
       title: "Technical Support",
+      href: "/services/small-business",
       description:
         "Ongoing support to keep your technology running smoothly. Proactive monitoring and quick issue resolution.",
       features: [
@@ -70,6 +74,7 @@ const ServicesSection = () => {
         </svg>
       ),
       title: "Business Automation",
+      href: "/services/ai-agents",
       description:
         "Automate repetitive tasks and streamline your processes. Focus on growth while we handle the routine work.",
       features: [
@@ -91,6 +96,7 @@ const ServicesSection = () => {
         </svg>
       ),
       title: "Digital Transformation",
+      href: "/services/enterprise",
       description:
         "Modernize your business operations with cutting-edge technology. Stay competitive in the digital age.",
       features: [
@@ -107,6 +113,7 @@ const ServicesSection = () => {
         </svg>
       ),
       title: "Quality Assurance",
+      href: "/services/ecommerce",
       description:
         "Rigorous testing and quality control ensure your technology solutions work flawlessly from day one.",
       features: [
@@ -165,7 +172,10 @@ const ServicesSection = () => {
               </ul>
 
               <div className="mt-6 border-t border-gray-100 pt-6">
-                <button className="group flex items-center font-semibold text-[#CD7F32] transition-colors duration-200 hover:text-[#8B4513]">
+                <Link
+                  href={service.href}
+                  className="group flex items-center font-semibold text-[#CD7F32] transition-colors duration-200 hover:text-[#8B4513]"
+                >
                   Learn More
                   <svg
                     className="ml-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
@@ -178,7 +188,7 @@ const ServicesSection = () => {
                       clipRule="evenodd"
                     />
                   </svg>
-                </button>
+                </Link>
               </div>
             </div>
           ))}
@@ -194,9 +204,12 @@ const ServicesSection = () => {
               Let&apos;s discuss how our technology solutions can accelerate
               your growth.
             </p>
-            <button className="transform rounded-lg bg-white px-8 py-3 font-semibold text-[#CD7F32] transition-colors duration-300 hover:scale-105 hover:bg-gray-100">
+            <Link
+              href="/#contact"
+              className="inline-block transform rounded-lg bg-white px-8 py-3 font-semibold text-[#CD7F32] transition-colors duration-300 hover:scale-105 hover:bg-gray-100"
+            >
               Schedule a Consultation
-            </button>
+            </Link>
           </div>
         </div>
       </div>

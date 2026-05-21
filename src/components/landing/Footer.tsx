@@ -1,33 +1,35 @@
 import React from "react";
 import Link from "next/link";
+import FooterNewsletter from "./FooterNewsletter";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
     services: [
-      { name: "Web Development", href: "#services" },
-      { name: "System Integration", href: "#services" },
-      { name: "Technical Support", href: "#services" },
-      { name: "Business Automation", href: "#services" },
-      { name: "Digital Transformation", href: "#services" },
-      { name: "Consulting", href: "#services" },
+      { name: "Web Development", href: "/services/web-development" },
+      { name: "System Integration", href: "/services/workflow-automation" },
+      { name: "Technical Support", href: "/services/small-business" },
+      { name: "Business Automation", href: "/services/ai-agents" },
+      { name: "Digital Transformation", href: "/services/enterprise" },
+      { name: "eCommerce AI", href: "/services/ecommerce" },
+      { name: "Consulting", href: "/#contact" },
     ],
     company: [
-      { name: "About Us", href: "#about" },
-      { name: "Our Process", href: "#about" },
-      { name: "Case Studies", href: "#" },
-      { name: "Blog", href: "#" },
-      { name: "Careers", href: "#" },
-      { name: "Contact", href: "#contact" },
+      { name: "About Us", href: "/#about" },
+      { name: "Our Process", href: "/#about" },
+      { name: "Case Studies", href: "/case-studies" },
+      { name: "Blog", href: "/#contact" },
+      { name: "Careers", href: "/#contact" },
+      { name: "Contact", href: "/#contact" },
     ],
     support: [
-      { name: "Help Center", href: "#" },
-      { name: "Documentation", href: "#" },
-      { name: "System Status", href: "#" },
-      { name: "Privacy Policy", href: "#" },
-      { name: "Terms of Service", href: "#" },
-      { name: "Cookie Policy", href: "#" },
+      { name: "Help Center", href: "/help" },
+      { name: "Documentation", href: "/help" },
+      { name: "System Status", href: "/#contact" },
+      { name: "Privacy Policy", href: "/privacy-policy" },
+      { name: "Terms of Service", href: "/terms-of-service" },
+      { name: "Cookie Policy", href: "/privacy-policy" },
     ],
   };
 
@@ -186,28 +188,18 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Newsletter Signup */}
+        {/* Newsletter / CTA */}
         <div className="border-t border-[#CD7F32] py-8">
-          <div className="flex flex-col items-center justify-between md:flex-row">
-            <div className="mb-4 md:mb-0">
-              <h3 className="mb-2 text-lg font-bold text-white">
+          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+            <div>
+              <h3 className="mb-1 text-lg font-bold text-white">
                 Stay Updated
               </h3>
-              <p className="text-[#DEB887]">
-                Get the latest insights on business technology trends.
+              <p className="text-[#DEB887] text-sm">
+                Get the latest on AI tools, web trends, and business automation.
               </p>
             </div>
-
-            <div className="flex w-full md:w-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 rounded-l-lg border-0 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-[#C41E3A] focus:outline-none md:w-80"
-              />
-              <button className="rounded-r-lg bg-[#C41E3A] px-6 py-3 whitespace-nowrap text-white transition-colors duration-300 hover:bg-[#8B0000]">
-                Subscribe
-              </button>
-            </div>
+            <FooterNewsletter />
           </div>
         </div>
 

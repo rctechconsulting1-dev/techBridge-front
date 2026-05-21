@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getWebsite, getSiteSettings, getPages, getProducts, getBuiltInPageContent } from "@/lib/cms-api";
-import { getPublicCanonicalUrl, isPlatformHost } from "@/lib/public-site-routing";
+import { getPublicCanonicalUrl } from "@/lib/public-site-routing";
 
 export const revalidate = 300;
 

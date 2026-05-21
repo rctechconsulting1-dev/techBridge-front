@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 30, // 30 days
+          maxAge: 60 * 60 * 8, // 8 hours
           path: '/',
         });
         res.cookies.set('auth_token_client', data.token, {

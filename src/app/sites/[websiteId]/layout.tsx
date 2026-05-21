@@ -6,11 +6,6 @@ import { getSiteSettings } from "@/lib/cms-api";
 // Individual page generateMetadata() overrides conflicting fields.
 export const revalidate = 300;
 
-interface Props {
-  params: Promise<{ websiteId: string }>;
-  children: ReactNode;
-}
-
 export async function generateMetadata({
   params,
 }: {

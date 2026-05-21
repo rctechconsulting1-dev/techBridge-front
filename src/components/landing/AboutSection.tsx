@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 const AboutSection = () => {
   const stats = [
@@ -101,9 +102,12 @@ const AboutSection = () => {
             </div>
 
             <div className="mt-8">
-              <button className="transform rounded-lg bg-[#CD7F32] px-8 py-4 font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:bg-[#8B4513] hover:shadow-lg">
-                Learn Our Story
-              </button>
+              <Link
+                href="/#contact"
+                className="inline-block transform rounded-lg bg-[#CD7F32] px-8 py-4 font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:bg-[#8B4513] hover:shadow-lg"
+              >
+                Get In Touch
+              </Link>
             </div>
           </div>
 

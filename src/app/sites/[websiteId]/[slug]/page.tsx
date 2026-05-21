@@ -65,6 +65,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         `${siteName} provides professional ${loc.service} in ${loc.city}. ${loc.heroBody ?? ""}`.trim())
     : (page?.meta_description ?? `Learn more about ${pageTitle} at ${siteName}.`);
 
+  const isBlogPost = page?.page_type === "blog-post" || page?.template_type === "blog-post";
+
   return {
     title,
     description,
@@ -72,6 +74,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
+      type: isBlogPost ? "article" : "website",
+      ...(isBlogPost && page?.created_at
+        ? {
+            article: {
+              publishedTime: page.created_at,
+              modifiedTime: page.updated_at ?? page.created_at,
+            },
+          }
+        : {}),
       ...canonicalMetadata.openGraph,
     },
     alternates: canonicalMetadata.alternates,

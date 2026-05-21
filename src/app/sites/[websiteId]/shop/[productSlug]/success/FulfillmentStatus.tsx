@@ -27,7 +27,7 @@ export default function FulfillmentStatus({ sessionId, primaryColor }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    let intervalId: ReturnType<typeof setInterval>;
+    let intervalId: ReturnType<typeof setInterval> | undefined = undefined;
 
     async function poll() {
       if (cancelled) return;

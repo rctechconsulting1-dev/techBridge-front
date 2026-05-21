@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(git checkout *)",
+      "Bash(rm -f \"src/app/sites/[websiteId]/services/ai-automation/page.tsx\")"
+    ]
+  }
+}
