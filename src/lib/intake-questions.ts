@@ -135,20 +135,13 @@ const UNIVERSAL_BRAND: IntakeSection = {
   description: "Help us match your website to your brand identity.",
   questions: [
     {
-      id: "logo",
-      label: "Upload your logo (PNG or SVG, transparent background preferred)",
-      type: "file",
-      uploadCategory: "logo",
-      accept: "image/png,image/svg+xml,image/jpeg,image/webp",
-      hint: "If you don't have a logo yet, we can help create one.",
-    },
-    {
-      id: "headshot",
-      label: "A professional photo of yourself or your team",
-      type: "file",
-      uploadCategory: "team",
-      accept: "image/*",
-      hint: "High-res, good lighting preferred.",
+      id: "asset_drive_link",
+      label:
+        "Once you've added your logo, photos, and any brand assets to the shared folder we sent you, paste the folder link here (or leave a note)",
+      type: "text",
+      placeholder:
+        'e.g. https://drive.google.com/drive/folders/... — or "Uploaded, all set"',
+      hint: "We emailed you a link to a shared folder for your logo, headshots, and any other brand assets. Drop everything there — no need to upload files in this form. If you don't have a logo yet, we can help create one.",
     },
     {
       id: "brand_colors",
@@ -169,17 +162,9 @@ const UNIVERSAL_BRAND: IntakeSection = {
 const UNIVERSAL_MEDIA: IntakeSection = {
   id: "media",
   title: "Photos & Media",
-  description: "Upload photos that show off your work. We'll use these on your site.",
+  description:
+    "Add photos of your work to the shared folder we sent you — we'll use these on your site.",
   questions: [
-    {
-      id: "work_photos",
-      label: "Photos of your work, products, or workspace",
-      type: "multifile",
-      uploadCategory: "work",
-      accept: "image/*",
-      maxFiles: 20,
-      hint: "5–15 photos recommended. Before/after shots are great!",
-    },
     {
       id: "video_links",
       label: "Any video content, testimonials, or promo clips?",
@@ -363,6 +348,47 @@ const UNIVERSAL_PLATFORMS: IntakeSection = {
   ],
 };
 
+// ─── Automation & workflows section ──────────────────────────────────────────
+
+const UNIVERSAL_AUTOMATION: IntakeSection = {
+  id: "automation",
+  title: "Automation & Workflows",
+  description: "Help us spot repetitive work we could take off your plate.",
+  questions: [
+    {
+      id: "manual_workflows",
+      label: "What tasks or parts of running your business feel repetitive or manual right now?",
+      type: "textarea",
+      placeholder:
+        "e.g. manually texting customers back, re-typing the same quote every time, tracking leads in a notebook",
+    },
+    {
+      id: "current_tools",
+      label: "What software or tools do you currently use for day-to-day operations?",
+      type: "textarea",
+      placeholder:
+        "e.g. QuickBooks for invoicing, a shared spreadsheet for scheduling, texting customers from a personal phone",
+    },
+    {
+      id: "automation_interest",
+      label: "Which of these would you be interested in automating?",
+      type: "multiselect",
+      options: [
+        { value: "sms_followups", label: "Text message follow-ups with leads/customers" },
+        { value: "ai_content_agent", label: "AI-assisted content or customer responses" },
+        { value: "ads_optimization", label: "Ad campaign management/optimization" },
+        { value: "none_yet", label: "Not sure yet / none of these" },
+      ],
+    },
+    {
+      id: "automation_notes",
+      label: "Anything else you wish could just run itself?",
+      type: "textarea",
+      placeholder: "Optional — anything not covered above",
+    },
+  ],
+};
+
 // ─── Launch & setup section ───────────────────────────────────────────────────
 
 const UNIVERSAL_SETUP: IntakeSection = {
@@ -411,6 +437,7 @@ export function getIntakeSections(businessType: BusinessType = "universal"): Int
     UNIVERSAL_BRAND,
     getOfferingsSection(businessType),
     UNIVERSAL_PLATFORMS,
+    UNIVERSAL_AUTOMATION,
     UNIVERSAL_MEDIA,
     UNIVERSAL_CONTACT,
     UNIVERSAL_SETUP,
