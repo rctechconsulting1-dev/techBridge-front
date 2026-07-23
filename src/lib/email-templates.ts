@@ -193,6 +193,8 @@ export interface TenantIntakeTemplateOptions {
   businessType?: BusinessType;
   /** URL to the online intake questionnaire form. */
   intakeUrl?: string;
+  /** Shared Google Drive folder link for logo/photo/brand asset uploads. */
+  driveFolderUrl?: string;
 }
 
 interface IntakeContent {
@@ -203,6 +205,7 @@ interface IntakeContent {
   servicesQs: string[];
   mediaQs: string[];
   onlinePresenceQs: string[];
+  automationQs: string[];
   setupQs: string[];
 }
 
@@ -220,8 +223,7 @@ function getIntakeContent(businessType?: BusinessType): IntakeContent {
       'Who is your ideal customer, and what kind of jobs, bookings, or purchases do you want more of? <span style="color:#6b7280;">(for example: emergency repairs, recurring bookings, online orders, reservations)</span>',
     ],
     brandQs: [
-      'Your logo — PNG or SVG, transparent background preferred <span style="color:#C41E3A;font-weight:600;">[attach file]</span>',
-      'A headshot, team photo, storefront photo, product shot, or workspace image we can use right away <span style="color:#C41E3A;font-weight:600;">[attach file]</span>',
+      "Your logo and any brand photos — see the shared folder link below to upload",
       "What colors or overall style feel right for your brand?",
       "Three words that describe your business, service style, or customer experience",
     ],
@@ -232,11 +234,10 @@ function getIntakeContent(businessType?: BusinessType): IntakeContent {
       "What policies, guarantees, shipping details, cancellation rules, deposits, or return terms should customers know upfront?",
     ],
     mediaQs: [
-      '5–15 photos of your work, products, team, venue, or business <span style="color:#C41E3A;font-weight:600;">[attach files or share folder]</span>',
-      'Any before/after shots, customer result photos, or portfolio images <span style="color:#C41E3A;font-weight:600;">[attach files]</span>',
-      'Any video content, walkthroughs, testimonials, reels, or promo clips <span style="color:#C41E3A;font-weight:600;">[attach or share link]</span>',
-      'Any review screenshots, press mentions, menus, brochures, or supporting files you want us to use <span style="color:#C41E3A;font-weight:600;">[attach files]</span>',
-      'Paste any existing customer testimonials or reviews you want featured on the site',
+      "5–15 photos of your work, products, team, venue, or business — add these to the shared folder",
+      "Any before/after shots, customer result photos, or portfolio images — add these to the shared folder",
+      'Any video content, walkthroughs, testimonials, reels, or promo clips <span style="color:#6b7280;">(paste links, or add video files to the shared folder)</span>',
+      "Paste any existing customer testimonials or reviews you want featured on the site",
     ],
     onlinePresenceQs: [
       'Do you have a Google Business Profile? Paste the URL — and please grant Manager access to <strong>rctechsolutions1@gmail.com</strong> so we can connect reviews and performance data',
@@ -246,6 +247,11 @@ function getIntakeContent(businessType?: BusinessType): IntakeContent {
       'Any other review or directory profiles — Angi, Thumbtack, BBB, HomeAdvisor, etc.',
       'Are you currently running Google Ads or Local Services Ads (LSA)?',
       'Do you use any booking, scheduling, or CRM software? <span style="color:#6b7280;">(e.g. Jobber, ServiceTitan, Calendly, Housecall Pro)</span>',
+    ],
+    automationQs: [
+      "What tasks or parts of running your business feel repetitive or manual right now?",
+      "What software or tools do you currently use for day-to-day operations?",
+      'Would you be interested in text-message follow-ups, AI-assisted content/customer responses, or ad campaign optimization? <span style="color:#6b7280;">(just a general sense — no commitment)</span>',
     ],
     setupQs: [
       'Do you have an existing website we should reference or pull content from?',
@@ -274,6 +280,7 @@ export function buildTenantIntakeHtml({
   tenantName,
   businessType,
   intakeUrl,
+  driveFolderUrl,
 }: TenantIntakeTemplateOptions): string {
   const greeting = firstName ? `Hi ${firstName},` : "Hello,";
   const content = getIntakeContent(businessType);
@@ -294,6 +301,17 @@ export function buildTenantIntakeHtml({
       Just reply to this email with your answers — no form to fill out. If you have files to share, attach them directly or send a Google Drive / Dropbox link.
     </p>`;
 
+  const driveFolderBlock = driveFolderUrl
+    ? `<div style="margin:0 0 24px;padding:16px 20px;background-color:#fff7ed;border-left:4px solid #CD7F32;border-radius:4px;">
+      <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#111827;">
+        Upload your logo, photos, and brand assets here:
+      </p>
+      <p style="margin:0;font-size:14px;word-break:break-all;">
+        <a href="${driveFolderUrl}" style="color:#CD7F32;">${driveFolderUrl}</a>
+      </p>
+    </div>`
+    : "";
+
   return layout(
     content.subject,
     `<h1 style="margin:0 0 8px;font-size:26px;color:#111827;font-weight:700;">${greeting}</h1>
@@ -304,13 +322,15 @@ export function buildTenantIntakeHtml({
       This questionnaire is for <strong>${tenantLabel}</strong>.
     </p>
     <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
-      Below is a preview of the questions we'll ask. Click the button to fill out the form online — you can upload your logo, photos, and documents directly.
+      Below is a preview of the questions we'll ask. Click the button to fill out the form online.
     </p>
+    ${driveFolderBlock}
     ${sectionHtml("About Your Business", content.aboutQs)}
-    ${sectionHtml("Your Brand", content.brandQs, "You'll be able to upload files directly in the form.")}
+    ${sectionHtml("Your Brand", content.brandQs, driveFolderUrl ? "Upload files to the shared folder above." : undefined)}
     ${sectionHtml("Your Services", content.servicesQs)}
     ${sectionHtml("Online Presence &amp; Platforms", content.onlinePresenceQs)}
-    ${sectionHtml("Photos &amp; Media", content.mediaQs, "You'll be able to upload files directly in the form.")}
+    ${sectionHtml("Automation &amp; Workflows", content.automationQs)}
+    ${sectionHtml("Photos &amp; Media", content.mediaQs, driveFolderUrl ? "Upload files to the shared folder above." : undefined)}
     ${sectionHtml("Website Setup &amp; Launch", content.setupQs)}
     ${ctaBlock}
     <p style="margin:24px 0 0;font-size:15px;color:#374151;">

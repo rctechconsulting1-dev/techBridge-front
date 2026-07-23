@@ -391,6 +391,7 @@ class ApiClient {
     firstName?: string,
     websiteId?: number,
     tenantName?: string,
+    driveFolderUrl?: string,
   ): Promise<{ id: string }> {
     const response = await fetch('/api/email/intake', {
       method: 'POST',
@@ -400,6 +401,7 @@ class ApiClient {
         firstName: firstName ?? undefined,
         tenantName: tenantName ?? undefined,
         tenantId,
+        driveFolderUrl: driveFolderUrl ?? undefined,
         businessType,
         websiteId: websiteId ?? undefined,
       }),
