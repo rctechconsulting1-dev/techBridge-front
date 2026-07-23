@@ -20,11 +20,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { verifyIntakeToken } from "@/lib/email";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
-import {
-  AI_INTAKE_JSON_SCHEMA,
-  cleanAiAnswers,
-  type AiSuggestedFile,
-} from "@/lib/intake-ai-schema";
+import { AI_INTAKE_JSON_SCHEMA, cleanAiAnswers } from "@/lib/intake-ai-schema";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -305,7 +301,6 @@ export async function POST(req: NextRequest) {
               "- Never fabricate. If a field is not clearly supported by the source, emit an empty string (or empty array).",
               "- `brand_words`: infer 3 short adjectives from tone and design cues only if clear.",
               "- `customer_action`: pick up to 2 of the allowed enum values based on prominent CTAs on the site.",
-              "- `suggestedFiles`: pick at most 3 image URLs that look like a logo, a team/owner headshot, or work samples. Prefer og:image for logo and larger contextual images for work. Each item must include a short `reason` string.",
               "- Keep written answers concise and first-person-friendly (the client will edit them).",
               "- `notes`: one short sentence summarizing what you couldn't confidently fill.",
             ].join("\n"),
@@ -332,7 +327,6 @@ export async function POST(req: NextRequest) {
     const raw = completion.choices[0]?.message?.content || "{}";
     let payload: {
       answers?: unknown;
-      suggestedFiles?: unknown;
       notes?: unknown;
     };
     try {
@@ -343,39 +337,10 @@ export async function POST(req: NextRequest) {
 
     const cleanedAnswers = cleanAiAnswers(payload.answers);
 
-    const suggestedFiles: AiSuggestedFile[] = Array.isArray(payload.suggestedFiles)
-      ? (payload.suggestedFiles
-          .map((item) => {
-            if (!item || typeof item !== "object") return null;
-            const entry = item as {
-              questionId?: unknown;
-              url?: unknown;
-              reason?: unknown;
-            };
-            const qid = entry.questionId;
-            const url = entry.url;
-            if (
-              typeof qid !== "string" ||
-              !["logo", "headshot", "work_photos"].includes(qid) ||
-              typeof url !== "string" ||
-              !/^https?:\/\//i.test(url)
-            ) {
-              return null;
-            }
-            return {
-              questionId: qid as AiSuggestedFile["questionId"],
-              url,
-              reason: typeof entry.reason === "string" ? entry.reason : undefined,
-            };
-          })
-          .filter(Boolean) as AiSuggestedFile[])
-      : [];
-
     return NextResponse.json({
       source: "prefill",
       finalUrl,
       answers: cleanedAnswers,
-      suggestedFiles,
       notes: typeof payload.notes === "string" ? payload.notes : undefined,
     });
   } catch (error) {
