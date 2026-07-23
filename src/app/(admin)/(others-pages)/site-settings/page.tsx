@@ -1310,7 +1310,6 @@ export default function SiteSettingsPage() {
       const phone = pickFirstText(answers, "business_phone");
       const ownerEmail = submission.email.trim();
       const googleBusinessUrl = pickFirstText(answers, "google_business_url");
-      const intakeLogoFile = submission.files.find((file) => file.questionId === "logo");
       const aboutContext = [
         pickFirstText(answers, "ideal_client"),
         pickFirstText(answers, "differentiator"),
@@ -1332,7 +1331,7 @@ export default function SiteSettingsPage() {
           footer_social_instagram: prev.footer_social_instagram || socialLinks.instagram || null,
           footer_social_linkedin: prev.footer_social_linkedin || socialLinks.linkedin || null,
           footer_social_x: prev.footer_social_x || socialLinks.x || null,
-          logo_url: prev.logo_url || intakeLogoFile?.url || null,
+          logo_url: prev.logo_url || null,
         }) as FormData,
       );
 
@@ -1343,7 +1342,7 @@ export default function SiteSettingsPage() {
       setAboutContextInput((prev) => prev || aboutContext);
       setTab("settings");
       setIntakePrefillMessage(
-        "Latest intake answers and any uploaded questionnaire logo were staged into Site Settings and template inputs. Review them, then click Save Changes to persist site settings.",
+        "Latest intake answers were staged into Site Settings and template inputs. If the client shared an asset folder link, review it in the Intake Asset Folder panel below and upload the logo manually. Review everything, then click Save Changes to persist site settings.",
       );
     },
     [selectedClient?.name],
@@ -4069,8 +4068,6 @@ export default function SiteSettingsPage() {
       : launchReadinessTone === "blocked"
         ? "text-amber-800 dark:text-amber-300"
         : "text-sky-800 dark:text-sky-300";
-  const latestIntakeLogoFile =
-    latestIntakeSubmission?.files.find((file) => file.questionId === "logo") ?? null;
   const domainsSectionStatus: LaunchOneStatus =
     selectedLaunchMode === "final_domain" ? "required" : "deferred";
   const emailSectionStatus: LaunchOneStatus =
@@ -4263,34 +4260,31 @@ export default function SiteSettingsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 md:col-span-2 dark:border-gray-700 dark:bg-gray-800/40">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Intake Logo</p>
-                      <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                        {latestIntakeLogoFile?.filename ?? "No logo uploaded in the questionnaire."}
-                      </p>
-                    </div>
-                    {latestIntakeLogoFile?.url ? (
-                      <button
-                        type="button"
-                        onClick={() => setForm((prev) => ({ ...prev, logo_url: latestIntakeLogoFile.url }))}
-                        className="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-                      >
-                        Use Intake Logo
-                      </button>
-                    ) : null}
-                  </div>
-                  {latestIntakeLogoFile?.url ? (
-                    <div className="mt-3 flex min-h-24 items-center justify-center rounded-lg bg-white px-4 py-6 dark:bg-gray-900/50">
-                      <Image
-                        src={latestIntakeLogoFile.url}
-                        alt="Intake Logo"
-                        width={180}
-                        height={72}
-                        className="h-auto max-h-20 w-auto"
-                      />
-                    </div>
-                  ) : null}
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Intake Asset Folder</p>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                    {typeof latestIntakeSubmission?.answers.asset_drive_link === "string" &&
+                    latestIntakeSubmission.answers.asset_drive_link.trim() ? (
+                      /^https?:\/\//i.test(latestIntakeSubmission.answers.asset_drive_link.trim()) ? (
+                        <a
+                          href={latestIntakeSubmission.answers.asset_drive_link.trim()}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-brand-600 underline dark:text-brand-400"
+                        >
+                          {latestIntakeSubmission.answers.asset_drive_link.trim()}
+                        </a>
+                      ) : (
+                        latestIntakeSubmission.answers.asset_drive_link.trim()
+                      )
+                    ) : (
+                      "No asset folder link submitted in the questionnaire."
+                    )}
+                  </p>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Download the logo from the folder and upload it manually
+                    below — it is no longer auto-detected from the
+                    questionnaire.
+                  </p>
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Business Name</p>
