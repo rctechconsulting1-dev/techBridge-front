@@ -32,12 +32,20 @@ per-client Drive folder link is communicated to the client.
   repo's existing convention of documented manual smoke tests
   (`docs/guides/*_TEST.md`, `scripts/*-smoke-test.mjs`) rather than a
   unit-test suite.
-- Baseline confirmed before this plan: `npx tsc --noEmit` is clean (no
-  output). `npm run lint` has 7 pre-existing errors / 5 warnings in files
-  unrelated to this plan (`ai-leads/page.tsx`, `google-business/page.tsx`,
-  `main-page/page.tsx`, `built-in-pages/[pageKey]/page.tsx`,
-  `onboarding/page.tsx:194`). Do not fix these as part of this plan; only
-  ensure no *new* errors appear in files this plan touches.
+- Baseline confirmed in the implementation worktree (fresh `npm install`):
+  `npx tsc --noEmit` has 8 pre-existing errors, all `Property 'className'
+  does not exist on type 'IntrinsicAttributes'` on `<EyeIcon>`/
+  `<EyeCloseIcon>` in `src/components/auth/SignInForm.tsx` (lines 207,
+  209), `src/components/auth/SignUpForm.tsx` (lines 222, 224),
+  `src/components/form/date-picker.tsx:55`,
+  `src/components/form/form-elements/DefaultInputs.tsx` (lines 56, 58),
+  and `src/layout/AppSidebar.tsx:273`. `npm run lint` has 7 pre-existing
+  errors / 5 warnings in files unrelated to this plan (`ai-leads/page.tsx`,
+  `google-business/page.tsx`, `main-page/page.tsx`,
+  `built-in-pages/[pageKey]/page.tsx`, `onboarding/page.tsx:194`). None of
+  these files are touched by any task in this plan. Do not fix these as
+  part of this plan; only ensure no *new* errors appear in files this plan
+  touches.
 - Do not modify `/api/intake/upload`, `/api/s3-upload`, or
   `src/app/intake/page.tsx`'s file-upload machinery. They become unused
   by the removed questions but remain generic, reusable, working
