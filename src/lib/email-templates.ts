@@ -209,8 +209,21 @@ interface IntakeContent {
   setupQs: string[];
 }
 
-function getIntakeContent(businessType?: BusinessType): IntakeContent {
+function getIntakeContent(businessType?: BusinessType, hasDriveFolder?: boolean): IntakeContent {
   void businessType;
+
+  const brandAssetLine = hasDriveFolder
+    ? "Your logo and any brand photos — see the shared folder link below to upload"
+    : "Your logo and any brand photos — we'll follow up separately on how to share these";
+  const workPhotosLine = hasDriveFolder
+    ? "5–15 photos of your work, products, team, venue, or business — add these to the shared folder"
+    : "5–15 photos of your work, products, team, venue, or business — we'll follow up separately on how to share these";
+  const beforeAfterLine = hasDriveFolder
+    ? "Any before/after shots, customer result photos, or portfolio images — add these to the shared folder"
+    : "Any before/after shots, customer result photos, or portfolio images — we'll follow up separately on how to share these";
+  const videoLine = hasDriveFolder
+    ? 'Any video content, walkthroughs, testimonials, reels, or promo clips <span style="color:#6b7280;">(paste links, or add video files to the shared folder)</span>'
+    : 'Any video content, walkthroughs, testimonials, reels, or promo clips <span style="color:#6b7280;">(paste links here)</span>';
 
   return {
     subject: "Let's build your website — a few quick questions",
@@ -223,7 +236,7 @@ function getIntakeContent(businessType?: BusinessType): IntakeContent {
       'Who is your ideal customer, and what kind of jobs, bookings, or purchases do you want more of? <span style="color:#6b7280;">(for example: emergency repairs, recurring bookings, online orders, reservations)</span>',
     ],
     brandQs: [
-      "Your logo and any brand photos — see the shared folder link below to upload",
+      brandAssetLine,
       "What colors or overall style feel right for your brand?",
       "Three words that describe your business, service style, or customer experience",
     ],
@@ -234,9 +247,9 @@ function getIntakeContent(businessType?: BusinessType): IntakeContent {
       "What policies, guarantees, shipping details, cancellation rules, deposits, or return terms should customers know upfront?",
     ],
     mediaQs: [
-      "5–15 photos of your work, products, team, venue, or business — add these to the shared folder",
-      "Any before/after shots, customer result photos, or portfolio images — add these to the shared folder",
-      'Any video content, walkthroughs, testimonials, reels, or promo clips <span style="color:#6b7280;">(paste links, or add video files to the shared folder)</span>',
+      workPhotosLine,
+      beforeAfterLine,
+      videoLine,
       "Paste any existing customer testimonials or reviews you want featured on the site",
     ],
     onlinePresenceQs: [
@@ -283,7 +296,7 @@ export function buildTenantIntakeHtml({
   driveFolderUrl,
 }: TenantIntakeTemplateOptions): string {
   const greeting = firstName ? `Hi ${firstName},` : "Hello,";
-  const content = getIntakeContent(businessType);
+  const content = getIntakeContent(businessType, Boolean(driveFolderUrl));
   const tenantLabel = tenantName?.trim() ? tenantName.trim() : "your website";
 
   const ctaBlock = intakeUrl

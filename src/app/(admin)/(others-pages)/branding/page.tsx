@@ -435,12 +435,25 @@ export default function BrandingPage() {
                   Intake asset folder
                 </p>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {intakeLogoLoading
-                    ? "Checking latest intake submission..."
-                    : typeof latestIntakeSubmission?.answers.asset_drive_link === "string" &&
-                        latestIntakeSubmission.answers.asset_drive_link.trim()
-                      ? latestIntakeSubmission.answers.asset_drive_link.trim()
-                      : "No asset folder link submitted in the latest intake submission."}
+                  {intakeLogoLoading ? (
+                    "Checking latest intake submission..."
+                  ) : typeof latestIntakeSubmission?.answers.asset_drive_link === "string" &&
+                    latestIntakeSubmission.answers.asset_drive_link.trim() ? (
+                    /^https?:\/\//i.test(latestIntakeSubmission.answers.asset_drive_link.trim()) ? (
+                      <a
+                        href={latestIntakeSubmission.answers.asset_drive_link.trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-brand-600 underline dark:text-brand-400"
+                      >
+                        {latestIntakeSubmission.answers.asset_drive_link.trim()}
+                      </a>
+                    ) : (
+                      latestIntakeSubmission.answers.asset_drive_link.trim()
+                    )
+                  ) : (
+                    "No asset folder link submitted in the questionnaire."
+                  )}
                 </p>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Download the logo from the folder and upload it below — it
