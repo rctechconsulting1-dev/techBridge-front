@@ -9,6 +9,7 @@ const schema = z.object({
   tenantId: z.number().int().positive(),
   businessType: z.string().min(1).optional().default("universal"),
   websiteId: z.number().int().positive().optional(),
+  driveFolderUrl: z.string().trim().min(1).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,7 +28,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { to, firstName, tenantName, tenantId, businessType, websiteId } = parsed.data;
+  const { to, firstName, tenantName, tenantId, businessType, websiteId, driveFolderUrl } =
+    parsed.data;
 
   const { data, error } = await sendIntakeEmail({
     to,
@@ -36,6 +38,7 @@ export async function POST(req: NextRequest) {
     tenantId,
     businessType,
     websiteId,
+    driveFolderUrl,
   });
 
   if (error) {

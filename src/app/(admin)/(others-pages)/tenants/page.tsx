@@ -60,6 +60,7 @@ type FormState = {
   ownerPassword: string;
   ownerPhone: string;
   planKey: string;
+  assetDriveFolderUrl: string;
 };
 
 type ProvisionResponse = {
@@ -157,6 +158,7 @@ const initialState: FormState = {
   ownerPassword: "",
   ownerPhone: "",
   planKey: "starter",
+  assetDriveFolderUrl: "",
 };
 
 export default function TenantsPage() {
@@ -513,8 +515,9 @@ export default function TenantsPage() {
     setSuccessMessage(null);
 
     try {
+      const { assetDriveFolderUrl, ...tenantForm } = form;
       const response = await apiClient.post<ProvisionResponse>("/tenants", {
-        ...form,
+        ...tenantForm,
         enabledModules,
         pageSlugs: selectedAdditionalPages,
         featureToggles,
@@ -564,6 +567,7 @@ export default function TenantsPage() {
             firstName,
             response.website.id,
             response.tenant.name,
+            assetDriveFolderUrl.trim() || undefined,
           ),
         },
       ];
@@ -679,6 +683,11 @@ export default function TenantsPage() {
     setRowActionTenantId(tenant.id);
 
     try {
+      const driveFolderUrl =
+        window.prompt(
+          "Client asset Drive folder link (leave blank to skip):",
+          "",
+        )?.trim() || undefined;
       const firstName = tenant.owner_name?.trim().split(/\s+/)[0] || undefined;
       const inviteJobs: Array<{
         key: InviteEmailKey;
@@ -711,6 +720,7 @@ export default function TenantsPage() {
             firstName,
             tenant.website_id ?? undefined,
             tenant.name,
+            driveFolderUrl,
           ),
         },
       ];
@@ -754,6 +764,11 @@ export default function TenantsPage() {
     setRowActionTenantId(tenant.id);
 
     try {
+      const driveFolderUrl =
+        window.prompt(
+          "Client asset Drive folder link (leave blank to skip):",
+          "",
+        )?.trim() || undefined;
       const firstName = tenant.owner_name?.trim().split(/\s+/)[0] || undefined;
       const intakeJob = {
         key: "intake" as InviteEmailKey,
@@ -764,6 +779,7 @@ export default function TenantsPage() {
           firstName,
           tenant.website_id ?? undefined,
           tenant.name,
+          driveFolderUrl,
         ),
       };
       const [result] = await Promise.allSettled([intakeJob.promise]);
@@ -1163,6 +1179,25 @@ export default function TenantsPage() {
                   placeholder="(555) 555-5555"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="assetDriveFolderUrl">
+                Client Asset Drive Folder Link (optional)
+              </Label>
+              <Input
+                id="assetDriveFolderUrl"
+                value={form.assetDriveFolderUrl}
+                onChange={(event) =>
+                  handleChange("assetDriveFolderUrl", event.target.value)
+                }
+                placeholder="https://drive.google.com/drive/folders/..."
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Create a shared Drive folder for this client&apos;s logo/photos
+                before submitting, then paste the link here — it&apos;s included
+                in their intake email.
+              </p>
             </div>
 
             <div>

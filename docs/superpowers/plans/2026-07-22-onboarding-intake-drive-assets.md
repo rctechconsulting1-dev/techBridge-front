@@ -32,12 +32,22 @@ per-client Drive folder link is communicated to the client.
   repo's existing convention of documented manual smoke tests
   (`docs/guides/*_TEST.md`, `scripts/*-smoke-test.mjs`) rather than a
   unit-test suite.
-- Baseline confirmed before this plan: `npx tsc --noEmit` is clean (no
-  output). `npm run lint` has 7 pre-existing errors / 5 warnings in files
-  unrelated to this plan (`ai-leads/page.tsx`, `google-business/page.tsx`,
+- Baseline confirmed in the implementation worktree: `npx tsc --noEmit` is
+  clean (0 errors) once run after `next-env.d.ts` has been (re)generated —
+  a first `tsc` run immediately after `npm install`, before `next dev` or
+  `next build` has ever run once, transiently reported 8 unrelated
+  `className`-on-icon-component errors that a fresh `next dev` bootstrap
+  resolved (`next-env.d.ts`/`tsconfig.tsbuildinfo` are both gitignored,
+  regenerated on demand). If a task's `tsc` run ever reports errors in
+  files it didn't touch, run `npm run dev` briefly (or delete
+  `tsconfig.tsbuildinfo` and re-run) before treating them as real. `npm
+  run lint` has 7 pre-existing errors / 5 warnings in files unrelated to
+  this plan (`ai-leads/page.tsx`, `google-business/page.tsx`,
   `main-page/page.tsx`, `built-in-pages/[pageKey]/page.tsx`,
-  `onboarding/page.tsx:194`). Do not fix these as part of this plan; only
-  ensure no *new* errors appear in files this plan touches.
+  `onboarding/page.tsx:194`) — these are real and stable, not transient.
+  None of these files are touched by any task in this plan. Do not fix
+  either category as part of this plan; only ensure no *new* errors appear
+  in files this plan touches.
 - Do not modify `/api/intake/upload`, `/api/s3-upload`, or
   `src/app/intake/page.tsx`'s file-upload machinery. They become unused
   by the removed questions but remain generic, reusable, working
@@ -1929,7 +1939,67 @@ with:
       },
 ```
 
-- [ ] **Step 2: Type-check and lint**
+- [ ] **Step 2: Remove the now-dead "Apply to Branding" link**
+
+Task 5 removed the `?prefillFromIntake=1` auto-apply effect from
+`src/app/(admin)/(others-pages)/branding/page.tsx` (it only ever applied
+the logo file, which no longer exists — logos now arrive as a Drive link,
+which nothing can "auto-apply" since it isn't a servable file URL). That
+leaves this "Apply to Branding" link in the onboarding checklist pointing
+at a query param nothing reads anymore — a dead affordance: it still
+navigates to `/branding`, but does nothing else, with no error and no
+visible feedback, silently regressing from a working "apply" action.
+
+The sibling "Apply to Site Settings" link stays — `site-settings/page.tsx`
+still honors `?prefillFromIntake=1` for the non-logo fields Task 7 leaves
+in place (business name, phone, address, socials, etc.).
+
+Replace:
+
+```tsx
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href="/site-settings?prefillFromIntake=1"
+                      className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Apply to Site Settings
+                    </Link>
+                    <Link
+                      href="/branding?prefillFromIntake=1"
+                      className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Apply to Branding
+                    </Link>
+                  </div>
+```
+
+with:
+
+```tsx
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href="/site-settings?prefillFromIntake=1"
+                      className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Apply to Site Settings
+                    </Link>
+                    <Link
+                      href="/branding"
+                      className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Review Branding
+                    </Link>
+                  </div>
+```
+
+The closing `</Link>` text you're replacing may not match character-for-
+character if the surrounding whitespace differs slightly from the excerpt
+above — locate this block by searching for
+`href="/branding?prefillFromIntake=1"` in the file (there is exactly one
+occurrence) and confirm the two `<Link>` elements shown above are what
+surrounds it before editing.
+
+- [ ] **Step 3: Type-check and lint**
 
 Run: `npx tsc --noEmit`
 Expected: no output (clean).
@@ -1938,14 +2008,16 @@ Run: `npx eslint "src/app/(admin)/(others-pages)/onboarding/page.tsx"`
 Expected: no new errors (the pre-existing `hasMeaningfulSiteSettings`
 unused-var warning at line 194 is out of scope for this task).
 
-- [ ] **Step 3: Manual verification**
+- [ ] **Step 4: Manual verification**
 
 Run `npm run dev`, sign in as admin, open `/onboarding` for a tenant whose
 latest intake submission has a non-empty `asset_drive_link` answer.
-Confirm the "Branding" checklist row shows status `seeded` (not
-`not_started`).
+Confirm:
+1. The "Branding" checklist row shows status `seeded` (not `not_started`).
+2. The button that used to say "Apply to Branding" now reads "Review
+   Branding" and links to plain `/branding` (no query param).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add "src/app/(admin)/(others-pages)/onboarding/page.tsx"
@@ -1953,7 +2025,10 @@ git commit -m "$(cat <<'EOF'
 fix: key onboarding checklist Branding status off the intake Drive link
 
 The logo no longer arrives as an intake file, so "seeded" status now
-checks for a submitted asset_drive_link answer instead.
+checks for a submitted asset_drive_link answer instead. Also removes the
+"Apply to Branding" link's now-meaningless ?prefillFromIntake=1 param —
+Task 5 deleted the auto-apply effect it triggered, since there's no
+servable logo file left to auto-apply.
 EOF
 )"
 ```

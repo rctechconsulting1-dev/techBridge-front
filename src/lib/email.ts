@@ -419,6 +419,7 @@ export interface SendIntakeEmailOptions {
   tenantId: number;
   businessType?: string;
   websiteId?: number;
+  driveFolderUrl?: string;
 }
 
 export async function sendIntakeEmail({
@@ -428,6 +429,7 @@ export async function sendIntakeEmail({
   tenantId,
   businessType = "universal",
   websiteId,
+  driveFolderUrl,
 }: SendIntakeEmailOptions) {
   const token = await createIntakeToken(
     to,
@@ -450,6 +452,7 @@ export async function sendIntakeEmail({
     tenantName,
     businessType,
     intakeUrl,
+    driveFolderUrl,
   });
 
   const subjectSuffix = tenantName?.trim() ? ` for ${tenantName.trim()}` : "";

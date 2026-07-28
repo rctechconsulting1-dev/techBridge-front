@@ -413,13 +413,14 @@ export default function OnboardingPage() {
       },
       {
         title: "Branding",
-        desc: "A logo or prefilled assets mean branding is staged. Mark complete only after visual QA is done.",
+        desc: "A logo/asset folder link or prefilled assets mean branding is staged. Mark complete only after visual QA is done.",
         href: "/branding",
         status: checklist.branding
           ? "complete"
           : brandingComplete
             ? "reviewed"
-            : intakeSubmission?.files.some((file) => file.questionId === "logo")
+            : typeof intakeSubmission?.answers.asset_drive_link === "string" &&
+                intakeSubmission.answers.asset_drive_link.trim().length > 0
               ? "seeded"
               : "not_started",
       },
@@ -1089,10 +1090,10 @@ export default function OnboardingPage() {
                       Apply to Site Settings
                     </Link>
                     <Link
-                      href="/branding?prefillFromIntake=1"
+                      href="/branding"
                       className="rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                     >
-                      Apply to Branding
+                      Review Branding
                     </Link>
                   </div>
                 </div>

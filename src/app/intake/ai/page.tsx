@@ -37,7 +37,6 @@ import type {
   IntakeAnswers,
   IntakeFileRef,
 } from "@/lib/intake-types";
-import type { AiSuggestedFile } from "@/lib/intake-ai-schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -652,7 +651,6 @@ interface ReviewPhaseProps {
   sections: IntakeSection[];
   answers: IntakeAnswers;
   aiFilledFields: Set<string>;
-  suggestedFiles: AiSuggestedFile[];
   onChange: (questionId: string, value: string | string[] | boolean) => void;
   onDone: () => void;
   onBack: () => void;
@@ -663,7 +661,6 @@ function ReviewPhase({
   sections,
   answers,
   aiFilledFields,
-  suggestedFiles,
   onChange,
   onDone,
   onBack,
@@ -697,23 +694,13 @@ function ReviewPhase({
       setSubmitting(true);
       setError(null);
 
-      // Suggested image URLs from the prefill step are sent to the admin as a
-      // note in the answers blob under __ai_suggested_files — this MVP does
-      // not re-upload external images into S3 automatically.
-      const answersWithMeta: IntakeAnswers = { ...answers };
-      if (suggestedFiles.length > 0) {
-        answersWithMeta["__ai_suggested_files"] = JSON.stringify(
-          suggestedFiles,
-        );
-      }
-
       try {
         const res = await fetch("/api/intake/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             token,
-            answers: answersWithMeta,
+            answers,
             files: [] as IntakeFileRef[],
           }),
         });
@@ -728,7 +715,7 @@ function ReviewPhase({
         setSubmitting(false);
       }
     },
-    [answers, onDone, sections, suggestedFiles, token],
+    [answers, onDone, sections, token],
   );
 
   return (
@@ -754,34 +741,6 @@ function ReviewPhase({
           ← Back
         </button>
       </div>
-
-      {suggestedFiles.length > 0 && (
-        <div className="rounded-xl border border-[#CD7F32]/30 bg-[#CD7F32]/5 p-4 text-sm text-gray-700 dark:text-gray-200">
-          <p className="mb-2 font-semibold text-[#CD7F32]">
-            Images we spotted on your site
-          </p>
-          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-            We saved these references for your account manager. You can upload
-            final versions on the classic form.
-          </p>
-          <ul className="space-y-1 text-xs">
-            {suggestedFiles.map((f, i) => (
-              <li key={i}>
-                <span className="font-medium">{f.questionId}:</span>{" "}
-                <a
-                  href={f.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[#CD7F32] underline"
-                >
-                  {f.url}
-                </a>
-                {f.reason ? ` — ${f.reason}` : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {sections.map((section) => (
         <div
@@ -832,7 +791,6 @@ function AiIntakeInner() {
   const [phase, setPhase] = useState<Phase>("start");
   const [answers, setAnswers] = useState<IntakeAnswers>({});
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
-  const [suggestedFiles, setSuggestedFiles] = useState<AiSuggestedFile[]>([]);
   const [seed, setSeed] = useState<BusinessSeed>({});
   const [prefillLoading, setPrefillLoading] = useState(false);
   const [prefillError, setPrefillError] = useState<string | null>(null);
@@ -875,9 +833,6 @@ function AiIntakeInner() {
         const incoming = (body.answers ?? {}) as IntakeAnswers;
         setAnswers((prev) => ({ ...prev, ...incoming }));
         setAiFilledFields(new Set(Object.keys(incoming)));
-        setSuggestedFiles(
-          Array.isArray(body.suggestedFiles) ? body.suggestedFiles : [],
-        );
         setPhase("review");
       } catch (err) {
         setPrefillError(
@@ -988,7 +943,6 @@ function AiIntakeInner() {
           sections={sections}
           answers={answers}
           aiFilledFields={aiFilledFields}
-          suggestedFiles={suggestedFiles}
           onChange={handleAnswerChange}
           onDone={() => setPhase("done")}
           onBack={() => setPhase("start")}

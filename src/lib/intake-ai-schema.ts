@@ -73,20 +73,8 @@ export const AiIntakeAnswersSchema = z.object({
 
 export type AiIntakeAnswers = z.infer<typeof AiIntakeAnswersSchema>;
 
-// Suggested image URLs found on the client's site (logo, headshots, etc.).
-// The client reviews these on the review step — nothing is uploaded to S3
-// automatically in this MVP.
-export const AiSuggestedFileSchema = z.object({
-  questionId: z.enum(["logo", "headshot", "work_photos"]),
-  url: z.string().url(),
-  reason: z.string().optional(),
-});
-
-export type AiSuggestedFile = z.infer<typeof AiSuggestedFileSchema>;
-
 export const AiPrefillResponseSchema = z.object({
   answers: AiIntakeAnswersSchema,
-  suggestedFiles: z.array(AiSuggestedFileSchema).default([]),
   notes: z.string().optional(),
 });
 
@@ -216,24 +204,9 @@ export const AI_INTAKE_JSON_SCHEMA = {
           "social_media",
         ],
       },
-      suggestedFiles: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            questionId: {
-              type: "string",
-              enum: ["logo", "headshot", "work_photos"],
-            },
-            url: { type: "string" },
-            reason: { type: "string" },
-          },
-          required: ["questionId", "url", "reason"],
-        },
-      },
       notes: { type: "string" },
     },
-    required: ["answers", "suggestedFiles", "notes"],
+    required: ["answers", "notes"],
   },
 };
 

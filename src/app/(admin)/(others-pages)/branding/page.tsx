@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useS3Upload } from "@/hooks/useS3Upload";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -41,7 +40,6 @@ const getAuthHeaders = () => {
 
 export default function BrandingPage() {
   const { selectedClient } = useSidebar();
-  const searchParams = useSearchParams();
   const selectedTenantId =
     Number(selectedClient?.tenant_id || selectedClient?.id || 0) || null;
   const selectedWebsiteId = selectedClient?.website_id ?? null;
@@ -58,13 +56,10 @@ export default function BrandingPage() {
     small_logo_url: null,
     large_logo_url: null,
   });
-  const [intakeLogoUrl, setIntakeLogoUrl] = useState<string | null>(null);
-  const [intakeLogoFilename, setIntakeLogoFilename] = useState<string | null>(null);
   const [latestIntakeSubmission, setLatestIntakeSubmission] =
     useState<IntakeStoredSubmission | null>(null);
   const [intakeLogoLoading, setIntakeLogoLoading] = useState(false);
   const [intakeLogoMessage, setIntakeLogoMessage] = useState<string | null>(null);
-  const intakeLogoAppliedRef = useRef(false);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
@@ -112,8 +107,7 @@ export default function BrandingPage() {
         small_logo_url: null,
         large_logo_url: null,
       });
-      setIntakeLogoUrl(null);
-      setIntakeLogoFilename(null);
+      setLatestIntakeSubmission(null);
       return;
     }
 
@@ -168,8 +162,6 @@ export default function BrandingPage() {
 
     if (!requestPath) {
       setLatestIntakeSubmission(null);
-      setIntakeLogoUrl(null);
-      setIntakeLogoFilename(null);
       setIntakeLogoLoading(false);
       return;
     }
@@ -182,8 +174,6 @@ export default function BrandingPage() {
 
       if (response.status === 404) {
         setLatestIntakeSubmission(null);
-        setIntakeLogoUrl(null);
-        setIntakeLogoFilename(null);
         return;
       }
 
@@ -194,9 +184,6 @@ export default function BrandingPage() {
 
       const data = (await response.json()) as IntakeStoredSubmission;
       setLatestIntakeSubmission(data);
-      const logoFile = data.files.find((file) => file.questionId === "logo");
-      setIntakeLogoUrl(logoFile?.url ?? null);
-      setIntakeLogoFilename(logoFile?.filename ?? null);
     } catch (error) {
       setLatestIntakeSubmission(null);
       setIntakeLogoMessage(
@@ -314,34 +301,6 @@ export default function BrandingPage() {
     }
   }, [saveBrandField]);
 
-  const applyIntakeLogo = useCallback(async () => {
-    if (!intakeLogoUrl) {
-      return;
-    }
-
-    if (settings.logo_url === intakeLogoUrl) {
-      setIntakeLogoMessage("The intake logo is already set as the current brand logo.");
-      return;
-    }
-
-    setIsUploadingField("logo_url");
-    setIntakeLogoMessage(null);
-
-    try {
-      await saveBrandField("logo_url", intakeLogoUrl);
-      await createBrandAssetRecord(intakeLogoUrl, "Brand Logo");
-      setSettings((prev) => ({ ...prev, logo_url: intakeLogoUrl }));
-      await refetchAssets();
-      setIntakeLogoMessage("Intake logo applied. Review it below.");
-    } catch (error) {
-      setIntakeLogoMessage(
-        error instanceof Error ? error.message : "Failed to apply intake logo.",
-      );
-    } finally {
-      setIsUploadingField(null);
-    }
-  }, [createBrandAssetRecord, intakeLogoUrl, refetchAssets, saveBrandField, settings.logo_url]);
-
   const handleInputChange = (field: BrandField, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
@@ -359,21 +318,6 @@ export default function BrandingPage() {
 
     void loadLatestIntakeLogo(selectedWebsiteId);
   }, [loadLatestIntakeLogo, selectedWebsiteId]);
-
-  useEffect(() => {
-    const shouldPrefill = searchParams.get("prefillFromIntake") === "1";
-    if (
-      !shouldPrefill ||
-      !intakeLogoUrl ||
-      !!settings.logo_url ||
-      intakeLogoAppliedRef.current
-    ) {
-      return;
-    }
-
-    intakeLogoAppliedRef.current = true;
-    void applyIntakeLogo();
-  }, [applyIntakeLogo, intakeLogoUrl, searchParams, settings.logo_url]);
 
   const handleUploadExtraBrandField = useCallback(async (field: ExtraBrandField, file: File) => {
     if (!selectedWebsiteId) {
@@ -487,29 +431,34 @@ export default function BrandingPage() {
               ) : null}
 
               <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                      Intake logo
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {intakeLogoLoading
-                        ? "Checking latest intake submission..."
-                        : intakeLogoUrl
-                          ? `Latest upload: ${intakeLogoFilename ?? "logo file"}`
-                          : "No logo was uploaded in the latest intake submission."}
-                    </p>
-                  </div>
-                  {intakeLogoUrl ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => void applyIntakeLogo()}
-                      disabled={isUploadingField !== null || isLoadingSettings}
-                    >
-                      Use Intake Logo
-                    </Button>
-                  ) : null}
-                </div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Intake asset folder
+                </p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {intakeLogoLoading ? (
+                    "Checking latest intake submission..."
+                  ) : typeof latestIntakeSubmission?.answers.asset_drive_link === "string" &&
+                    latestIntakeSubmission.answers.asset_drive_link.trim() ? (
+                    /^https?:\/\//i.test(latestIntakeSubmission.answers.asset_drive_link.trim()) ? (
+                      <a
+                        href={latestIntakeSubmission.answers.asset_drive_link.trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-brand-600 underline dark:text-brand-400"
+                      >
+                        {latestIntakeSubmission.answers.asset_drive_link.trim()}
+                      </a>
+                    ) : (
+                      latestIntakeSubmission.answers.asset_drive_link.trim()
+                    )
+                  ) : (
+                    "No asset folder link submitted in the questionnaire."
+                  )}
+                </p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Download the logo from the folder and upload it below — it
+                  is no longer auto-detected from the questionnaire.
+                </p>
                 {intakeLogoMessage ? (
                   <p className="mt-3 text-xs text-gray-600 dark:text-gray-300">
                     {intakeLogoMessage}
