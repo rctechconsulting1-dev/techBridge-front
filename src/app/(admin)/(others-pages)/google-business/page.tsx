@@ -43,8 +43,8 @@ function PlaceIdBanner({ businessId, businessName, gmbId, authHeaders, onSaved }
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             setSearchResults(data.places ?? []);
             if ((data.places ?? []).length === 0) setErr('No results found. Try the Google Maps URL lookup below.');
-        } catch (e: any) {
-            setErr(e.message);
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : String(e));
         }
         setSearching(false);
     }, [authHeaders]);
@@ -71,13 +71,13 @@ function PlaceIdBanner({ businessId, businessName, gmbId, authHeaders, onSaved }
                 body: JSON.stringify({ gmb_Id: gmbId, place_id: id }),
             });
             if (!res.ok) {
-                const d = await res.json().catch(() => ({}));
-                throw new Error((d as any).error || `HTTP ${res.status}`);
+                const d = await res.json().catch(() => ({} as { error?: string }));
+                throw new Error((d as { error?: string }).error || `HTTP ${res.status}`);
             }
             setSaved(true);
             onSaved();
-        } catch (e: any) {
-            setErr(e.message);
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : String(e));
         }
         setSaving(false);
     }, [placeId, businessId, gmbId, authHeaders, onSaved]);
@@ -190,7 +190,13 @@ function LinkLocationModal({ loc, authHeaders, onLinked, onClose }: {
             .then(r => r.ok ? r.json() : Promise.reject(r.status))
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .then((data: any) => {
-                const rows: Tenant[] = (data.tenants ?? data ?? []).map((t: any) => ({
+                const rows: Tenant[] = (data.tenants ?? data ?? []).map((t: {
+                    id: number;
+                    name: string;
+                    website_id?: number | null;
+                    owner_user_id?: number | null;
+                    owner_email?: string | null;
+                }) => ({
                     id: t.id,
                     name: t.name,
                     website_id: t.website_id ?? null,

@@ -90,7 +90,7 @@ export default function AiLeadsPage() {
         {/* Empty */}
         {!loading && !error && leads.length === 0 && (
           <p className="py-8 text-center text-sm text-gray-400">
-            No leads yet. Once visitors chat on your site, they'll appear here.
+            No leads yet. Once visitors chat on your site, they&apos;ll appear here.
           </p>
         )}
 
@@ -109,7 +109,7 @@ export default function AiLeadsPage() {
                   </p>
                   {lead.initial_question && (
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                      "{lead.initial_question}"
+                      &quot;{lead.initial_question}&quot;
                     </p>
                   )}
                 </div>
