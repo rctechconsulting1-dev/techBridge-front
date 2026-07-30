@@ -361,6 +361,38 @@ export async function sendNotificationEmail(
   });
 }
 
+export interface SendCalendarReadyEmailOptions {
+  to: string;
+  firstName?: string;
+  tenantName?: string;
+}
+
+export async function sendCalendarReadyEmail({
+  to,
+  firstName,
+  tenantName,
+}: SendCalendarReadyEmailOptions) {
+  const calendarUrl = process.env.CALENDAR_BOOKING_URL;
+  if (!calendarUrl) {
+    throw new Error("CALENDAR_BOOKING_URL is not configured");
+  }
+
+  const greeting = firstName ? `Hi ${firstName},` : "Hello,";
+  const tenantLabel = tenantName?.trim() ? tenantName.trim() : "your business";
+
+  return getResendClient().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: "You're ready to book your kickoff call",
+    html: buildNotificationHtml({
+      subject: "You're ready to book your kickoff call",
+      heading: "Thanks for completing your questionnaire!",
+      body: `<p>${greeting}</p><p>We've received your answers for <strong>${tenantLabel}</strong>. The next step is to book your kickoff call so we can walk through next steps together.</p>`,
+      cta: { label: "Book Your Kickoff Call", href: calendarUrl },
+    }),
+  });
+}
+
 export interface SendBillingInviteEmailOptions {
   to: string;
   firstName?: string;
