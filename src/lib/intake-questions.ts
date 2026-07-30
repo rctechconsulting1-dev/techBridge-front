@@ -18,6 +18,21 @@ export type QuestionType =
   | "boolean"
   | "number";
 
+export interface IntakeQuestionCondition {
+  questionId: string;
+  /** Question must currently equal this value (for select/boolean/text). */
+  equals?: string | boolean;
+  /** Question's array value must currently include this option (for multiselect). */
+  includes?: string;
+}
+
+export interface IntakeQuestionOption {
+  value: string;
+  label: string;
+  /** Only offered if the tenant's enabled modules include at least one of these. */
+  requiredModules?: string[];
+}
+
 export interface IntakeQuestion {
   id: string;
   label: string;
@@ -25,13 +40,19 @@ export interface IntakeQuestion {
   placeholder?: string;
   hint?: string;
   required?: boolean;
-  options?: { value: string; label: string }[];
+  options?: IntakeQuestionOption[];
   /** S3 upload category for file questions. */
   uploadCategory?: string;
   /** Maximum files for multifile type. */
   maxFiles?: number;
   /** Accept attribute for file inputs. */
   accept?: string;
+  /** Only rendered if the tenant's enabled modules include at least one of these. */
+  requiredModules?: string[];
+  /** Hidden if the tenant's enabled modules include any of these (used for "neither" fallback questions). */
+  excludedModules?: string[];
+  /** Only rendered once another question in the same section currently matches this condition. */
+  showIf?: IntakeQuestionCondition;
 }
 
 export interface IntakeSection {
@@ -49,7 +70,45 @@ export type BusinessType =
   | "reservations"
   | "hybrid_local";
 
-// ─── Universal questions ──────────────────────────────────────────────────────
+// ─── Visibility helpers ───────────────────────────────────────────────────────
+
+function questionModulesMatch(question: IntakeQuestion, modules: string[]): boolean {
+  if (question.requiredModules && question.requiredModules.length > 0) {
+    if (!question.requiredModules.some((m) => modules.includes(m))) return false;
+  }
+  if (question.excludedModules && question.excludedModules.length > 0) {
+    if (question.excludedModules.some((m) => modules.includes(m))) return false;
+  }
+  return true;
+}
+
+function filterOptionsForModules(
+  options: IntakeQuestionOption[] | undefined,
+  modules: string[],
+): IntakeQuestionOption[] | undefined {
+  if (!options) return options;
+  return options.filter(
+    (opt) => !opt.requiredModules || opt.requiredModules.length === 0 || opt.requiredModules.some((m) => modules.includes(m)),
+  );
+}
+
+/** Evaluates a question's showIf against the form's current live answers. Used at render time — module filtering happens earlier, in getIntakeSections. */
+export function isQuestionCurrentlyVisible(
+  question: IntakeQuestion,
+  answers: Record<string, string | string[] | boolean | number | null | undefined>,
+): boolean {
+  if (!question.showIf) return true;
+  const actual = answers[question.showIf.questionId];
+  if (question.showIf.equals !== undefined) {
+    return actual === question.showIf.equals;
+  }
+  if (question.showIf.includes !== undefined) {
+    return Array.isArray(actual) && actual.includes(question.showIf.includes);
+  }
+  return true;
+}
+
+// ─── About Your Business ──────────────────────────────────────────────────────
 
 const UNIVERSAL_ABOUT: IntakeSection = {
   id: "about",
@@ -91,14 +150,25 @@ const UNIVERSAL_ABOUT: IntakeSection = {
     {
       id: "years_in_business",
       label: "How long have you been in business?",
-      type: "text",
-      placeholder: "e.g. 5 years, Just starting out",
+      type: "select",
+      options: [
+        { value: "under_1", label: "Less than 1 year" },
+        { value: "1_to_3", label: "1-3 years" },
+        { value: "3_to_10", label: "3-10 years" },
+        { value: "over_10", label: "10+ years" },
+      ],
     },
     {
-      id: "credentials",
+      id: "has_credentials",
       label: "Any certifications, licenses, or credentials to highlight?",
+      type: "boolean",
+    },
+    {
+      id: "credentials_details",
+      label: "List them out",
       type: "textarea",
       placeholder: "e.g. Licensed contractor #12345, NASM Certified",
+      showIf: { questionId: "has_credentials", equals: true },
     },
     {
       id: "ideal_client",
@@ -121,13 +191,21 @@ const UNIVERSAL_ABOUT: IntakeSection = {
       hint: "If you don't have one, we can help create one based on your brand.",
     },
     {
-      id: "topics_to_avoid",
+      id: "has_topics_to_avoid",
       label: "Are there services, topics, or competitors we should NOT mention on your site?",
+      type: "boolean",
+    },
+    {
+      id: "topics_to_avoid_details",
+      label: "What should we avoid?",
       type: "textarea",
       placeholder: "e.g. We no longer offer pool service, don't mention Brand X",
+      showIf: { questionId: "has_topics_to_avoid", equals: true },
     },
   ],
 };
+
+// ─── Your Brand ────────────────────────────────────────────────────────────────
 
 const UNIVERSAL_BRAND: IntakeSection = {
   id: "brand",
@@ -144,20 +222,60 @@ const UNIVERSAL_BRAND: IntakeSection = {
       hint: "We emailed you a link to a shared folder for your logo, headshots, and any other brand assets. Drop everything there — no need to upload files in this form. If you don't have a logo yet, we can help create one.",
     },
     {
-      id: "brand_colors",
+      id: "brand_color_mood",
       label: "What colors feel like 'you'?",
+      type: "multiselect",
+      options: [
+        { value: "bold_energetic", label: "Bold & energetic" },
+        { value: "earthy_natural", label: "Earthy & natural" },
+        { value: "modern_minimal", label: "Modern & minimal" },
+        { value: "warm_friendly", label: "Warm & friendly" },
+        { value: "corporate_professional", label: "Corporate & professional" },
+        { value: "custom", label: "Custom — I'll describe it" },
+      ],
+    },
+    {
+      id: "brand_colors_custom",
+      label: "Describe the colors you want",
       type: "text",
       placeholder: "e.g. bold blue and white, earthy green and tan",
+      showIf: { questionId: "brand_color_mood", includes: "custom" },
     },
     {
       id: "brand_words",
       label: "Three words that describe your brand or service style",
-      type: "text",
+      type: "multiselect",
       required: true,
-      placeholder: "e.g. reliable, modern, friendly",
+      options: [
+        { value: "reliable", label: "Reliable" },
+        { value: "modern", label: "Modern" },
+        { value: "friendly", label: "Friendly" },
+        { value: "bold", label: "Bold" },
+        { value: "elegant", label: "Elegant" },
+        { value: "trustworthy", label: "Trustworthy" },
+        { value: "playful", label: "Playful" },
+        { value: "premium", label: "Premium" },
+        { value: "approachable", label: "Approachable" },
+        { value: "innovative", label: "Innovative" },
+        { value: "family_owned", label: "Family-owned" },
+        { value: "luxury", label: "Luxury" },
+        { value: "no_nonsense", label: "No-nonsense" },
+        { value: "energetic", label: "Energetic" },
+        { value: "calm", label: "Calm" },
+        { value: "cutting_edge", label: "Cutting-edge" },
+        { value: "other", label: "Other" },
+      ],
+    },
+    {
+      id: "brand_words_other",
+      label: "What other words describe your brand?",
+      type: "text",
+      showIf: { questionId: "brand_words", includes: "other" },
     },
   ],
 };
+
+// ─── Photos & Media ────────────────────────────────────────────────────────────
 
 const UNIVERSAL_MEDIA: IntakeSection = {
   id: "media",
@@ -166,20 +284,316 @@ const UNIVERSAL_MEDIA: IntakeSection = {
     "Add photos of your work to the shared folder we sent you — we'll use these on your site.",
   questions: [
     {
-      id: "video_links",
+      id: "has_video_content",
       label: "Any video content, testimonials, or promo clips?",
+      type: "boolean",
+    },
+    {
+      id: "video_links",
+      label: "Share the links",
       type: "textarea",
       placeholder: "Paste YouTube, Vimeo, or other video links here",
+      showIf: { questionId: "has_video_content", equals: true },
+    },
+    {
+      id: "has_testimonials",
+      label: "Do you have any existing testimonials or reviews you'd like us to use?",
+      type: "boolean",
+      hint: "These can be from Google, Yelp, Facebook, or any other platform.",
     },
     {
       id: "existing_testimonials",
-      label: "Do you have any existing testimonials or reviews you'd like us to use?",
+      label: "Share them",
       type: "textarea",
       placeholder: "Paste review text, customer quotes, or share a link to your reviews",
-      hint: "These can be from Google, Yelp, Facebook, or any other platform.",
+      showIf: { questionId: "has_testimonials", equals: true },
     },
   ],
 };
+
+// ─── Services, Products & Booking ─────────────────────────────────────────────
+
+const UNIVERSAL_OFFERINGS: IntakeSection = {
+  id: "services",
+  title: "Services, Products & Booking",
+  description: "Tell us what you offer and how customers buy, book, or contact you.",
+  questions: [
+    {
+      id: "primary_offerings",
+      label: "What are your main services, products, or reservation types?",
+      type: "textarea",
+      required: true,
+      placeholder: "List the main things customers can buy, book, or hire you for.",
+    },
+    {
+      id: "has_set_pricing",
+      label: "Do you have set pricing or packages to share?",
+      type: "boolean",
+    },
+    {
+      id: "pricing_packages",
+      label: "Share your pricing, packages, subscriptions, or add-ons",
+      type: "textarea",
+      placeholder: "Include starting prices, bundles, memberships, deposits, or special offers.",
+      showIf: { questionId: "has_set_pricing", equals: true },
+    },
+    {
+      id: "customer_action",
+      label: "What is the main action you want visitors to take?",
+      type: "multiselect",
+      options: [
+        { value: "call", label: "Call" },
+        { value: "contact_form", label: "Submit contact form" },
+        { value: "book_appointment", label: "Book appointment", requiredModules: ["calendar_appointments"] },
+        { value: "make_reservation", label: "Make reservation", requiredModules: ["reservations"] },
+        { value: "buy_online", label: "Buy online", requiredModules: ["checkout_ecommerce"] },
+        { value: "visit_location", label: "Visit location" },
+      ],
+    },
+    {
+      id: "fulfillment_ecommerce",
+      label: "How do you fulfill orders?",
+      type: "multiselect",
+      requiredModules: ["checkout_ecommerce"],
+      options: [
+        { value: "ship", label: "Ship products" },
+        { value: "local_pickup", label: "Local pickup" },
+        { value: "digital_delivery", label: "Digital delivery" },
+        { value: "in_person", label: "In-person handoff" },
+      ],
+    },
+    {
+      id: "fulfillment_booking",
+      label: "Describe your booking flow",
+      type: "textarea",
+      requiredModules: ["calendar_appointments", "reservations"],
+      placeholder: "Explain how customers pick a time, what happens after they book, cancellation window, etc.",
+    },
+    {
+      id: "fulfillment_general",
+      label: "How do you deliver your work?",
+      type: "select",
+      excludedModules: ["checkout_ecommerce", "calendar_appointments", "reservations"],
+      options: [
+        { value: "we_go_to_them", label: "We go to them" },
+        { value: "they_come_to_us", label: "They come to us" },
+        { value: "both", label: "Both" },
+      ],
+    },
+    {
+      id: "business_hours",
+      label: "What are your business hours?",
+      type: "select",
+      options: [
+        { value: "standard", label: "Standard, Monday-Friday" },
+        { value: "extended", label: "Extended hours, including weekends" },
+        { value: "24_7", label: "24/7" },
+        { value: "custom", label: "Custom — I'll describe it" },
+      ],
+    },
+    {
+      id: "business_hours_custom",
+      label: "Describe your hours",
+      type: "textarea",
+      showIf: { questionId: "business_hours", equals: "custom" },
+    },
+    {
+      id: "service_radius",
+      label: "What is your service area or delivery radius?",
+      type: "select",
+      options: [
+        { value: "5mi", label: "Within 5 miles" },
+        { value: "10mi", label: "Within 10 miles" },
+        { value: "25mi", label: "Within 25 miles" },
+        { value: "50mi_plus", label: "Within 50+ miles" },
+        { value: "statewide_national", label: "Statewide or national" },
+        { value: "virtual", label: "Fully virtual, no radius" },
+      ],
+    },
+    {
+      id: "policies_guarantees_types",
+      label: "Any policies or guarantees to highlight?",
+      type: "multiselect",
+      options: [
+        { value: "money_back", label: "Money-back guarantee" },
+        { value: "warranty", label: "Warranty on work" },
+        { value: "free_estimates", label: "Free estimates/quotes" },
+        { value: "satisfaction_guarantee", label: "Satisfaction guarantee" },
+        { value: "deposit_required", label: "Deposit required" },
+        { value: "cancellation_policy", label: "Cancellation policy" },
+        { value: "none", label: "None of these" },
+      ],
+    },
+    {
+      id: "policies_guarantees_details",
+      label: "Anything else to add about policies or guarantees?",
+      type: "textarea",
+      placeholder: "Optional — details on any of the above, or anything not covered",
+    },
+  ],
+};
+
+// ─── Online Presence & Platforms ──────────────────────────────────────────────
+
+const UNIVERSAL_PLATFORMS: IntakeSection = {
+  id: "platforms",
+  title: "Online Presence & Platforms",
+  description: "Help us connect and sync all your existing online accounts.",
+  questions: [
+    {
+      id: "has_google_business",
+      label: "Do you have a Google Business Profile?",
+      type: "boolean",
+    },
+    {
+      id: "google_business_url",
+      label: "Paste the URL or name",
+      type: "text",
+      placeholder: "e.g. https://g.page/your-business or \"RnR Electric Sacramento\"",
+      hint: "To connect your profile, please grant Manager access to rctechsolutions1@gmail.com in your Google Business settings. This lets us manage reviews, posts, and performance data on your behalf.",
+      showIf: { questionId: "has_google_business", equals: true },
+    },
+    {
+      id: "has_facebook",
+      label: "Do you have a Facebook business page?",
+      type: "boolean",
+    },
+    {
+      id: "facebook_url",
+      label: "Facebook page URL",
+      type: "text",
+      placeholder: "e.g. https://www.facebook.com/yourbusiness",
+      showIf: { questionId: "has_facebook", equals: true },
+    },
+    {
+      id: "has_instagram",
+      label: "Do you have an Instagram profile?",
+      type: "boolean",
+    },
+    {
+      id: "instagram_url",
+      label: "Instagram URL or handle",
+      type: "text",
+      placeholder: "e.g. https://www.instagram.com/yourbusiness or @yourbusiness",
+      showIf: { questionId: "has_instagram", equals: true },
+    },
+    {
+      id: "has_yelp",
+      label: "Do you have a Yelp profile?",
+      type: "boolean",
+    },
+    {
+      id: "yelp_url",
+      label: "Yelp profile URL",
+      type: "text",
+      placeholder: "e.g. https://www.yelp.com/biz/your-business",
+      showIf: { questionId: "has_yelp", equals: true },
+    },
+    {
+      id: "has_other_review_platforms",
+      label: "Any other review or directory profiles? (Angi, Thumbtack, BBB, HomeAdvisor, etc.)",
+      type: "boolean",
+    },
+    {
+      id: "other_review_platforms",
+      label: "List them",
+      type: "textarea",
+      placeholder: "Paste links or names of any other profiles you have",
+      showIf: { questionId: "has_other_review_platforms", equals: true },
+    },
+    {
+      id: "has_google_ads",
+      label: "Are you currently running Google Ads or Local Services Ads (LSA)?",
+      type: "select",
+      options: [
+        { value: "yes_google_ads", label: "Yes, Google Search Ads" },
+        { value: "yes_lsa", label: "Yes, Local Services Ads (LSA / Google Guaranteed)" },
+        { value: "yes_both", label: "Yes, both" },
+        { value: "no", label: "No, not currently" },
+        { value: "interested", label: "No, but I'm interested" },
+      ],
+      hint: "We'll use this to align your landing pages and CTAs with your ad strategy.",
+    },
+    {
+      id: "existing_booking_software",
+      label: "Do you currently use any booking, scheduling, or CRM software?",
+      type: "select",
+      options: [
+        { value: "jobber", label: "Jobber" },
+        { value: "servicetitan", label: "ServiceTitan" },
+        { value: "calendly", label: "Calendly" },
+        { value: "housecall_pro", label: "Housecall Pro" },
+        { value: "square", label: "Square" },
+        { value: "none", label: "None" },
+        { value: "other", label: "Other" },
+      ],
+      hint: "We'll make sure our booking integration doesn't conflict with what you already use.",
+    },
+    {
+      id: "existing_booking_software_other",
+      label: "What software do you use?",
+      type: "text",
+      showIf: { questionId: "existing_booking_software", equals: "other" },
+    },
+  ],
+};
+
+// ─── Automation & Workflows ────────────────────────────────────────────────────
+
+const UNIVERSAL_AUTOMATION: IntakeSection = {
+  id: "automation",
+  title: "Automation & Workflows",
+  description: "Help us spot repetitive work we could take off your plate.",
+  questions: [
+    {
+      id: "manual_workflows",
+      label: "What tasks or parts of running your business feel repetitive or manual right now?",
+      type: "textarea",
+      placeholder:
+        "e.g. manually texting customers back, re-typing the same quote every time, tracking leads in a notebook",
+    },
+    {
+      id: "current_tools",
+      label: "What software or tools do you currently use for day-to-day operations?",
+      type: "multiselect",
+      options: [
+        { value: "invoicing", label: "Invoicing software" },
+        { value: "scheduling", label: "Scheduling software" },
+        { value: "crm", label: "CRM" },
+        { value: "spreadsheets", label: "Spreadsheets" },
+        { value: "texting_personal", label: "Texting customers from a personal phone" },
+        { value: "social_manual", label: "Managing social media manually" },
+        { value: "none", label: "None of these" },
+        { value: "other", label: "Other" },
+      ],
+    },
+    {
+      id: "current_tools_other",
+      label: "What other tools do you use?",
+      type: "text",
+      showIf: { questionId: "current_tools", includes: "other" },
+    },
+    {
+      id: "automation_interest",
+      label: "Which of these would you be interested in automating?",
+      type: "multiselect",
+      options: [
+        { value: "sms_followups", label: "Text message follow-ups with leads/customers" },
+        { value: "ai_content_agent", label: "AI-assisted content or customer responses" },
+        { value: "ads_optimization", label: "Ad campaign management/optimization" },
+        { value: "none_yet", label: "Not sure yet / none of these" },
+      ],
+    },
+    {
+      id: "automation_notes",
+      label: "Anything else you wish could just run itself?",
+      type: "textarea",
+      placeholder: "Optional — anything not covered above",
+    },
+  ],
+};
+
+// ─── Contact & Business Info ───────────────────────────────────────────────────
 
 const UNIVERSAL_CONTACT: IntakeSection = {
   id: "contact",
@@ -218,11 +632,21 @@ const UNIVERSAL_CONTACT: IntakeSection = {
       hint: "Many clients look for this — we can feature it on your site.",
     },
     {
+      id: "has_physical_address",
+      label: "Do you have a physical storefront or office?",
+      type: "select",
+      options: [
+        { value: "yes", label: "Yes, we have a storefront/office" },
+        { value: "no", label: "No, mobile or service-area only" },
+      ],
+      hint: "Used for Google Maps, schema markup, and local SEO.",
+    },
+    {
       id: "business_address",
       label: "What is your business address?",
       type: "text",
-      placeholder: "e.g. 123 Main St, Sacramento, CA 95814 — or \"Mobile / service area only\"",
-      hint: "Used for Google Maps, schema markup, and local SEO. If you don't have a storefront, just say mobile or service-area only.",
+      placeholder: "e.g. 123 Main St, Sacramento, CA 95814",
+      showIf: { questionId: "has_physical_address", equals: "yes" },
     },
     {
       id: "content_approval_contact",
@@ -234,162 +658,7 @@ const UNIVERSAL_CONTACT: IntakeSection = {
   ],
 };
 
-// ─── Universal offerings questions ───────────────────────────────────────────
-
-const UNIVERSAL_OFFERINGS: IntakeSection = {
-  id: "services",
-  title: "Services, Products & Booking",
-  description: "Tell us what you offer and how customers buy, book, or contact you.",
-  questions: [
-    {
-      id: "primary_offerings",
-      label: "What are your main services, products, or reservation types?",
-      type: "textarea",
-      required: true,
-      placeholder: "List the main things customers can buy, book, or hire you for.",
-    },
-    {
-      id: "pricing_packages",
-      label: "Share any pricing, packages, subscriptions, or add-ons we should know about",
-      type: "textarea",
-      placeholder: "Include starting prices, bundles, memberships, deposits, or special offers.",
-    },
-    {
-      id: "customer_action",
-      label: "What is the main action you want visitors to take?",
-      type: "multiselect",
-      options: [
-        { value: "call", label: "Call" },
-        { value: "contact_form", label: "Submit contact form" },
-        { value: "book_appointment", label: "Book appointment" },
-        { value: "make_reservation", label: "Make reservation" },
-        { value: "buy_online", label: "Buy online" },
-        { value: "visit_location", label: "Visit location" },
-      ],
-    },
-    {
-      id: "fulfillment_details",
-      label: "How do you currently deliver, fulfill, or book this work?",
-      type: "textarea",
-      placeholder: "Explain your booking flow, checkout flow, delivery area, shipping, pickup, or service process.",
-    },
-    {
-      id: "hours_service_area",
-      label: "What are your hours, service area, or location details?",
-      type: "textarea",
-      placeholder: "Include business hours, service radius, neighborhoods, or physical address details.",
-    },
-    {
-      id: "policies_guarantees",
-      label: "Any policies, guarantees, deposits, cancellations, returns, or warranties to highlight?",
-      type: "textarea",
-      placeholder: "Share the important trust and policy details customers should see before they contact or buy.",
-    },
-  ],
-};
-// ─── Online presence section ─────────────────────────────────────────────────
-
-const UNIVERSAL_PLATFORMS: IntakeSection = {
-  id: "platforms",
-  title: "Online Presence & Platforms",
-  description: "Help us connect and sync all your existing online accounts.",
-  questions: [
-    {
-      id: "google_business_url",
-      label: "Do you have a Google Business Profile? Paste the URL or name.",
-      type: "text",
-      placeholder: "e.g. https://g.page/your-business or \"RnR Electric Sacramento\"",
-      hint: "To connect your profile, please grant Manager access to rctechsolutions1@gmail.com in your Google Business settings. This lets us manage reviews, posts, and performance data on your behalf.",
-    },
-    {
-      id: "facebook_url",
-      label: "Facebook business page URL",
-      type: "text",
-      placeholder: "e.g. https://www.facebook.com/yourbusiness",
-    },
-    {
-      id: "instagram_url",
-      label: "Instagram profile URL or handle",
-      type: "text",
-      placeholder: "e.g. https://www.instagram.com/yourbusiness or @yourbusiness",
-    },
-    {
-      id: "yelp_url",
-      label: "Yelp profile URL",
-      type: "text",
-      placeholder: "e.g. https://www.yelp.com/biz/your-business",
-    },
-    {
-      id: "other_review_platforms",
-      label: "Any other review or directory profiles? (Angi, Thumbtack, BBB, HomeAdvisor, etc.)",
-      type: "textarea",
-      placeholder: "Paste links or names of any other profiles you have",
-    },
-    {
-      id: "has_google_ads",
-      label: "Are you currently running Google Ads or Local Services Ads (LSA)?",
-      type: "select",
-      options: [
-        { value: "yes_google_ads", label: "Yes, Google Search Ads" },
-        { value: "yes_lsa", label: "Yes, Local Services Ads (LSA / Google Guaranteed)" },
-        { value: "yes_both", label: "Yes, both" },
-        { value: "no", label: "No, not currently" },
-        { value: "interested", label: "No, but I'm interested" },
-      ],
-      hint: "We'll use this to align your landing pages and CTAs with your ad strategy.",
-    },
-    {
-      id: "existing_booking_software",
-      label: "Do you currently use any booking, scheduling, or CRM software?",
-      type: "text",
-      placeholder: "e.g. Jobber, ServiceTitan, Calendly, Housecall Pro, Square, or None",
-      hint: "We'll make sure our booking integration doesn't conflict with what you already use.",
-    },
-  ],
-};
-
-// ─── Automation & workflows section ──────────────────────────────────────────
-
-const UNIVERSAL_AUTOMATION: IntakeSection = {
-  id: "automation",
-  title: "Automation & Workflows",
-  description: "Help us spot repetitive work we could take off your plate.",
-  questions: [
-    {
-      id: "manual_workflows",
-      label: "What tasks or parts of running your business feel repetitive or manual right now?",
-      type: "textarea",
-      placeholder:
-        "e.g. manually texting customers back, re-typing the same quote every time, tracking leads in a notebook",
-    },
-    {
-      id: "current_tools",
-      label: "What software or tools do you currently use for day-to-day operations?",
-      type: "textarea",
-      placeholder:
-        "e.g. QuickBooks for invoicing, a shared spreadsheet for scheduling, texting customers from a personal phone",
-    },
-    {
-      id: "automation_interest",
-      label: "Which of these would you be interested in automating?",
-      type: "multiselect",
-      options: [
-        { value: "sms_followups", label: "Text message follow-ups with leads/customers" },
-        { value: "ai_content_agent", label: "AI-assisted content or customer responses" },
-        { value: "ads_optimization", label: "Ad campaign management/optimization" },
-        { value: "none_yet", label: "Not sure yet / none of these" },
-      ],
-    },
-    {
-      id: "automation_notes",
-      label: "Anything else you wish could just run itself?",
-      type: "textarea",
-      placeholder: "Optional — anything not covered above",
-    },
-  ],
-};
-
-// ─── Launch & setup section ───────────────────────────────────────────────────
+// ─── Website Setup & Launch ─────────────────────────────────────────────────────
 
 const UNIVERSAL_SETUP: IntakeSection = {
   id: "setup",
@@ -397,30 +666,75 @@ const UNIVERSAL_SETUP: IntakeSection = {
   description: "A few technical details to get your site live without any delays.",
   questions: [
     {
-      id: "existing_website_url",
+      id: "has_existing_website",
       label: "Do you have an existing website we should reference or pull content from?",
-      type: "text",
-      placeholder: "e.g. https://www.youroldbusiness.com — or leave blank if none",
+      type: "boolean",
       hint: "If you have an existing site, we can save a lot of time by reusing approved copy and photos.",
     },
     {
-      id: "existing_domain",
-      label: "Do you have a domain name you want to use for your new site?",
+      id: "existing_website_url",
+      label: "What's the URL?",
       type: "text",
-      placeholder: "e.g. yourbusiness.com — or \"No, I need one\" or \"Not sure\"",
+      placeholder: "e.g. https://www.youroldbusiness.com",
+      showIf: { questionId: "has_existing_website", equals: true },
+    },
+    {
+      id: "existing_domain_status",
+      label: "Do you have a domain name you want to use for your new site?",
+      type: "select",
+      options: [
+        { value: "already_own", label: "Yes, I already own one" },
+        { value: "need_one", label: "No, I need one" },
+        { value: "not_sure", label: "Not sure" },
+      ],
+    },
+    {
+      id: "existing_domain_name",
+      label: "What's the domain?",
+      type: "text",
+      placeholder: "e.g. yourbusiness.com",
+      showIf: { questionId: "existing_domain_status", equals: "already_own" },
     },
     {
       id: "domain_registrar",
       label: "Who is your domain registrar (where you bought the domain)?",
-      type: "text",
-      placeholder: "e.g. GoDaddy, Namecheap, Google Domains, Squarespace — or \"Not sure\"",
+      type: "select",
+      options: [
+        { value: "godaddy", label: "GoDaddy" },
+        { value: "namecheap", label: "Namecheap" },
+        { value: "google_domains", label: "Google Domains" },
+        { value: "squarespace", label: "Squarespace" },
+        { value: "wix", label: "Wix" },
+        { value: "not_sure", label: "Not sure" },
+        { value: "other", label: "Other" },
+      ],
       hint: "We'll walk you through the DNS changes needed to point your domain to your new site.",
+      showIf: { questionId: "existing_domain_status", equals: "already_own" },
+    },
+    {
+      id: "domain_registrar_other",
+      label: "Which registrar?",
+      type: "text",
+      showIf: { questionId: "domain_registrar", equals: "other" },
     },
     {
       id: "target_go_live",
       label: "When do you want your site to go live?",
+      type: "select",
+      options: [
+        { value: "asap", label: "ASAP" },
+        { value: "two_weeks", label: "Within 2 weeks" },
+        { value: "one_month", label: "Within 1 month" },
+        { value: "flexible", label: "Flexible" },
+        { value: "specific_date", label: "Specific date" },
+      ],
+    },
+    {
+      id: "target_go_live_date",
+      label: "What date?",
       type: "text",
-      placeholder: "e.g. ASAP, within 2 weeks, by May 1st — or \"Flexible\"",
+      placeholder: "e.g. May 1st",
+      showIf: { questionId: "target_go_live", equals: "specific_date" },
     },
   ],
 };
@@ -431,7 +745,7 @@ function getOfferingsSection(_profile: BusinessType): IntakeSection {
   return UNIVERSAL_OFFERINGS;
 }
 
-export function getIntakeSections(businessType: BusinessType = "universal"): IntakeSection[] {
+function getAllSections(businessType: BusinessType): IntakeSection[] {
   return [
     UNIVERSAL_ABOUT,
     UNIVERSAL_BRAND,
@@ -444,18 +758,37 @@ export function getIntakeSections(businessType: BusinessType = "universal"): Int
   ];
 }
 
-/** Flat list of all question IDs for the intake profile. Useful for validation. */
+/**
+ * Sections/questions filtered to what a tenant with this module list should
+ * actually be asked. This is the function the live /intake page renders from.
+ */
+export function getIntakeSections(
+  businessType: BusinessType = "universal",
+  modules: string[] = [],
+): IntakeSection[] {
+  return getAllSections(businessType).map((section) => ({
+    ...section,
+    questions: section.questions
+      .filter((q) => questionModulesMatch(q, modules))
+      .map((q) => ({ ...q, options: filterOptionsForModules(q.options, modules) })),
+  }));
+}
+
+/**
+ * Flat list of every possible question ID, ignoring module filtering — used
+ * for admin-side display of already-submitted answers (onboarding/page.tsx),
+ * where a question's presence in the label map must not depend on whether
+ * today's module list happens to include it.
+ */
 export function getAllQuestionIds(businessType: BusinessType): string[] {
-  return getIntakeSections(businessType).flatMap((s) =>
-    s.questions.map((q) => q.id),
-  );
+  return getAllSections(businessType).flatMap((s) => s.questions.map((q) => q.id));
 }
 
 export function getQuestionLabelMap(
   businessType: BusinessType,
 ): Record<string, string> {
   return Object.fromEntries(
-    getIntakeSections(businessType)
+    getAllSections(businessType)
       .flatMap((section) => section.questions)
       .map((question) => [question.id, question.label]),
   );
