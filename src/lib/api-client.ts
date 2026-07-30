@@ -409,6 +409,30 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
+  // Mints a raw intake token via the local Next.js route (src/app/api/intake/token),
+  // NOT the backend — unlike sendIntakeEmail, this does not send an email itself.
+  // Callers embed the returned token in their own email (see the Invite Prospect
+  // flow on the Tenants page, which sends one combined email via
+  // sendProspectInviteEmail instead of the separate welcome/reset/intake emails).
+  async createIntakeToken(
+    tenantId: number,
+    ownerEmail: string,
+    businessType?: string,
+    tenantName?: string,
+  ): Promise<{ token: string }> {
+    const response = await fetch('/api/intake/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId,
+        ownerEmail,
+        businessType: businessType ?? undefined,
+        tenantName: tenantName ?? undefined,
+      }),
+    });
+    return this.handleResponse(response);
+  }
+
   async sendProspectInviteEmail(
     to: string,
     tenantName: string,
