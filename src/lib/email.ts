@@ -13,6 +13,7 @@ import {
   buildResetPasswordHtml,
   buildNotificationHtml,
   buildBillingInviteHtml,
+  buildProspectInviteHtml,
   buildTenantIntakeHtml,
   type NotificationPayload,
 } from "@/lib/email-templates";
@@ -384,6 +385,40 @@ export async function sendBillingInviteEmail({
       planName,
       priceFormatted,
       checkoutUrl,
+    }),
+  });
+}
+
+export interface SendProspectInviteEmailOptions {
+  to: string;
+  firstName?: string;
+  tenantName: string;
+  planName: string;
+  priceFormatted: string;
+  checkoutUrl: string;
+  intakeUrl: string;
+}
+
+export async function sendProspectInviteEmail({
+  to,
+  firstName,
+  tenantName,
+  planName,
+  priceFormatted,
+  checkoutUrl,
+  intakeUrl,
+}: SendProspectInviteEmailOptions) {
+  return getResendClient().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `Let's get ${tenantName} started - RC TechBridge`,
+    html: buildProspectInviteHtml({
+      firstName,
+      tenantName,
+      planName,
+      priceFormatted,
+      checkoutUrl,
+      intakeUrl,
     }),
   });
 }

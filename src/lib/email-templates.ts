@@ -406,3 +406,49 @@ export function buildBillingInviteHtml({
     </p>`,
   );
 }
+
+// ─── Prospect invite (combined intake + billing) ──────────────────────────────
+
+export interface ProspectInviteTemplateOptions {
+  firstName?: string;
+  tenantName: string;
+  planName: string;
+  priceFormatted: string;
+  checkoutUrl: string;
+  intakeUrl: string;
+}
+
+export function buildProspectInviteHtml({
+  firstName,
+  tenantName,
+  planName,
+  priceFormatted,
+  checkoutUrl,
+  intakeUrl,
+}: ProspectInviteTemplateOptions): string {
+  const greeting = firstName ? `Hi ${firstName},` : "Hello,";
+
+  return layout(
+    `Let's get ${tenantName} started`,
+    `<h1 style="margin:0 0 8px;font-size:26px;color:#111827;font-weight:700;">${greeting}</h1>
+    <p style="margin:0 0 24px;font-size:16px;color:#374151;line-height:1.6;">
+      We're ready to get started on <strong>${tenantName}</strong> on the <strong>${planName}</strong> plan (${priceFormatted}/month). There are two quick things to take care of:
+    </p>
+    <h2 style="margin:0 0 8px;font-size:17px;font-weight:700;color:#CD7F32;">1. Answer a few questions</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
+      This takes about 10-15 minutes and helps us build your site to match your business.
+    </p>
+    ${primaryButton(intakeUrl, "Start Your Questionnaire")}
+    <h2 style="margin:32px 0 8px;font-size:17px;font-weight:700;color:#CD7F32;">2. Activate your plan</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
+      Set up billing for the ${planName} plan whenever is convenient for you.
+    </p>
+    ${primaryButton(checkoutUrl, "Activate Your Plan")}
+    <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;">
+      Once you've completed the questionnaire, we'll send you a link to book your kickoff call.
+    </p>
+    <p style="margin:24px 0 0;font-size:15px;color:#374151;">
+      — The RD Tech Bridge Team
+    </p>`,
+  );
+}
