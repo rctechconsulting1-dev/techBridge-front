@@ -383,6 +383,7 @@ function IntakeFormInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [calendarUrl, setCalendarUrl] = useState<string | undefined>(undefined);
 
   const { uploadFile, uploading, uploadError } = useIntakeFileUpload(
     payload?.tenantId,
@@ -455,11 +456,12 @@ function IntakeFormInner() {
         body: JSON.stringify({ token, answers, files: uploadedFiles }),
       });
 
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? "Submission failed. Please try again.");
       }
 
+      setCalendarUrl(body.calendarUrl as string | undefined);
       setSubmitted(true);
     } catch (err) {
       setSubmitError(
@@ -525,6 +527,21 @@ function IntakeFormInner() {
             Your questionnaire has been submitted successfully. We&apos;ll start
             building your website and reach out if we have any questions.
           </p>
+          {calendarUrl && (
+            <div className="mt-6 border-t border-gray-100 pt-6 dark:border-gray-800">
+              <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                You&apos;re ready to book your kickoff call.
+              </p>
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#CD7F32] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#B8721D] focus:outline-none focus:ring-2 focus:ring-[#CD7F32] focus:ring-offset-2 dark:focus:ring-offset-gray-950"
+              >
+                Book Your Kickoff Call
+              </a>
+            </div>
+          )}
         </div>
       </div>
     );

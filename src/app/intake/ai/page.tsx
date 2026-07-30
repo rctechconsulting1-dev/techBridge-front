@@ -652,7 +652,7 @@ interface ReviewPhaseProps {
   answers: IntakeAnswers;
   aiFilledFields: Set<string>;
   onChange: (questionId: string, value: string | string[] | boolean) => void;
-  onDone: () => void;
+  onDone: (calendarUrl?: string) => void;
   onBack: () => void;
 }
 
@@ -704,11 +704,11 @@ function ReviewPhase({
             files: [] as IntakeFileRef[],
           }),
         });
+        const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
           throw new Error(body.error ?? "Submission failed. Please try again.");
         }
-        onDone();
+        onDone(body.calendarUrl as string | undefined);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong.");
       } finally {
@@ -789,6 +789,7 @@ function ReviewPhase({
 function AiIntakeInner() {
   const { token, payload, error: tokenError, loading } = useIntakeToken();
   const [phase, setPhase] = useState<Phase>("start");
+  const [calendarUrl, setCalendarUrl] = useState<string | undefined>(undefined);
   const [answers, setAnswers] = useState<IntakeAnswers>({});
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
   const [seed, setSeed] = useState<BusinessSeed>({});
@@ -908,6 +909,21 @@ function AiIntakeInner() {
             Your AI-assisted intake is in. We&apos;ll start building your site
             and reach out with any questions.
           </p>
+          {calendarUrl && (
+            <div className="mt-6 border-t border-gray-100 pt-6 dark:border-gray-800">
+              <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                You&apos;re ready to book your kickoff call.
+              </p>
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#CD7F32] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#B8721D] focus:outline-none focus:ring-2 focus:ring-[#CD7F32] focus:ring-offset-2 dark:focus:ring-offset-gray-950"
+              >
+                Book Your Kickoff Call
+              </a>
+            </div>
+          )}
         </div>
       </PageShell>
     );
@@ -944,7 +960,10 @@ function AiIntakeInner() {
           answers={answers}
           aiFilledFields={aiFilledFields}
           onChange={handleAnswerChange}
-          onDone={() => setPhase("done")}
+          onDone={(nextCalendarUrl) => {
+            setCalendarUrl(nextCalendarUrl);
+            setPhase("done");
+          }}
           onBack={() => setPhase("start")}
         />
       )}

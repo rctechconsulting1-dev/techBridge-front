@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyIntakeToken } from "@/lib/email";
 import { sendNotificationEmail } from "@/lib/email";
+import { sendCalendarReadyEmail } from "@/lib/email";
 import { getApiBaseUrl } from "@/lib/api";
 import { saveIntakeSubmission } from "@/lib/intake-storage";
 import type { IntakeStoredSubmission } from "@/lib/intake-types";
@@ -154,12 +155,50 @@ export async function POST(req: NextRequest) {
     // Don't fail the submission if notification fails
   }
 
+  let calendarUrl: string | undefined;
+  try {
+    const internalKey = process.env.INTERNAL_API_KEY;
+    const completeResponse = await fetch(
+      `${getApiBaseUrl()}/tenant-prospects/${tenantId}/intake-complete`,
+      {
+        method: "POST",
+        headers: internalKey ? { "x-internal-key": internalKey } : {},
+      },
+    );
+
+    if (completeResponse.ok) {
+      const completeBody = (await completeResponse.json()) as {
+        firstCompletion: boolean;
+      };
+
+      if (completeBody.firstCompletion && process.env.CALENDAR_BOOKING_URL) {
+        calendarUrl = process.env.CALENDAR_BOOKING_URL;
+        try {
+          await sendCalendarReadyEmail({ to: email, tenantName: undefined });
+        } catch (calendarEmailError) {
+          console.error(
+            "[intake/submit] Failed to send calendar-ready email:",
+            calendarEmailError,
+          );
+        }
+      }
+    } else {
+      console.error(
+        "[intake/submit] intake-complete call failed:",
+        completeResponse.status,
+      );
+    }
+  } catch (error) {
+    console.error("[intake/submit] Failed to mark intake complete:", error);
+  }
+
   return NextResponse.json({
     success: true,
     message: assetIndexWarning
       ? "Thank you! Your questionnaire has been submitted successfully. Uploaded files may take a little longer to appear in admin."
       : "Thank you! Your questionnaire has been submitted successfully.",
     tenantId,
+    calendarUrl,
     ...(assetIndexWarning ? { warning: assetIndexWarning } : {}),
   });
 }

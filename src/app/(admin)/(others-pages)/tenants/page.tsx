@@ -34,6 +34,17 @@ const PLAN_OPTIONS = [
   { value: "enterprise", label: "Enterprise (Custom)" },
 ];
 
+// Mirrors the backend's canonical BUSINESS_TYPES set (lib/tenantHelpers.js in
+// backend-rc) — /api/tenant-prospects falls back to "lead_gen_services" for
+// anything outside this set, so keep these two lists in sync.
+const PROSPECT_BUSINESS_TYPE_OPTIONS = [
+  { value: "lead_gen_services", label: "Service Business" },
+  { value: "appointments", label: "Appointment-Based Business" },
+  { value: "ecommerce", label: "Online Store" },
+  { value: "reservations", label: "Reservation / Hospitality" },
+  { value: "hybrid_local", label: "Local Business" },
+];
+
 const OPTIONAL_TENANT_PAGE_OPTIONS = OPTIONAL_SYSTEM_PAGE_CONFIGS.filter(
   (config) => config.slug !== "contact" && config.slug !== "reservations",
 );
@@ -83,18 +94,27 @@ type ProvisionResponse = {
   temporaryDomainAssigned?: boolean;
 };
 
+type PlanListItem = {
+  id: number;
+  plan_key: string;
+  name: string;
+  price_monthly_cents: number;
+};
+
 type TenantListItem = {
   id: number;
   slug: string;
   name: string;
   business_type: string;
-  status: string;
+  status: string; // now includes "prospect" alongside active/inactive/suspended
   default_currency: string;
   timezone: string;
   created_at: string;
   seat_limit: number | null;
   seat_used: number;
   plan_key: string | null;
+  intake_completed_at: string | null;
+  payment_completed_at: string | null;
   billing_grace_expires_at: string | null;
   website_id: number | null;
   website_domain: string | null;
@@ -122,7 +142,11 @@ type TenantListItem = {
   enabled_modules: string[];
 };
 
-type InviteEmailKey = "welcome" | "reset_password" | "intake";
+type InviteEmailKey =
+  | "welcome"
+  | "reset_password"
+  | "intake"
+  | "prospect_invite";
 
 type InviteDeliveryResultRecord = NonNullable<
   TenantListItem["delivery_results"]
@@ -147,6 +171,15 @@ type EditFormState = {
   ownerPhone: string;
 };
 
+type InviteFormState = {
+  businessName: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  businessType: string;
+  planKey: string;
+};
+
 const initialState: FormState = {
   tenantName: "",
   tenantSlug: "",
@@ -159,6 +192,15 @@ const initialState: FormState = {
   ownerPhone: "",
   planKey: "starter",
   assetDriveFolderUrl: "",
+};
+
+const initialInviteForm: InviteFormState = {
+  businessName: "",
+  ownerName: "",
+  ownerEmail: "",
+  ownerPhone: "",
+  businessType: "lead_gen_services",
+  planKey: "starter",
 };
 
 export default function TenantsPage() {
@@ -196,6 +238,12 @@ export default function TenantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [tenantListError, setTenantListError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] =
+    useState<InviteFormState>(initialInviteForm);
+  const [plans, setPlans] = useState<PlanListItem[]>([]);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const selectTenant = (tenant: {
     id: number;
@@ -344,6 +392,21 @@ export default function TenantsPage() {
     }
   };
 
+  const statusBadgeClasses = (status: string) => {
+    if (status === "prospect")
+      return "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300";
+    if (status === "active")
+      return "border-green-300 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-300";
+    if (status === "suspended")
+      return "border-red-300 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300";
+    return "border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
+  };
+
+  const completionBadgeClasses = (completedAt: string | null) =>
+    completedAt
+      ? "border-green-300 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-300"
+      : "border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
+
   const deliveryBadgeClasses = (status: InviteDeliveryResult["status"]) => {
     switch (status) {
       case "accepted":
@@ -360,6 +423,7 @@ export default function TenantsPage() {
     welcome: "Welcome",
     reset_password: "Reset",
     intake: "Intake",
+    prospect_invite: "Prospect Invite",
   };
 
   const buildInviteDeliveryResults = (
@@ -447,6 +511,15 @@ export default function TenantsPage() {
         if (role === "admin" || role === "platform_admin") {
           setIsAuthorized(true);
           await loadTenants();
+          try {
+            const planList = await apiClient.get<PlanListItem[]>(
+              "/plans",
+              false,
+            );
+            setPlans(Array.isArray(planList) ? planList : []);
+          } catch (planError) {
+            console.error("Failed to load plans:", planError);
+          }
         }
       } finally {
         setLoadingSession(false);
@@ -626,6 +699,106 @@ export default function TenantsPage() {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleInviteChange = (field: keyof InviteFormState, value: string) => {
+    setInviteForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const openInviteModal = () => {
+    setInviteError(null);
+    setIsInviteOpen(true);
+  };
+
+  const closeInviteModal = () => {
+    setIsInviteOpen(false);
+    setInviteForm(initialInviteForm);
+    setInviteError(null);
+  };
+
+  const handleInviteSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setIsSendingInvite(true);
+    setInviteError(null);
+
+    try {
+      const selectedPlan = plans.find(
+        (plan) => plan.plan_key === inviteForm.planKey,
+      );
+      const response = await apiClient.post<{
+        tenant: { id: number; name: string };
+        ownerUser: { id: number; email: string; name: string };
+        checkoutUrl: string;
+      }>("/tenant-prospects", inviteForm);
+
+      const firstName =
+        inviteForm.ownerName.trim().split(/\s+/)[0] || undefined;
+
+      // Mint the raw intake token via the local Next.js route (not the
+      // backend) so it can be embedded in the single combined invite email
+      // below, rather than sending a separate intake email like the full
+      // Create Tenant flow does. The real owner email must be passed here
+      // (see src/app/api/intake/token/route.ts) because /api/intake/submit
+      // relies on the token's embedded email for a real notification send.
+      const intakeToken = await apiClient.createIntakeToken(
+        response.tenant.id,
+        response.ownerUser.email,
+        inviteForm.businessType,
+        response.tenant.name,
+      );
+      const intakeUrl = `${window.location.origin}/intake/ai?token=${encodeURIComponent(intakeToken.token)}`;
+
+      const priceFormatted = selectedPlan
+        ? `$${(selectedPlan.price_monthly_cents / 100).toFixed(2)}`
+        : "N/A";
+
+      let sendStatus: "sent" | "failed" = "sent";
+      let sendError: string | undefined;
+      try {
+        await apiClient.sendProspectInviteEmail(
+          response.ownerUser.email,
+          response.tenant.name,
+          selectedPlan?.name ?? inviteForm.planKey,
+          priceFormatted,
+          response.checkoutUrl,
+          intakeUrl,
+          firstName,
+        );
+      } catch (emailError) {
+        sendStatus = "failed";
+        sendError =
+          emailError instanceof Error
+            ? emailError.message
+            : String(emailError);
+      }
+
+      await apiClient.post(`/tenants/${response.tenant.id}/invite-status`, {
+        status: sendStatus,
+        lastError: sendError,
+        deliveryResults: {
+          prospect_invite: {
+            status: sendStatus === "sent" ? "accepted" : "failed",
+            at: new Date().toISOString(),
+          },
+        },
+      });
+
+      await loadTenants();
+      setIsInviteOpen(false);
+      setInviteForm(initialInviteForm);
+      setSuccessMessage(
+        sendStatus === "sent"
+          ? `Prospect ${response.tenant.name} invited successfully.`
+          : `Prospect ${response.tenant.name} created, but the invite email failed to send. Use Resend Invite to retry.`,
+      );
+    } catch (submitError) {
+      const err = submitError as { message?: string; code?: string };
+      setInviteError(err.message ?? "Failed to invite prospect.");
+    } finally {
+      setIsSendingInvite(false);
     }
   };
 
@@ -920,6 +1093,22 @@ export default function TenantsPage() {
     <div>
       <PageBreadcrumb pageTitle="Tenants" />
       <div className="space-y-6">
+        <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-gray-200 p-5 sm:flex-row sm:items-center dark:border-gray-800">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              Invite a Prospect
+            </p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Send a lightweight combined invite (checkout link + intake
+              questionnaire) without fully provisioning a website. The
+              prospect finishes setup themselves once they pay.
+            </p>
+          </div>
+          <Button type="button" onClick={openInviteModal}>
+            Invite Prospect
+          </Button>
+        </div>
+
         <ComponentCard
           title="Create Tenant"
           desc="Provision a tenant, owner account, website, default site structure, and initial add-on entitlements in one admin-only workflow."
@@ -1375,9 +1564,11 @@ export default function TenantsPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           slug: {tenant.slug}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <span
+                          className={`mt-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${statusBadgeClasses(tenant.status)}`}
+                        >
                           {tenant.status}
-                        </p>
+                        </span>
                       </td>
                       <td className="px-4 py-4 align-top">
                         <p className="text-gray-900 dark:text-white">
@@ -1437,6 +1628,24 @@ export default function TenantsPage() {
                             " ",
                           )}
                         </span>
+                        {tenant.status === "prospect" && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${completionBadgeClasses(tenant.intake_completed_at)}`}
+                            >
+                              Intake:{" "}
+                              {tenant.intake_completed_at ? "done" : "pending"}
+                            </span>
+                            <span
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${completionBadgeClasses(tenant.payment_completed_at)}`}
+                            >
+                              Payment:{" "}
+                              {tenant.payment_completed_at
+                                ? "done"
+                                : "pending"}
+                            </span>
+                          </div>
+                        )}
                         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                           Attempts: {tenant.invite_attempt_count ?? 0}
                         </p>
@@ -1746,6 +1955,140 @@ export default function TenantsPage() {
                 </div>
               </form>
             ) : null}
+          </div>
+        </Modal>
+
+        <Modal
+          isOpen={isInviteOpen}
+          onClose={closeInviteModal}
+          className="m-4 max-w-[640px]"
+        >
+          <div className="relative w-full rounded-3xl bg-white p-6 lg:p-8 dark:bg-gray-900">
+            <div className="mb-6 pr-10">
+              <h4 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
+                Invite Prospect
+              </h4>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Create a prospect tenant and send one combined email with a
+                checkout link and an intake questionnaire link. No website is
+                provisioned until the prospect completes checkout.
+              </p>
+            </div>
+
+            {inviteError ? (
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+                {inviteError}
+              </div>
+            ) : null}
+
+            <form className="space-y-6" onSubmit={handleInviteSubmit}>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="inviteBusinessName">Business Name</Label>
+                  <Input
+                    id="inviteBusinessName"
+                    value={inviteForm.businessName}
+                    onChange={(event) =>
+                      handleInviteChange("businessName", event.target.value)
+                    }
+                    placeholder="Acme Electric"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="inviteOwnerName">Owner Name</Label>
+                  <Input
+                    id="inviteOwnerName"
+                    value={inviteForm.ownerName}
+                    onChange={(event) =>
+                      handleInviteChange("ownerName", event.target.value)
+                    }
+                    placeholder="Alex Owner"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="inviteOwnerEmail">Owner Email</Label>
+                  <Input
+                    id="inviteOwnerEmail"
+                    type="email"
+                    value={inviteForm.ownerEmail}
+                    onChange={(event) =>
+                      handleInviteChange("ownerEmail", event.target.value)
+                    }
+                    placeholder="owner@acme.com"
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="inviteOwnerPhone">Owner Phone</Label>
+                  <Input
+                    id="inviteOwnerPhone"
+                    value={inviteForm.ownerPhone}
+                    onChange={(event) =>
+                      handleInviteChange("ownerPhone", event.target.value)
+                    }
+                    placeholder="(555) 555-5555"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="inviteBusinessType">Business Type</Label>
+                  <select
+                    id="inviteBusinessType"
+                    value={inviteForm.businessType}
+                    onChange={(event) =>
+                      handleInviteChange("businessType", event.target.value)
+                    }
+                    className="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  >
+                    {PROSPECT_BUSINESS_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="invitePlanKey">Plan</Label>
+                  <select
+                    id="invitePlanKey"
+                    value={inviteForm.planKey}
+                    onChange={(event) =>
+                      handleInviteChange("planKey", event.target.value)
+                    }
+                    className="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  >
+                    {plans.length > 0
+                      ? plans.map((plan) => (
+                          <option key={plan.plan_key} value={plan.plan_key}>
+                            {plan.name} ($
+                            {(plan.price_monthly_cents / 100).toFixed(2)}/mo)
+                          </option>
+                        ))
+                      : PLAN_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeInviteModal}
+                  disabled={isSendingInvite}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSendingInvite}>
+                  {isSendingInvite ? "Sending Invite..." : "Send Invite"}
+                </Button>
+              </div>
+            </form>
           </div>
         </Modal>
       </div>
