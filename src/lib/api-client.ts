@@ -409,6 +409,31 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
+  async sendProspectInviteEmail(
+    to: string,
+    tenantName: string,
+    planName: string,
+    priceFormatted: string,
+    checkoutUrl: string,
+    intakeUrl: string,
+    firstName?: string,
+  ): Promise<{ id: string }> {
+    const response = await fetch('/api/email/prospect-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        firstName: firstName ?? undefined,
+        tenantName,
+        planName,
+        priceFormatted,
+        checkoutUrl,
+        intakeUrl,
+      }),
+    });
+    return this.handleResponse(response);
+  }
+
   async delete<T = unknown>(endpoint: string, includeAuth = true): Promise<T> {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'DELETE',
