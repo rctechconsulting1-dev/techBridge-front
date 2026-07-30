@@ -400,6 +400,9 @@ export function buildBillingInviteHtml({
     <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px;">
       To activate your subscription at <strong>${priceFormatted}/month</strong>, click the button below to complete your payment setup through our secure payment partner, Stripe.
     </p>
+    <p style="font-size:13px;color:#6b7280;margin:0 0 16px;">
+      Note: Subscriptions require a <strong>4‑month minimum</strong> commitment. A one-time setup fee may apply depending on the selected plan.
+    </p>
     ${primaryButton(checkoutUrl, "Activate My Subscription")}
     <p style="font-size:13px;color:#9ca3af;margin:0;">
       This link is unique to your account. If you have any questions, reply to this email or contact our support team.
@@ -444,6 +447,9 @@ export function buildProspectInviteHtml({
       Set up billing for the ${planName} plan whenever is convenient for you.
     </p>
     ${primaryButton(checkoutUrl, "Activate Your Plan")}
+    <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">
+      Note: Subscriptions require a <strong>4‑month minimum</strong> commitment. A one-time setup fee may apply depending on the selected plan.
+    </p>
     <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;">
       Once you've completed the questionnaire, we'll send you a link to book your kickoff call.
     </p>
