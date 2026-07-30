@@ -28,9 +28,9 @@ const MODULE_OPTIONS = [
 ];
 
 const PLAN_OPTIONS = [
-  { value: "starter", label: "Starter ($99/mo)" },
-  { value: "professional", label: "Professional ($299/mo)" },
-  { value: "business", label: "Business ($599/mo)" },
+  { value: "starter", label: "Starter ($149/mo)" },
+  { value: "professional", label: "Professional ($349/mo)" },
+  { value: "business", label: "Full Stack + AI Assist ($799/mo)" },
   { value: "enterprise", label: "Enterprise (Custom)" },
 ];
 
@@ -516,7 +516,19 @@ export default function TenantsPage() {
               "/plans",
               false,
             );
-            setPlans(Array.isArray(planList) ? planList : []);
+            let resolved = Array.isArray(planList) ? planList : [];
+            // Apply local overrides for display name and price if present
+            resolved = resolved.map((p) => {
+              const override = PLAN_OVERRIDES[p.plan_key];
+              if (!override) return p;
+              return {
+                ...p,
+                name: override.name ?? p.name,
+                price_monthly_cents:
+                  override.price_monthly_cents ?? p.price_monthly_cents,
+              } as PlanListItem;
+            });
+            setPlans(resolved);
           } catch (planError) {
             console.error("Failed to load plans:", planError);
           }
@@ -528,6 +540,17 @@ export default function TenantsPage() {
 
     loadSession();
   }, []);
+
+  // Local canonical overrides in case backend /plans is out-of-date.
+  const PLAN_OVERRIDES: Record<
+    string,
+    { name?: string; price_monthly_cents?: number }
+  > = {
+    starter: { name: "Starter", price_monthly_cents: 14900 },
+    professional: { name: "Professional", price_monthly_cents: 34900 },
+    business: { name: "Full Stack + AI Assist", price_monthly_cents: 79900 },
+    enterprise: { name: "Enterprise", price_monthly_cents: null as unknown as number },
+  };
 
   const slugPreview = useMemo(() => {
     if (form.tenantSlug.trim()) {

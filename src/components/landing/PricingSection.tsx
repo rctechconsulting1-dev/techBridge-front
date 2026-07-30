@@ -24,8 +24,8 @@ const plans: PlanDef[] = [
   {
     name: "Starter",
     plan_key: "starter",
-    price: 49,
-    setupFee: "$199",
+    price: 149,
+    setupFee: "$299–$399",
     commitment: "4-mo minimum",
     seats: "2 seats",
     tagline: "Core web presence",
@@ -42,8 +42,8 @@ const plans: PlanDef[] = [
   {
     name: "Professional",
     plan_key: "professional",
-    price: 97,
-    setupFee: "$349",
+    price: 349,
+    setupFee: "$399–$599",
     commitment: "4-mo minimum",
     seats: "5 seats",
     tagline: "Growth + local visibility",
@@ -62,8 +62,8 @@ const plans: PlanDef[] = [
   {
     name: "Business",
     plan_key: "business",
-    price: 247,
-    setupFee: "$599",
+    price: 799,
+    setupFee: "$999–$1,500",
     commitment: "4-mo minimum",
     seats: "15 seats",
     tagline: "Full stack + ads + AI",
@@ -342,8 +342,8 @@ const PricingSection = () => {
               Get Started with {modalPlan.name}
             </h3>
             <p className="text-gray-500 mb-6">
-              ${modalPlan.price}/mo &mdash; enter your details to proceed to
-              secure checkout.
+              ${modalPlan.price}/mo &mdash; Setup: {modalPlan.setupFee} &mdash; {modalPlan.commitment}.
+              Enter your details to proceed to secure checkout.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
