@@ -1039,8 +1039,6 @@ export default function SiteSettingsPage() {
   const [stripeConnectMessage, setStripeConnectMessage] = useState<string | null>(
     null,
   );
-  const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null);
-  const [calendarConnectStarting, setCalendarConnectStarting] = useState(false);
   const [domains, setDomains] = useState<DomainRecord[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [domainInput, setDomainInput] = useState("");
@@ -1198,23 +1196,6 @@ export default function SiteSettingsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    fetch("/api/admin/calendar-connect/status")
-      .then((r) => r.json())
-      .then((d) => setCalendarConnected(Boolean(d.connected)))
-      .catch(() => setCalendarConnected(false));
-  }, []);
-
-  const startCalendarConnect = useCallback(async () => {
-    setCalendarConnectStarting(true);
-    try {
-      const res = await fetch("/api/admin/calendar-connect");
-      const data = (await res.json()) as { authUrl?: string };
-      if (data.authUrl) window.location.href = data.authUrl;
-    } finally {
-      setCalendarConnectStarting(false);
-    }
-  }, []);
   const { uploadToS3 } = useS3Upload();
   const {
     assets: clientAssets,
@@ -4196,44 +4177,6 @@ export default function SiteSettingsPage() {
               ))}
             </div>
           </div>
-        </div>
-      )}
-
-      {tab === "settings" && (
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold tracking-wide text-[#CD7F32] uppercase">
-                Kickoff Call Calendar
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                One shared Google Calendar used for every tenant&apos;s kickoff call
-                booking — not specific to the tenant selected above.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={startCalendarConnect}
-              disabled={calendarConnectStarting}
-              className="rounded-lg bg-[#CD7F32] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {calendarConnectStarting
-                ? "Redirecting…"
-                : calendarConnected
-                  ? "Reconnect Google Calendar"
-                  : "Connect Google Calendar"}
-            </button>
-          </div>
-          <p className="mt-3 text-sm">
-            Status:{" "}
-            <span className="font-medium text-gray-700 dark:text-gray-200">
-              {calendarConnected === null
-                ? "Checking…"
-                : calendarConnected
-                  ? "Connected"
-                  : "Not connected"}
-            </span>
-          </p>
         </div>
       )}
 
