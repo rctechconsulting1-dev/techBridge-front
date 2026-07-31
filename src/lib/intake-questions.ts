@@ -178,24 +178,6 @@ const UNIVERSAL_ABOUT: IntakeSection = {
       placeholder: "e.g. Homeowners in need of emergency plumbing repairs",
     },
     {
-      id: "differentiator",
-      label: "What makes you different from competitors in your area?",
-      type: "textarea",
-      placeholder: "e.g. Same-day service, 20 years of experience, family-owned",
-    },
-    {
-      id: "tagline",
-      label: "Do you have an existing slogan or tagline?",
-      type: "text",
-      placeholder: "e.g. \"Reliable repairs, every time\" — leave blank if you don't have one",
-      hint: "If you don't have one, we can help create one based on your brand.",
-    },
-    {
-      id: "has_topics_to_avoid",
-      label: "Are there services, topics, or competitors we should NOT mention on your site?",
-      type: "boolean",
-    },
-    {
       id: "topics_to_avoid_details",
       label: "What should we avoid?",
       type: "textarea",
@@ -205,75 +187,6 @@ const UNIVERSAL_ABOUT: IntakeSection = {
   ],
 };
 
-// ─── Your Brand ────────────────────────────────────────────────────────────────
-
-const UNIVERSAL_BRAND: IntakeSection = {
-  id: "brand",
-  title: "Your Brand",
-  description: "Help us match your website to your brand identity.",
-  questions: [
-    {
-      id: "asset_drive_link",
-      label:
-        "Once you've added your logo, photos, and any brand assets to the shared folder we sent you, paste the folder link here (or leave a note)",
-      type: "text",
-      placeholder:
-        'e.g. https://drive.google.com/drive/folders/... — or "Uploaded, all set"',
-      hint: "We emailed you a link to a shared folder for your logo, headshots, and any other brand assets. Drop everything there — no need to upload files in this form. If you don't have a logo yet, we can help create one.",
-    },
-    {
-      id: "brand_color_mood",
-      label: "What colors feel like 'you'?",
-      type: "multiselect",
-      options: [
-        { value: "bold_energetic", label: "Bold & energetic" },
-        { value: "earthy_natural", label: "Earthy & natural" },
-        { value: "modern_minimal", label: "Modern & minimal" },
-        { value: "warm_friendly", label: "Warm & friendly" },
-        { value: "corporate_professional", label: "Corporate & professional" },
-        { value: "custom", label: "Custom — I'll describe it" },
-      ],
-    },
-    {
-      id: "brand_colors_custom",
-      label: "Describe the colors you want",
-      type: "text",
-      placeholder: "e.g. bold blue and white, earthy green and tan",
-      showIf: { questionId: "brand_color_mood", includes: "custom" },
-    },
-    {
-      id: "brand_words",
-      label: "Three words that describe your brand or service style",
-      type: "multiselect",
-      required: true,
-      options: [
-        { value: "reliable", label: "Reliable" },
-        { value: "modern", label: "Modern" },
-        { value: "friendly", label: "Friendly" },
-        { value: "bold", label: "Bold" },
-        { value: "elegant", label: "Elegant" },
-        { value: "trustworthy", label: "Trustworthy" },
-        { value: "playful", label: "Playful" },
-        { value: "premium", label: "Premium" },
-        { value: "approachable", label: "Approachable" },
-        { value: "innovative", label: "Innovative" },
-        { value: "family_owned", label: "Family-owned" },
-        { value: "luxury", label: "Luxury" },
-        { value: "no_nonsense", label: "No-nonsense" },
-        { value: "energetic", label: "Energetic" },
-        { value: "calm", label: "Calm" },
-        { value: "cutting_edge", label: "Cutting-edge" },
-        { value: "other", label: "Other" },
-      ],
-    },
-    {
-      id: "brand_words_other",
-      label: "What other words describe your brand?",
-      type: "text",
-      showIf: { questionId: "brand_words", includes: "other" },
-    },
-  ],
-};
 
 // ─── Photos & Media ────────────────────────────────────────────────────────────
 
@@ -294,20 +207,7 @@ const UNIVERSAL_MEDIA: IntakeSection = {
       type: "textarea",
       placeholder: "Paste YouTube, Vimeo, or other video links here",
       showIf: { questionId: "has_video_content", equals: true },
-    },
-    {
-      id: "has_testimonials",
-      label: "Do you have any existing testimonials or reviews you'd like us to use?",
-      type: "boolean",
-      hint: "These can be from Google, Yelp, Facebook, or any other platform.",
-    },
-    {
-      id: "existing_testimonials",
-      label: "Share them",
-      type: "textarea",
-      placeholder: "Paste review text, customer quotes, or share a link to your reviews",
-      showIf: { questionId: "has_testimonials", equals: true },
-    },
+    }
   ],
 };
 
@@ -318,18 +218,6 @@ const UNIVERSAL_OFFERINGS: IntakeSection = {
   title: "Services, Products & Booking",
   description: "Tell us what you offer and how customers buy, book, or contact you.",
   questions: [
-    {
-      id: "primary_offerings",
-      label: "What are your main services, products, or reservation types?",
-      type: "textarea",
-      required: true,
-      placeholder: "List the main things customers can buy, book, or hire you for.",
-    },
-    {
-      id: "has_set_pricing",
-      label: "Do you have set pricing or packages to share?",
-      type: "boolean",
-    },
     {
       id: "pricing_packages",
       label: "Share your pricing, packages, subscriptions, or add-ons",
@@ -368,68 +256,7 @@ const UNIVERSAL_OFFERINGS: IntakeSection = {
       type: "textarea",
       requiredModules: ["calendar_appointments", "reservations"],
       placeholder: "Explain how customers pick a time, what happens after they book, cancellation window, etc.",
-    },
-    {
-      id: "fulfillment_general",
-      label: "How do you deliver your work?",
-      type: "select",
-      excludedModules: ["checkout_ecommerce", "calendar_appointments", "reservations"],
-      options: [
-        { value: "we_go_to_them", label: "We go to them" },
-        { value: "they_come_to_us", label: "They come to us" },
-        { value: "both", label: "Both" },
-      ],
-    },
-    {
-      id: "business_hours",
-      label: "What are your business hours?",
-      type: "select",
-      options: [
-        { value: "standard", label: "Standard, Monday-Friday" },
-        { value: "extended", label: "Extended hours, including weekends" },
-        { value: "24_7", label: "24/7" },
-        { value: "custom", label: "Custom — I'll describe it" },
-      ],
-    },
-    {
-      id: "business_hours_custom",
-      label: "Describe your hours",
-      type: "textarea",
-      showIf: { questionId: "business_hours", equals: "custom" },
-    },
-    {
-      id: "service_radius",
-      label: "What is your service area or delivery radius?",
-      type: "select",
-      options: [
-        { value: "5mi", label: "Within 5 miles" },
-        { value: "10mi", label: "Within 10 miles" },
-        { value: "25mi", label: "Within 25 miles" },
-        { value: "50mi_plus", label: "Within 50+ miles" },
-        { value: "statewide_national", label: "Statewide or national" },
-        { value: "virtual", label: "Fully virtual, no radius" },
-      ],
-    },
-    {
-      id: "policies_guarantees_types",
-      label: "Any policies or guarantees to highlight?",
-      type: "multiselect",
-      options: [
-        { value: "money_back", label: "Money-back guarantee" },
-        { value: "warranty", label: "Warranty on work" },
-        { value: "free_estimates", label: "Free estimates/quotes" },
-        { value: "satisfaction_guarantee", label: "Satisfaction guarantee" },
-        { value: "deposit_required", label: "Deposit required" },
-        { value: "cancellation_policy", label: "Cancellation policy" },
-        { value: "none", label: "None of these" },
-      ],
-    },
-    {
-      id: "policies_guarantees_details",
-      label: "Anything else to add about policies or guarantees?",
-      type: "textarea",
-      placeholder: "Optional — details on any of the above, or anything not covered",
-    },
+    }
   ],
 };
 
@@ -538,61 +365,6 @@ const UNIVERSAL_PLATFORMS: IntakeSection = {
   ],
 };
 
-// ─── Automation & Workflows ────────────────────────────────────────────────────
-
-const UNIVERSAL_AUTOMATION: IntakeSection = {
-  id: "automation",
-  title: "Automation & Workflows",
-  description: "Help us spot repetitive work we could take off your plate.",
-  questions: [
-    {
-      id: "manual_workflows",
-      label: "What tasks or parts of running your business feel repetitive or manual right now?",
-      type: "textarea",
-      placeholder:
-        "e.g. manually texting customers back, re-typing the same quote every time, tracking leads in a notebook",
-    },
-    {
-      id: "current_tools",
-      label: "What software or tools do you currently use for day-to-day operations?",
-      type: "multiselect",
-      options: [
-        { value: "invoicing", label: "Invoicing software" },
-        { value: "scheduling", label: "Scheduling software" },
-        { value: "crm", label: "CRM" },
-        { value: "spreadsheets", label: "Spreadsheets" },
-        { value: "texting_personal", label: "Texting customers from a personal phone" },
-        { value: "social_manual", label: "Managing social media manually" },
-        { value: "none", label: "None of these" },
-        { value: "other", label: "Other" },
-      ],
-    },
-    {
-      id: "current_tools_other",
-      label: "What other tools do you use?",
-      type: "text",
-      showIf: { questionId: "current_tools", includes: "other" },
-    },
-    {
-      id: "automation_interest",
-      label: "Which of these would you be interested in automating?",
-      type: "multiselect",
-      options: [
-        { value: "sms_followups", label: "Text message follow-ups with leads/customers" },
-        { value: "ai_content_agent", label: "AI-assisted content or customer responses" },
-        { value: "ads_optimization", label: "Ad campaign management/optimization" },
-        { value: "none_yet", label: "Not sure yet / none of these" },
-      ],
-    },
-    {
-      id: "automation_notes",
-      label: "Anything else you wish could just run itself?",
-      type: "textarea",
-      placeholder: "Optional — anything not covered above",
-    },
-  ],
-};
-
 // ─── Contact & Business Info ───────────────────────────────────────────────────
 
 const UNIVERSAL_CONTACT: IntakeSection = {
@@ -647,14 +419,7 @@ const UNIVERSAL_CONTACT: IntakeSection = {
       type: "text",
       placeholder: "e.g. 123 Main St, Sacramento, CA 95814",
       showIf: { questionId: "has_physical_address", equals: "yes" },
-    },
-    {
-      id: "content_approval_contact",
-      label: "Who should we contact for content approvals and edits?",
-      type: "text",
-      placeholder: "e.g. John Smith — john@yourbusiness.com — (916) 555-1234",
-      hint: "This is the person we'll reach out to when we need sign-off on copy or design decisions.",
-    },
+    }
   ],
 };
 
@@ -718,18 +483,6 @@ const UNIVERSAL_SETUP: IntakeSection = {
       showIf: { questionId: "domain_registrar", equals: "other" },
     },
     {
-      id: "target_go_live",
-      label: "When do you want your site to go live?",
-      type: "select",
-      options: [
-        { value: "asap", label: "ASAP" },
-        { value: "two_weeks", label: "Within 2 weeks" },
-        { value: "one_month", label: "Within 1 month" },
-        { value: "flexible", label: "Flexible" },
-        { value: "specific_date", label: "Specific date" },
-      ],
-    },
-    {
       id: "target_go_live_date",
       label: "What date?",
       type: "text",
@@ -748,10 +501,8 @@ function getOfferingsSection(_profile: BusinessType): IntakeSection {
 function getAllSections(businessType: BusinessType): IntakeSection[] {
   return [
     UNIVERSAL_ABOUT,
-    UNIVERSAL_BRAND,
     getOfferingsSection(businessType),
     UNIVERSAL_PLATFORMS,
-    UNIVERSAL_AUTOMATION,
     UNIVERSAL_MEDIA,
     UNIVERSAL_CONTACT,
     UNIVERSAL_SETUP,
