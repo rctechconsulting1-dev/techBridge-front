@@ -155,7 +155,6 @@ export async function POST(req: NextRequest) {
     // Don't fail the submission if notification fails
   }
 
-  let calendarUrl: string | undefined;
   try {
     const internalKey = process.env.INTERNAL_API_KEY;
     const completeResponse = await fetch(
@@ -171,10 +170,9 @@ export async function POST(req: NextRequest) {
         firstCompletion: boolean;
       };
 
-      if (completeBody.firstCompletion && process.env.CALENDAR_BOOKING_URL) {
-        calendarUrl = process.env.CALENDAR_BOOKING_URL;
+      if (completeBody.firstCompletion) {
         try {
-          await sendCalendarReadyEmail({ to: email, tenantName: undefined });
+          await sendCalendarReadyEmail({ to: email, tenantName: undefined, token });
         } catch (calendarEmailError) {
           console.error(
             "[intake/submit] Failed to send calendar-ready email:",
@@ -198,7 +196,6 @@ export async function POST(req: NextRequest) {
       ? "Thank you! Your questionnaire has been submitted successfully. Uploaded files may take a little longer to appear in admin."
       : "Thank you! Your questionnaire has been submitted successfully.",
     tenantId,
-    calendarUrl,
     ...(assetIndexWarning ? { warning: assetIndexWarning } : {}),
   });
 }

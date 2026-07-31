@@ -365,18 +365,16 @@ export interface SendCalendarReadyEmailOptions {
   to: string;
   firstName?: string;
   tenantName?: string;
+  token: string;
 }
 
 export async function sendCalendarReadyEmail({
   to,
   firstName,
   tenantName,
+  token,
 }: SendCalendarReadyEmailOptions) {
-  const calendarUrl = process.env.CALENDAR_BOOKING_URL;
-  if (!calendarUrl) {
-    throw new Error("CALENDAR_BOOKING_URL is not configured");
-  }
-
+  const bookingUrl = `${APP_URL}/intake/book?token=${encodeURIComponent(token)}`;
   const greeting = firstName ? `Hi ${firstName},` : "Hello,";
   const tenantLabel = tenantName?.trim() ? tenantName.trim() : "your business";
 
@@ -388,7 +386,7 @@ export async function sendCalendarReadyEmail({
       subject: "You're ready to book your kickoff call",
       heading: "Thanks for completing your questionnaire!",
       body: `<p>${greeting}</p><p>We've received your answers for <strong>${tenantLabel}</strong>. The next step is to book your kickoff call so we can walk through next steps together.</p>`,
-      cta: { label: "Book Your Kickoff Call", href: calendarUrl },
+      cta: { label: "Book Your Kickoff Call", href: bookingUrl },
     }),
   });
 }
