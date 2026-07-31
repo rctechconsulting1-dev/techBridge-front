@@ -39,3 +39,6 @@ next-env.d.ts
 
 # superpowers scratch (subagent-driven-development progress ledger)
 .superpowers/
+
+# git worktrees
+.worktrees/
