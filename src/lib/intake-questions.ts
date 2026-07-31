@@ -179,10 +179,9 @@ const UNIVERSAL_ABOUT: IntakeSection = {
     },
     {
       id: "topics_to_avoid_details",
-      label: "What should we avoid?",
+      label: "Are there services, topics, or competitors we should NOT mention on your site?",
       type: "textarea",
       placeholder: "e.g. We no longer offer pool service, don't mention Brand X",
-      showIf: { questionId: "has_topics_to_avoid", equals: true },
     },
   ],
 };
@@ -223,7 +222,6 @@ const UNIVERSAL_OFFERINGS: IntakeSection = {
       label: "Share your pricing, packages, subscriptions, or add-ons",
       type: "textarea",
       placeholder: "Include starting prices, bundles, memberships, deposits, or special offers.",
-      showIf: { questionId: "has_set_pricing", equals: true },
     },
     {
       id: "customer_action",
