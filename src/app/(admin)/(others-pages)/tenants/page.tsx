@@ -772,7 +772,7 @@ export default function TenantsPage() {
         inviteForm.businessType,
         response.tenant.name,
       );
-      const intakeUrl = `${window.location.origin}/intake/ai?token=${encodeURIComponent(intakeToken.token)}`;
+      const intakeUrl = `${window.location.origin}/intake?token=${encodeURIComponent(intakeToken.token)}`;
 
       const priceFormatted = selectedPlan
         ? `$${(selectedPlan.price_monthly_cents / 100).toFixed(2)}`
