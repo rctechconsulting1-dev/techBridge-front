@@ -30,12 +30,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, tenantId, businessType, websiteId, tenantName } = payload as unknown as {
+  const { email, tenantId, businessType, websiteId, tenantName, modules } = payload as unknown as {
     email: string;
     tenantId: number;
     businessType?: string;
     websiteId?: number;
     tenantName?: string;
+    modules?: string[];
   };
 
   return NextResponse.json({
@@ -44,5 +45,6 @@ export async function POST(req: NextRequest) {
     businessType: businessType ?? "universal",
     websiteId,
     tenantName,
+    modules: modules ?? [],
   });
 }

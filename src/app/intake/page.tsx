@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getIntakeSections,
   getBusinessTypeLabel,
+  isQuestionCurrentlyVisible,
   type BusinessType,
   type IntakeQuestion,
   type IntakeSection,
@@ -18,6 +19,7 @@ interface TokenPayload {
   businessType?: BusinessType;
   websiteId?: number;
   tenantName?: string;
+  modules?: string[];
 }
 
 function useIntakeToken() {
@@ -358,17 +360,19 @@ function Section({
         </p>
       )}
       <div className="space-y-5">
-        {section.questions.map((q) => (
-          <QuestionField
-            key={q.id}
-            question={q}
-            value={answers[q.id] ?? null}
-            onChange={onChange}
-            onFileUpload={onFileUpload}
-            uploadedFiles={uploadedFiles}
-            uploading={uploading}
-          />
-        ))}
+        {section.questions
+          .filter((q) => isQuestionCurrentlyVisible(q, answers))
+          .map((q) => (
+            <QuestionField
+              key={q.id}
+              question={q}
+              value={answers[q.id] ?? null}
+              onChange={onChange}
+              onFileUpload={onFileUpload}
+              uploadedFiles={uploadedFiles}
+              uploading={uploading}
+            />
+          ))}
       </div>
     </div>
   );
@@ -392,7 +396,7 @@ function IntakeFormInner() {
 
   const businessType = payload?.businessType ?? "universal";
   const sections = useMemo(
-    () => (payload ? getIntakeSections(businessType) : []),
+    () => (payload ? getIntakeSections(businessType, payload.modules ?? []) : []),
     [businessType, payload],
   );
 
@@ -427,10 +431,10 @@ function IntakeFormInner() {
     e.preventDefault();
     if (!token) return;
 
-    // Validate required fields
+    // Validate required fields — skip anything currently hidden by showIf
     const requiredQuestions = sections
       .flatMap((s) => s.questions)
-      .filter((q) => q.required);
+      .filter((q) => q.required && isQuestionCurrentlyVisible(q, answers));
 
     const missing = requiredQuestions.filter((q) => {
       const val = answers[q.id];

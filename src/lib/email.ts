@@ -372,9 +372,9 @@ export async function sendCalendarReadyEmail({
   firstName,
   tenantName,
 }: SendCalendarReadyEmailOptions) {
-  const calendarUrl = process.env.CALENDAR_BOOKING_URL;
+  const calendarUrl = process.env.GOOGLE_CALENDAR_BOOKING_URL;
   if (!calendarUrl) {
-    throw new Error("CALENDAR_BOOKING_URL is not configured");
+    throw new Error("GOOGLE_CALENDAR_BOOKING_URL is not configured");
   }
 
   const greeting = firstName ? `Hi ${firstName},` : "Hello,";
@@ -457,6 +457,24 @@ export async function sendProspectInviteEmail({
 
 // ─── Tenant intake questionnaire ──────────────────────────────────────────────
 
+/** Fetches the tenant's currently enabled modules from backend-rc. Throws if the call fails — an intake invite must not silently go out with an empty (all-questions-hidden) module list. */
+async function fetchTenantModules(tenantId: number): Promise<string[]> {
+  const internalKey = process.env.INTERNAL_API_KEY;
+  const response = await fetch(
+    `${BACKEND_API_BASE}/tenant-prospects/${tenantId}/modules`,
+    {
+      headers: internalKey ? { "x-internal-key": internalKey } : {},
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch tenant modules for tenant ${tenantId} (${response.status})`,
+    );
+  }
+  const body = (await response.json()) as { modules: string[] };
+  return body.modules ?? [];
+}
+
 /** Build a 7-day intake questionnaire token for a tenant owner. */
 export async function createIntakeToken(
   email: string,
@@ -465,9 +483,10 @@ export async function createIntakeToken(
   websiteId?: number,
   tenantName?: string,
 ): Promise<string> {
+  const modules = await fetchTenantModules(tenantId);
   return createSignedToken(
     INTAKE_TOKEN_SECRET,
-    { email, tenantId, businessType, websiteId, tenantName },
+    { email, tenantId, businessType, websiteId, tenantName, modules },
     60 * 60 * 24 * 7, // 7 days
   );
 }
@@ -505,10 +524,7 @@ export async function sendIntakeEmail({
     websiteId,
     tenantName,
   );
-  // Use the AI-assisted intake form when OpenAI is configured; fall back to
-  // the classic form if the key is absent (AI unavailable).
-  const intakePath = process.env.OPENAI_API_KEY ? "/intake/ai" : "/intake";
-  const intakeUrl = `${APP_URL}${intakePath}?token=${encodeURIComponent(token)}`;
+  const intakeUrl = `${APP_URL}/intake?token=${encodeURIComponent(token)}`;
   const sender = await resolveNotificationSenderForContext({
     websiteId,
     tenantId,

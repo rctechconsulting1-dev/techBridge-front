@@ -171,8 +171,8 @@ export async function POST(req: NextRequest) {
         firstCompletion: boolean;
       };
 
-      if (completeBody.firstCompletion && process.env.CALENDAR_BOOKING_URL) {
-        calendarUrl = process.env.CALENDAR_BOOKING_URL;
+      if (completeBody.firstCompletion && process.env.GOOGLE_CALENDAR_BOOKING_URL) {
+        calendarUrl = process.env.GOOGLE_CALENDAR_BOOKING_URL;
         try {
           await sendCalendarReadyEmail({ to: email, tenantName: undefined });
         } catch (calendarEmailError) {

@@ -25,6 +25,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.stackdump
 
 # local env files
 .env*.local
@@ -39,3 +40,6 @@ next-env.d.ts
 
 # superpowers scratch (subagent-driven-development progress ledger)
 .superpowers/
+
+# git worktrees
+.worktrees/

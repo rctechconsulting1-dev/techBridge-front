@@ -1195,6 +1195,7 @@ export default function SiteSettingsPage() {
       active = false;
     };
   }, []);
+
   const { uploadToS3 } = useS3Upload();
   const {
     assets: clientAssets,
