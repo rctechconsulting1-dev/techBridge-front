@@ -18,7 +18,6 @@ Use this runbook for the overall sequence, then use the companion playbooks for 
 8. `TENANT_FEATURE_PLAYBOOK_RELIABILITY.md`
 9. `docs/operations/TENANT_LIVE_TEST_RUNBOOK.md`
 10. Printify (print-on-demand ecommerce) – feature playbook TBD
-11. `ONBOARDING_CALL_SCRIPT.md` – pre-Step-6 client onboarding call, access checklist
 
 ## Purpose
 
@@ -251,11 +250,6 @@ This sets the active tenant context for the admin session.
 Expected result:
 
 1. Subsequent onboarding and settings work against the selected tenant.
-
-> **Before Step 6:** complete the client onboarding call. Follow
-> `ONBOARDING_CALL_SCRIPT.md` for the call-day access checklist and script.
-> Google Analytics and Search Console are handled separately, after launch
-> — see Step 11.
 
 ## Step 6 - Run Onboarding
 
@@ -533,25 +527,11 @@ If the customer package includes launch setup, complete the following:
 3. Payments
    1. configure payment-related setup
    2. verify Stripe-related status if applicable
-4. Post-Launch Analytics (Google Analytics + Search Console)
-   1. Confirm the domain status is `active` (from the Domain step above) —
-      this step only starts once that's true. If the tenant is launching on
-      the free `{slug}.rctechbridge.com` preview URL with no custom domain
-      planned, skip this step for now and revisit once a custom domain is
-      added.
-   2. Send the client the GA4 + Search Console setup email using the
-      template in `POST_LAUNCH_GA_GSC_EMAIL_TEMPLATE.md`.
-   3. Once the client confirms `rctechsolutions1@gmail.com` has been added
-      as GA4 Editor and Search Console full user, record
-      `NEXT_PUBLIC_GA_MEASUREMENT_ID` in the client's `agency-toolkit-template`
-      `.env.local` and the Search Console property URL in the `ads-mcp`
-      config, per `backend-rc/README.md`'s "Onboarding New Tenants" section.
 
 Expected result:
 
 1. Every tenant has a working public URL, either the auto-assigned preview or a custom domain.
 2. Optional operational systems are configured only where sold.
-3. Google Analytics and Search Console access is confirmed once the domain is live.
 
 ## Step 12 - Verify Owner Invite Status
 
