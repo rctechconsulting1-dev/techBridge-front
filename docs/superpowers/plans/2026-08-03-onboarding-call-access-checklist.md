@@ -14,7 +14,7 @@
 - No application code, backend-rc, agency-toolkit-template, or ads-mcp changes — docs only, all in `admin-dashboard-rc`.
 - Do not touch the existing async Google Business Profile pattern (`rctechsolutions1@gmail.com` as Manager, triggered from `/intake`) — reference it, don't change it.
 - Do not add GA4/Search Console setup to the live call — they are a post-launch, domain-gated step per the spec.
-- Follow this repo's git conventions: work from a `docs/` branch (not directly on `main`, per `CLAUDE.md`/existing spec conventions), Conventional Commits (`docs:`), no `Co-Authored-By` lines. The "no em dashes" convention applies to commit messages, PR descriptions, and Slack messages only (per `CLAUDE.md`) — not to prose inside the doc files themselves.
+- Follow this repo's git conventions: work from a `docs/` branch (not directly on `main`, per `CLAUDE.md`/existing spec conventions), Conventional Commits (`docs:`), no `Co-Authored-By` lines. The "no em dashes" convention (`admin-dashboard-rc/CLAUDE.md`: "No emojis or em-dashes") governs agent output style under that file's "Approach" section; `docs/guides/TENANT_ONBOARDING_RUNBOOK.md` already contains many em dashes in its existing prose (e.g. its Printify section headings), so doc-prose em dashes are established practice in this repo and are not restricted by that line.
 
 ---
 
