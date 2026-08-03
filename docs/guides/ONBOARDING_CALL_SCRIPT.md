@@ -5,7 +5,7 @@ Status: Active
 Prerequisite: kickoff call booked via the existing prospect-invite → intake
 → payment → booking pipeline (see
 `docs/superpowers/specs/2026-07-28-admin-initiated-prospect-invite-design.md`
-and `2026-07-31-google-calendar-kickoff-booking-design.md`). Run this
+and `docs/superpowers/specs/2026-07-31-google-calendar-kickoff-booking-design.md`). Run this
 script live on the call, then proceed to `TENANT_ONBOARDING_RUNBOOK.md`
 Step 6.
 
