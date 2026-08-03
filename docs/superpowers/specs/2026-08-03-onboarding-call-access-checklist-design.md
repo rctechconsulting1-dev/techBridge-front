@@ -51,12 +51,20 @@ only owns accounts tied to their own business identity or their own money.
 | | Meta Business Manager — Ads module only, if Meta is sold |
 
 Because RD Tech Bridge owns the GitHub repo and Vercel projects, the client's
-site can go live at a free `client-slug.vercel.app` URL the moment the admin
-deploys the repo — independent of whether the client has purchased a custom
-domain. This is what unblocks GA4 (which needs no live site at all to create
-a property) but does **not** fully unblock Search Console's domain-verified
-flow, which needs either DNS ownership or waiting for the final URL — see
-"Post-launch checklist" below for how this is resolved.
+site can go live immediately: deploying the `agency-toolkit-template` repo
+to its own (separate, per-client) Vercel project gets a default
+`*.vercel.app` URL from Vercel with zero extra configuration, independent of
+whether the client has purchased a custom domain. Per
+`TENANT_ONBOARDING_RUNBOOK.md`'s "Common Mistakes to Avoid" (using a
+one-off `vercel.app` preview URL as a tenant's durable public hostname is
+called out there as a mistake to avoid), this `.vercel.app` URL should be
+treated the same way here — a temporary launch artifact, not a durable
+public hostname. The client should move off it onto a custom domain (or an
+agency-branded subdomain, if one exists for this delivery path) as soon as
+practical. This is what unblocks GA4 (which needs no live site at all to
+create a property) but does **not** fully unblock Search Console's
+domain-verified flow, which needs either DNS ownership or waiting for the
+final URL — see "Post-launch checklist" below for how this is resolved.
 
 ## Pipeline
 
@@ -100,8 +108,8 @@ Onboarding complete; hand off to TENANT_ONBOARDING_RUNBOOK.md Step 12 onward
 | Google Drive asset folder | Admin creates, client uploads | Admin creates the per-client folder (logo/photos/brand docs/testimonials subfolders) *before* the call per the existing July 22 spec; call only confirms the client has what they need | Folder link already woven into `/intake`, unchanged |
 
 **Conditional on the client having or buying a custom domain** (skipped
-entirely if they're launching on the free `client-slug.vercel.app` URL for
-now):
+entirely if they're launching on the default, temporary `*.vercel.app` URL
+for now — see "Ownership model" above on why that URL isn't durable):
 
 | Service | Owner | Mechanism (client action) | What admin captures afterward |
 |---|---|---|---|
@@ -182,7 +190,7 @@ completed.
 | Decision | Choice | Why |
 |---|---|---|
 | Remote access during the call | Zoom's built-in remote control, client drives | Matches the existing spec; nearly every service on this checklist has an invite/consent mechanism that needs no password sharing at all, so full third-party remote-desktop software was never actually necessary |
-| Delivery infra ownership | RD Tech Bridge owns GitHub/Vercel/Sanity | Client is paying for a managed subscription, not infrastructure; removes 3 accounts from the client's plate entirely and unlocks the free Vercel preview URL |
+| Delivery infra ownership | RD Tech Bridge owns GitHub/Vercel/Sanity | Client is paying for a managed subscription, not infrastructure; removes 3 accounts from the client's plate entirely and unlocks an immediate (but temporary, non-durable) `*.vercel.app` URL at deploy time |
 | Gmail creation | Client creates it, client keeps it | Consistent with never holding a client's plaintext password; RD Tech Bridge only ever needs role-based access to specific Google services built on top of it, never the mailbox itself |
 | Stripe (client's own) | Restricted API key, not a dashboard invite | The integration code is generic/templated, so building it never required dashboard access; a scoped key is narrower than a team invite and keeps payout/bank details untouched |
 | Google Ads / Meta Ads | MCC link request / Business Manager partner request, sent ahead of the call | Native to those platforms, needs zero password or login, and doesn't consume live call time since it's a one-click accept whenever the client gets to it |
