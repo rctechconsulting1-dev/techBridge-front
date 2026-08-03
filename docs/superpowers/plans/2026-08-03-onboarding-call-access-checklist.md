@@ -283,8 +283,8 @@ grep -n "rctechsolutions1@gmail.com" docs/guides/ONBOARDING_CALL_SCRIPT.md
 ```
 
 Expected: the first command prints `8` (eight numbered call-sequence
-subsections); the second prints at least three matching lines (GBP,
-Stripe Support Specialist, and the call-sequence intro).
+subsections); the second prints 2 matching lines (GBP Manager access and
+Stripe Support Specialist access).
 
 - [ ] **Step 3: Commit**
 
