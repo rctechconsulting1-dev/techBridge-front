@@ -1,21 +1,21 @@
 Starter
 
 - Price: $149/mo
-- Setup: $299 (one-time)
+- Setup: $299–$399 (one-time)
 - Term: 4-month minimum
 - Includes: Website core + hosting; SEO content basics; Lead capture forms; Metrics dashboard; Basic forms
 
 Professional
 
 - Price: $349/mo
-- Setup: $499 (one-time)
+- Setup: $399–$599 (one-time)
 - Term: 4-month minimum
 - Includes: All Starter modules; Calendar & appointments; Google Business management; Email & SMS automation; Light custom pages; Review requests
 
 Full Stack + AI Assist
 
 - Price: $799/mo
-- Setup: $999 (one-time)
+- Setup: $999–$1,500 (one-time)
 - Term: 4-month minimum
 - Includes: All Professional modules; Ecommerce + Stripe; Google Ads setup; Google Ads reporting; Lead-gen emails & call tracking; Advanced custom pages
 
