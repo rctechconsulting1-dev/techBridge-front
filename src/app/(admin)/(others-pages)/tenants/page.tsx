@@ -30,7 +30,7 @@ const MODULE_OPTIONS = [
 const PLAN_OPTIONS = [
   { value: "starter", label: "Starter ($149/mo)" },
   { value: "professional", label: "Professional ($349/mo)" },
-  { value: "business", label: "Full Stack + AI Assist ($799/mo)" },
+  { value: "business", label: "Business ($799/mo)" },
   { value: "enterprise", label: "Enterprise (Custom)" },
 ];
 
@@ -548,7 +548,7 @@ export default function TenantsPage() {
   > = {
     starter: { name: "Starter", price_monthly_cents: 14900 },
     professional: { name: "Professional", price_monthly_cents: 34900 },
-    business: { name: "Full Stack + AI Assist", price_monthly_cents: 79900 },
+    business: { name: "Business", price_monthly_cents: 79900 },
     enterprise: { name: "Enterprise", price_monthly_cents: null as unknown as number },
   };
 
