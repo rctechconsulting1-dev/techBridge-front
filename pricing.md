@@ -12,7 +12,7 @@ Professional
 - Term: 4-month minimum
 - Includes: All Starter modules; Calendar & appointments; Google Business management; Email & SMS automation; Light custom pages; Review requests
 
-Full Stack + AI Assist
+Business
 
 - Price: $799/mo
 - Setup: $999 (one-time)
