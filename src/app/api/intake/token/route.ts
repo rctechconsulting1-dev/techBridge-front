@@ -35,13 +35,18 @@ export async function POST(req: NextRequest) {
   // NOTE: this route has no admin-session check of its own. It is only
   // reachable from the authenticated Tenants admin page today; if it is
   // ever called from elsewhere, add an admin-session check here first.
-  const token = await createIntakeToken(
-    parsed.data.ownerEmail,
-    parsed.data.tenantId,
-    parsed.data.businessType ?? "universal",
-    undefined,
-    parsed.data.tenantName,
-  );
+  try {
+    const token = await createIntakeToken(
+      parsed.data.ownerEmail,
+      parsed.data.tenantId,
+      parsed.data.businessType ?? "universal",
+      undefined,
+      parsed.data.tenantName,
+    );
 
-  return NextResponse.json({ token });
+    return NextResponse.json({ token });
+  } catch (err) {
+    console.error("[intake/token] Failed to create intake token:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }
