@@ -3,7 +3,7 @@
   "version": "2.0.2",
   "private": true,
   "engines": {
-    "node": ">=20 <21"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev --webpack",
@@ -34,6 +34,7 @@
     "apexcharts": "^4.3.0",
     "autoprefixer": "^10.4.20",
     "flatpickr": "^4.6.13",
+    "googleapis": "^174.0.1",
     "next": "^16.1.6",
     "next-s3-upload": "^0.3.4",
     "openai": "^5.16.0",
