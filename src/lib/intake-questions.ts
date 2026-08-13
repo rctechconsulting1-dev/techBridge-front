@@ -108,12 +108,6 @@ const UNIVERSAL_ABOUT: IntakeSection = {
       placeholder: "e.g. Homeowners in need of emergency plumbing repairs",
     },
     {
-      id: "differentiator",
-      label: "What makes you different from competitors in your area?",
-      type: "textarea",
-      placeholder: "e.g. Same-day service, 20 years of experience, family-owned",
-    },
-    {
       id: "tagline",
       label: "Do you have an existing slogan or tagline?",
       type: "text",
