@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import Link from "next/link";
 
 /* ────────────────────────────── Types ───────────────────────────── */
 
@@ -279,12 +280,12 @@ const PlansSection = () => {
               Every business is unique. Let&apos;s discuss your specific needs and create a
               tailored solution that fits your goals and budget.
             </p>
-            <a
+            <Link
               href="/#contact"
               className="inline-block bg-[#CD7F32] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#8B4513] transition-colors duration-300"
             >
               Schedule Consultation
-            </a>
+            </Link>
           </div>
         </div>
       </div>
