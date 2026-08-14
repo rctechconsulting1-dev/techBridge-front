@@ -20,6 +20,9 @@ type ClientListItem = {
   plan_key: string | null;
   owner_name: string | null;
   owner_email: string | null;
+  primary_domain: string | null;
+  website_domain: string | null;
+  payment_completed_at: string | null;
   invite_status: "not_sent" | "sent" | "partial_failure" | "failed" | null;
   enabled_modules: string[];
 };
@@ -113,6 +116,8 @@ export default function ClientsPage() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Plan</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Domain</th>
+                <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Modules</th>
                 <th className="px-4 py-3">Owner</th>
                 <th className="px-4 py-3">Invite</th>
@@ -121,13 +126,13 @@ export default function ClientsPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                     Loading…
                   </td>
                 </tr>
               ) : filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                     No clients found.
                   </td>
                 </tr>
@@ -152,6 +157,20 @@ export default function ClientsPage() {
                         className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${statusBadgeClasses(client.status)}`}
                       >
                         {client.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                      {client.primary_domain ?? client.website_domain ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${
+                          client.payment_completed_at
+                            ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+                            : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                        }`}
+                      >
+                        {client.payment_completed_at ? "Paid" : "Pending"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">

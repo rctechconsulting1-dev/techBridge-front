@@ -773,8 +773,6 @@ export default function TenantsPage() {
         response.tenant.name,
       );
       const intakeUrl = `${window.location.origin}/intake?token=${encodeURIComponent(intakeToken.token)}`;
-      // TEMP DEBUG (remove after diagnosing prod /intake/ai mismatch, 2026-08-13):
-      console.log("[DEBUG-INTAKE-URL-2026-08-13]", intakeUrl);
 
       const priceFormatted = selectedPlan
         ? `$${(selectedPlan.price_monthly_cents / 100).toFixed(2)}`

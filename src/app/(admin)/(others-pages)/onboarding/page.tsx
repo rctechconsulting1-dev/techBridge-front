@@ -1042,7 +1042,7 @@ export default function OnboardingPage() {
           desc="Review the tenant's questionnaire answers here first. Intake does not auto-publish; it must be staged into Site Settings or Branding by an operator."
         >
           <div id="latest-intake-submission" className="scroll-mt-24" />
-          {!selectedWebsiteId ? (
+          {!selectedTenantId ? (
             <p className="text-sm text-amber-700 dark:text-amber-300">
               Select a tenant first to load intake answers.
             </p>

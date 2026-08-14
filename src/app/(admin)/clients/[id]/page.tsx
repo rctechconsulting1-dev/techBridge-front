@@ -41,6 +41,8 @@ type ClientDetail = {
   seat_used: number;
   primary_domain: string | null;
   website_domain: string | null;
+  payment_completed_at: string | null;
+  intake_completed_at: string | null;
   owner_name: string | null;
   owner_email: string | null;
   owner_phone: string | null;
@@ -146,6 +148,14 @@ export default function ClientDetailPage() {
                 <Row
                   label="Domain"
                   value={client.primary_domain ?? client.website_domain ?? "—"}
+                />
+                <Row
+                  label="Intake"
+                  value={client.intake_completed_at ? "Done" : "Pending"}
+                />
+                <Row
+                  label="Payment"
+                  value={client.payment_completed_at ? "Paid" : "Pending"}
                 />
                 <Row
                   label="Seats"
