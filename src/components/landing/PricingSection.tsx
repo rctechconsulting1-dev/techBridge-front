@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React from "react";
 import Link from "next/link";
 
 /* ────────────────────────────── Types ───────────────────────────── */
@@ -99,99 +99,9 @@ const plans: PlanDef[] = [
   },
 ];
 
-/* ────────────────────────────── API ─────────────────────────────── */
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-
 /* ────────────────────────────── Component ───────────────────────── */
 
 const PricingSection = () => {
-  // Modal state
-  const [modalPlan, setModalPlan] = useState<PlanDef | null>(null);
-  const [formEmail, setFormEmail] = useState("");
-  const [formName, setFormName] = useState("");
-  const [formBusiness, setFormBusiness] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-
-  const openModal = useCallback((plan: PlanDef) => {
-    setModalPlan(plan);
-    setFormEmail("");
-    setFormName("");
-    setFormBusiness("");
-    setFormError("");
-  }, []);
-
-  const closeModal = useCallback(() => {
-    if (!submitting) setModalPlan(null);
-  }, [submitting]);
-
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!modalPlan?.plan_key) return;
-
-      const email = formEmail.trim();
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setFormError("Please enter a valid email address.");
-        return;
-      }
-
-      setSubmitting(true);
-      setFormError("");
-
-      try {
-        const res = await fetch(
-          `${API_BASE}/billing/public/checkout/self-service`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              plan_key: modalPlan.plan_key,
-              email,
-              business_name: formBusiness.trim() || formName.trim() || undefined,
-            }),
-          },
-        );
-
-        if (!res.ok) {
-          const body = await res.json().catch(() => null);
-          throw new Error(
-            body?.error || "Something went wrong. Please try again.",
-          );
-        }
-
-        const { url } = await res.json();
-        if (url) {
-          window.location.href = url;
-        } else {
-          throw new Error("No checkout URL returned.");
-        }
-      } catch (err: unknown) {
-        setFormError(
-          err instanceof Error ? err.message : "Something went wrong.",
-        );
-        setSubmitting(false);
-      }
-    },
-    [modalPlan, formEmail, formName, formBusiness],
-  );
-
-  const handlePlanClick = useCallback(
-    (plan: PlanDef) => {
-      if (plan.price !== null && plan.plan_key !== "enterprise") {
-        openModal(plan);
-      } else {
-        // Enterprise — scroll to consultation CTA
-        document
-          .getElementById("pricing-cta")
-          ?.scrollIntoView({ behavior: "smooth" });
-      }
-    },
-    [openModal],
-  );
-
   return (
     <section id="pricing" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -277,16 +187,16 @@ const PricingSection = () => {
                 </ul>
 
                 {/* CTA button */}
-                <button
-                  onClick={() => handlePlanClick(plan)}
-                  className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
+                <Link
+                  href="/plans"
+                  className={`block w-full py-3 text-center rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
                     plan.popular
                       ? "bg-gradient-to-r from-[#CD7F32] to-[#C41E3A] text-white hover:shadow-xl"
                       : "bg-gray-100 text-[#CD7F32] hover:bg-[#CD7F32] hover:text-white"
                   }`}
                 >
                   {plan.buttonText}
-                </button>
+                </Link>
               </div>
             </div>
           ))}
@@ -319,107 +229,6 @@ const PricingSection = () => {
           </div>
         </div>
       </div>
-
-      {/* ─── Self-Service Checkout Modal ─── */}
-      {modalPlan && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={closeModal}
-        >
-          <div
-            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl leading-none"
-              aria-label="Close"
-            >
-              &times;
-            </button>
-
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">
-              Get Started with {modalPlan.name}
-            </h3>
-            <p className="text-gray-500 mb-6">
-              ${modalPlan.price}/mo &mdash; Setup: {modalPlan.setupFee} &mdash; {modalPlan.commitment}.
-              Enter your details to proceed to secure checkout.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="ss-name"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Your Name
-                </label>
-                <input
-                  id="ss-name"
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-[#CD7F32] focus:ring-1 focus:ring-[#CD7F32] outline-none"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="ss-email"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="ss-email"
-                  type="email"
-                  required
-                  value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-[#CD7F32] focus:ring-1 focus:ring-[#CD7F32] outline-none"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="ss-business"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Business Name
-                </label>
-                <input
-                  id="ss-business"
-                  type="text"
-                  value={formBusiness}
-                  onChange={(e) => setFormBusiness(e.target.value)}
-                  placeholder="Acme Plumbing LLC"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-[#CD7F32] focus:ring-1 focus:ring-[#CD7F32] outline-none"
-                />
-              </div>
-
-              {formError && (
-                <p className="text-sm text-red-600">{formError}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-[#CD7F32] to-[#C41E3A] hover:shadow-xl transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {submitting
-                  ? "Redirecting to checkout…"
-                  : "Continue to Checkout"}
-              </button>
-
-              <p className="text-xs text-center text-gray-400">
-                You&apos;ll be redirected to Stripe for secure payment.
-              </p>
-            </form>
-          </div>
-        </div>
-      )}
     </section>
   );
 };
