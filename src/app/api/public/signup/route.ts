@@ -2,19 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sendIntakeEmail } from "@/lib/email";
 import { getApiBaseUrl } from "@/lib/api";
+import { checkRateLimit } from "@/lib/ai/rate-limit";
 
 const schema = z.object({
-  plan_key: z.string().min(1),
-  name: z.string().trim().min(1),
-  email: z.string().trim().email(),
-  business_name: z.string().trim().min(1),
+  plan_key: z.string().min(1).max(200),
+  name: z.string().trim().min(1).max(200),
+  email: z.string().trim().email().max(320),
+  business_name: z.string().trim().min(1).max(200),
   website_url: z.string().optional(),
 });
 
 async function logIntakeEmailFailure(tenantId: number, email: string) {
   const internalKey = process.env.INTERNAL_API_KEY;
   try {
-    await fetch(`${getApiBaseUrl()}/tenant-prospects/${tenantId}/signup-email-failed`, {
+    const res = await fetch(`${getApiBaseUrl()}/tenant-prospects/${tenantId}/signup-email-failed`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -22,6 +23,9 @@ async function logIntakeEmailFailure(tenantId: number, email: string) {
       },
       body: JSON.stringify({ email }),
     });
+    if (!res.ok) {
+      console.error("[public/signup] signup-email-failed logging call returned", res.status);
+    }
   } catch (notifyError) {
     console.error("[public/signup] Failed to log email failure:", notifyError);
   }
@@ -50,11 +54,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const ipKey = forwardedFor?.split(",")[0]?.trim() || "unknown";
+  const limiter = await checkRateLimit({
+    namespace: "public-signup",
+    key: ipKey,
+    windowMs: 10 * 60 * 1000,
+    maxRequests: 5,
+  });
+  if (!limiter.allowed) {
+    return NextResponse.json({ ok: true });
+  }
+
   let tenantId: number | null = null;
   try {
+    const internalKey = process.env.INTERNAL_API_KEY;
     const backendRes = await fetch(`${getApiBaseUrl()}/tenant-prospects/public`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(internalKey ? { "x-internal-key": internalKey } : {}),
+      },
       body: JSON.stringify({
         businessName: business_name,
         ownerName: name,
