@@ -2,102 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import Link from "next/link";
-
-/* ────────────────────────────── Types ───────────────────────────── */
-
-type PlanDef = {
-  name: string;
-  plan_key: string;
-  price: number | null; // null = custom
-  setupFee: string;
-  commitment: string;
-  seats: string;
-  tagline: string;
-  features: string[];
-  popular: boolean;
-  buttonText: string;
-};
-
-/* ────────────────────────────── Plan data ────────────────────────── */
-
-const plans: PlanDef[] = [
-  {
-    name: "Starter",
-    plan_key: "starter",
-    price: 149,
-    setupFee: "$299",
-    commitment: "4-mo minimum",
-    seats: "2 seats",
-    tagline: "Core web presence",
-    features: [
-      "Website core + hosting",
-      "SEO content basics",
-      "Lead capture forms",
-      "Basic metrics dashboard",
-      "Custom domain",
-    ],
-    popular: false,
-    buttonText: "Get Started",
-  },
-  {
-    name: "Professional",
-    plan_key: "professional",
-    price: 349,
-    setupFee: "$499",
-    commitment: "4-mo minimum",
-    seats: "5 seats",
-    tagline: "Growth + local visibility",
-    features: [
-      "All Starter modules",
-      "Calendar / appointments",
-      "Google My Business mgmt",
-      "Lead gen emails + SMS",
-      "Advanced metrics",
-      "LLM + Google ranking tools",
-      "Custom pages",
-    ],
-    popular: true,
-    buttonText: "Most Popular",
-  },
-  {
-    name: "Business",
-    plan_key: "business",
-    price: 799,
-    setupFee: "$999",
-    commitment: "4-mo minimum",
-    seats: "15 seats",
-    tagline: "Full stack + ads + AI",
-    features: [
-      "All Professional modules",
-      "Ecommerce + Stripe checkout",
-      "Google Ads setup + mgmt",
-      "Ad budget: client-controlled",
-      "Custom AI agent",
-      "Lead gen calls",
-      "Priority support",
-    ],
-    popular: false,
-    buttonText: "Go Business",
-  },
-  {
-    name: "Enterprise",
-    plan_key: "enterprise",
-    price: null,
-    setupFee: "Custom",
-    commitment: "Terms negotiated",
-    seats: "Unlimited seats",
-    tagline: "Multi-location / high-volume",
-    features: [
-      "All Business modules",
-      "Multi AI agents",
-      "Google Ads — multi-campaign",
-      "White-label option",
-      "Dedicated account manager",
-    ],
-    popular: false,
-    buttonText: "Contact Us",
-  },
-];
+import { plans, type PlanDef } from "@/lib/plans";
 
 /* ────────────────────────────── Component ───────────────────────── */
 
@@ -236,7 +141,6 @@ const PlansSection = () => {
                 <div className="text-xs text-gray-500 space-y-0.5 mb-5">
                   <p>Setup: {plan.setupFee}</p>
                   <p>{plan.commitment}</p>
-                  <p>{plan.seats}</p>
                 </div>
 
                 <ul className="space-y-3 mb-6 flex-1">
