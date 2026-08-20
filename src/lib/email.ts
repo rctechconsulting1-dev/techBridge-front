@@ -3,7 +3,7 @@
  *
  * Required env vars:
  *   RESEND_API_KEY      – API key from resend.com
- *   RESEND_FROM_EMAIL   – Verified sender address (e.g. "RC TechBridge <noreply@yourdomain.com>")
+ *   RESEND_FROM_EMAIL   – Verified sender address (e.g. "RD TechBridge <noreply@yourdomain.com>")
  *   NEXT_PUBLIC_APP_URL – Public base URL used to build links (e.g. https://app.yourdomain.com)
  */
 
@@ -280,7 +280,7 @@ export async function sendWelcomeEmail({
   return getResendClient().emails.send({
     from: sender.from,
     to,
-    subject: "RC TechBridge: Welcome to your account",
+    subject: "RD TechBridge: Welcome to your account",
     html: buildWelcomeHtml({ firstName }),
     ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
   });
@@ -306,7 +306,7 @@ export async function sendVerifyEmail({
   return getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
-    subject: "Verify your email – RC TechBridge",
+    subject: "Verify your email – RD TechBridge",
     html: buildVerifyHtml({ firstName, verifyUrl }),
   });
 }
@@ -339,7 +339,7 @@ export async function sendResetPasswordEmail({
   return getResendClient().emails.send({
     from: sender.from,
     to,
-    subject: "RC TechBridge: Reset your password",
+    subject: "RD TechBridge: Reset your password",
     html: buildResetPasswordHtml({ firstName, resetUrl }),
     ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
   });
@@ -411,7 +411,7 @@ export async function sendBillingInviteEmail({
   return getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
-    subject: `Activate your ${planName} subscription – RC TechBridge`,
+    subject: `Activate your ${planName} subscription – RD TechBridge`,
     html: buildBillingInviteHtml({
       firstName,
       planName,
@@ -443,7 +443,7 @@ export async function sendProspectInviteEmail({
   return getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
-    subject: `Let's get ${tenantName} started - RC TechBridge`,
+    subject: `Let's get ${tenantName} started - RD TechBridge`,
     html: buildProspectInviteHtml({
       firstName,
       tenantName,
@@ -543,7 +543,7 @@ export async function sendIntakeEmail({
   return getResendClient().emails.send({
     from: sender.from,
     to,
-    subject: `RC TechBridge: Complete your business profile${subjectSuffix}`,
+    subject: `RD TechBridge: Complete your business profile${subjectSuffix}`,
     html: content,
     ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
   });

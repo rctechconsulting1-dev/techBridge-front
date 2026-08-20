@@ -21,7 +21,7 @@ export default function AuthLayout({
               <GridShape />
               <div className="flex max-w-xs flex-col items-center">
                 <Link href="/" className="mb-6 block">
-                  {/* RC Tech Bridge Logo */}
+                  {/* RD TechBridge Logo */}
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-2">
                       <span className="text-4xl font-bold text-[#CD7F32]">

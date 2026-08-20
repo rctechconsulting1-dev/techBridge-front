@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const { error } = await sendNotificationEmail(
       recipient,
       {
-        subject: "RC TechBridge launch verification test",
+        subject: "RD TechBridge launch verification test",
         heading: "Launch verification test",
         body: [
           "This is a manual test email sent from Global Site Settings.",

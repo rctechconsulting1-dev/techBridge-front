@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Web Development | RC Tech Bridge",
+  title: "Web Development | RD TechBridge",
   description:
     "Custom web development built on the edge of possibility. Adaptive AI feedback loops, low-latency data pipelines, and enterprise-grade security for modern businesses.",
   keywords:
-    "web development, custom web design, React, Next.js, web architecture, AI-powered web, RC Tech Bridge",
+    "web development, custom web design, React, Next.js, web architecture, AI-powered web, RD TechBridge",
 };
 
 export default function WebDevelopmentPage() {

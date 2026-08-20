@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Enterprise AI Integration | RC Tech Bridge",
+  title: "Enterprise AI Integration | RD TechBridge",
   description:
     "Modernize legacy systems, integrate AI at scale, and harden enterprise security — without halting operations. SOC2 compliant, cloud-native architecture.",
   keywords:
-    "enterprise AI, cloud modernization, legacy systems, SOC2, AI integration, enterprise security, RC Tech Bridge",
+    "enterprise AI, cloud modernization, legacy systems, SOC2, AI integration, enterprise security, RD TechBridge",
 };
 
 export default function EnterprisePage() {

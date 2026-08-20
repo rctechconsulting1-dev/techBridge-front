@@ -13,7 +13,7 @@ import { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Form Elements | RC Tech Bridge",
+  title: "Form Elements | RD TechBridge",
   description: "Form element components reference.",
 };
 

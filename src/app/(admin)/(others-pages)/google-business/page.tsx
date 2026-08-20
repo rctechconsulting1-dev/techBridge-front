@@ -851,7 +851,7 @@ export default function GoogleBusinessPage() {
                                 Pick Location
                             </button>
                         ) : (
-                            <p className="text-sm text-gray-400">Connect the RC Tech Google account first (see banner above).</p>
+                            <p className="text-sm text-gray-400">Connect the RD TechBridge Google account first (see banner above).</p>
                         )}
                     </div>
                 )}

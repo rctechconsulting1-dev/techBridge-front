@@ -2,9 +2,9 @@ import React from "react";
 
 const faqs = [
   {
-    question: "What does RC Tech Bridge do for small businesses?",
+    question: "What does RD TechBridge do for small businesses?",
     answer:
-      "RC Tech Bridge builds conversion-focused websites, manages Google and Meta ad campaigns, and deploys AI agents that automate customer follow-up and lead handling — giving small businesses a complete digital growth stack without needing an in-house tech team.",
+      "RD TechBridge builds conversion-focused websites, manages Google and Meta ad campaigns, and deploys AI agents that automate customer follow-up and lead handling — giving small businesses a complete digital growth stack without needing an in-house tech team.",
   },
   {
     question: "How do your AI agents help a local business?",

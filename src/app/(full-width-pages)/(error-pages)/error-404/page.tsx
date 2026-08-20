@@ -5,7 +5,7 @@ import Link from "next/link";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Page Not Found | RC Tech Bridge",
+  title: "Page Not Found | RD TechBridge",
   description: "The page you are looking for could not be found.",
 };
 
@@ -46,7 +46,7 @@ export default function Error404() {
       </div>
       {/* <!-- Footer --> */}
       <p className="absolute text-sm text-center text-gray-500 -translate-x-1/2 bottom-6 left-1/2 dark:text-gray-400">
-        &copy; {new Date().getFullYear()} - RC Tech Bridge
+        &copy; {new Date().getFullYear()} - RD TechBridge
       </p>
     </div>
   );

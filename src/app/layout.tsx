@@ -17,9 +17,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "https://rctechbridge.com",
   ),
-  title: "RC Tech Bridge - Bridging Business & Technology",
+  title: "RD TechBridge - Bridging Business & Technology",
   description:
-    "Focus on growing your business while we handle all the technical obstacles. RC Tech Bridge provides seamless technology solutions that work behind the scenes.",
+    "Focus on growing your business while we handle all the technical obstacles. RD TechBridge provides seamless technology solutions that work behind the scenes.",
   keywords:
     "technology solutions, web development, business automation, technical support, small business tech",
   icons: {
@@ -43,16 +43,16 @@ export const metadata: Metadata = {
     apple: [{ url: "/branding/favicons/apple-touch-icon.svg" }],
   },
   openGraph: {
-    title: "RC Tech Bridge - Bridging Business & Technology",
+    title: "RD TechBridge - Bridging Business & Technology",
     description:
       "Focus on growing your business while we handle all the technical obstacles.",
     url: "https://rctechbridge.com",
-    siteName: "RC Tech Bridge",
+    siteName: "RD TechBridge",
     images: [
       {
         url: "/branding/jpg/logos/horizontal-logo-1200w.jpg",
         width: 1200,
-        alt: "RC Tech Bridge Logo",
+        alt: "RD TechBridge Logo",
       },
     ],
     locale: "en_US",
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "RC Tech Bridge - Bridging Business & Technology",
+    title: "RD TechBridge - Bridging Business & Technology",
     description:
       "Focus on growing your business while we handle all the technical obstacles.",
     images: ["/branding/jpg/logos/horizontal-logo-1200w.jpg"],

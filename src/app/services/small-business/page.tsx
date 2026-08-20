@@ -3,11 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Small Business Tech Solutions | RC Tech Bridge",
+  title: "Small Business Tech Solutions | RD TechBridge",
   description:
     "Don't get left behind in the tech race. Affordable AI tools, professional web presence, and competitor intelligence built specifically for small businesses.",
   keywords:
-    "small business technology, AI for small business, web presence, competitor intelligence, business automation, RC Tech Bridge",
+    "small business technology, AI for small business, web presence, competitor intelligence, business automation, RD TechBridge",
 };
 
 export default function SmallBusinessPage() {
@@ -117,7 +117,7 @@ export default function SmallBusinessPage() {
               </div>
               <p className="text-xs text-[#46464c] mt-4">
                 Average reduction in AI capability gap vs. enterprise
-                competitors after 90 days with RC Tech Bridge.
+                competitors after 90 days with RD TechBridge.
               </p>
             </div>
           </div>

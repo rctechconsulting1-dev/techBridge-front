@@ -4,6 +4,51 @@ import React, { useCallback, useState } from "react";
 import Link from "next/link";
 import { plans, type PlanDef } from "@/lib/plans";
 
+/* ────────────────────────────── Add-on services ─────────────────── */
+
+const addOnServices = [
+  {
+    name: "Logo Creation",
+    icon: (
+      <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.829-2.828z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Social Media Marketing",
+    icon: (
+      <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47A3 3 0 1013 12.5c0-.243-.03-.478-.084-.703l-4.94-2.47a3.027 3.027 0 000-.653l4.94-2.47c.53.512 1.25.796 2.084.796z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Content Creation",
+    icon: (
+      <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+        <path
+          fillRule="evenodd"
+          d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm3 6a1 1 0 000 2h6a1 1 0 100-2H7zm0 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+          clipRule="evenodd"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: "Business Cards",
+    icon: (
+      <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+        <path
+          fillRule="evenodd"
+          d="M2 6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm2 1v1h12V7H4zm0 3v4h4v-4H4zm6 0v1h6v-1h-6zm0 2v1h6v-1h-6z"
+          clipRule="evenodd"
+        />
+      </svg>
+    ),
+  },
+];
+
 /* ────────────────────────────── Component ───────────────────────── */
 
 const PlansSection = () => {
@@ -177,6 +222,31 @@ const PlansSection = () => {
           ))}
         </div>
 
+        {/* Additional Services — no pricing, informational only */}
+        <div className="mt-16">
+          <div className="text-center mb-10">
+            <h3 className="text-2xl lg:text-3xl font-bold text-gray-900">
+              Additional Services
+            </h3>
+            <p className="mt-2 text-gray-600 max-w-2xl mx-auto">
+              À la carte add-ons available alongside any plan.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {addOnServices.map((service) => (
+              <div
+                key={service.name}
+                className="flex flex-col items-center text-center rounded-2xl border-2 border-gray-200 p-6 transition-all duration-300 hover:border-[#CD7F32]/50 hover:-translate-y-1"
+              >
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-[#CD7F32] to-[#8B4513] text-white">
+                  {service.icon}
+                </div>
+                <p className="font-semibold text-gray-900">{service.name}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div id="plans-cta" className="mt-16 text-center">
           <div className="bg-gray-50 rounded-2xl p-8">
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Need a Custom Solution?</h3>
@@ -191,6 +261,13 @@ const PlansSection = () => {
               Schedule Consultation
             </Link>
           </div>
+          <p className="mt-6 text-sm text-gray-500">
+            By signing up for a Plan, you agree to our{" "}
+            <Link href="/subscription-terms" className="text-[#CD7F32] hover:underline">
+              Subscription Terms &amp; Conditions
+            </Link>
+            .
+          </p>
         </div>
       </div>
 

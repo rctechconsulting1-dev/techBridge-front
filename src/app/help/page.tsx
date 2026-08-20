@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Help Center | RC Tech Bridge",
+  title: "Help Center | RD TechBridge",
   description:
-    "Answers to common questions about RC Tech Bridge services, timelines, tech stack, and how we work.",
+    "Answers to common questions about RD TechBridge services, timelines, tech stack, and how we work.",
 };
 
 const faqs = [

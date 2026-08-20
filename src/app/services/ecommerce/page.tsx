@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "eCommerce AI Solutions | RC Tech Bridge",
+  title: "eCommerce AI Solutions | RD TechBridge",
   description:
     "Scale your online store with AI-powered inventory management, dynamic pricing, and intelligent customer support. +34% average revenue lift.",
   keywords:
-    "ecommerce AI, online store automation, dynamic pricing, AI customer support, inventory management, RC Tech Bridge",
+    "ecommerce AI, online store automation, dynamic pricing, AI customer support, inventory management, RD TechBridge",
 };
 
 export default function EcommercePage() {

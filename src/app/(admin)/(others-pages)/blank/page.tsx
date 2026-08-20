@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Blank Page | RC Tech Bridge",
+  title: "Blank Page | RD TechBridge",
   description: "Blank page template.",
 };
 

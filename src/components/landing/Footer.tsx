@@ -29,7 +29,8 @@ const Footer = () => {
       { name: "System Status", href: "/#contact" },
       { name: "Privacy Policy", href: "/privacy-policy" },
       { name: "Terms of Service", href: "/terms-of-service" },
-      { name: "Cookie Policy", href: "/privacy-policy" },
+      { name: "Cookie Policy", href: "/cookie-policy" },
+      { name: "Subscription Terms", href: "/subscription-terms" },
     ],
   };
 
@@ -207,7 +208,7 @@ const Footer = () => {
         <div className="border-t border-[#CD7F32] py-6">
           <div className="flex flex-col items-center justify-between md:flex-row">
             <div className="mb-4 text-sm text-[#DEB887] md:mb-0">
-              © {currentYear} RD Tech Bridge. All rights reserved.
+              © {currentYear} RD TechBridge, LLC. All rights reserved.
             </div>
 
             <div className="flex space-x-6 text-sm">

@@ -32,7 +32,7 @@ const HeroSection = () => {
             </h1>
 
             <p className="mb-8 text-xl leading-relaxed text-gray-600">
-              RC Tech Bridge builds conversion-focused websites, runs Google &
+              RD TechBridge builds conversion-focused websites, runs Google &
               Meta ad campaigns, and deploys AI agents that automate your
               customer follow-up — so you can focus on the work, not the tech.
             </p>

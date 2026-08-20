@@ -72,14 +72,14 @@ const AboutSection = () => {
           {/* Left Column - Content */}
           <div>
             <h2 className="mb-8 text-4xl font-bold text-gray-900 lg:text-5xl">
-              About <span className="text-[#CD7F32]">RD Tech Bridge</span>
+              About <span className="text-[#CD7F32]">RD TechBridge</span>
             </h2>
 
             <div className="space-y-6 text-lg leading-relaxed text-gray-600">
               <p>
                 We believe small businesses should spend their time on business
-                strategy, not troubleshooting servers. That&apos;s why RC Tech
-                Bridge exists – to be your reliable technology partner, removing
+                strategy, not troubleshooting servers. That&apos;s why RD
+                TechBridge exists – to be your reliable technology partner, removing
                 obstacles and creating solutions that work seamlessly behind the
                 scenes.
               </p>

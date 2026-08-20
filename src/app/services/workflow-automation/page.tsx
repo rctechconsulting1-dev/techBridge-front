@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import VideoPlayer from "@/components/landing/VideoPlayer";
 
 export const metadata: Metadata = {
-  title: "Workflow Automation | RC Tech Bridge",
+  title: "Workflow Automation | RD TechBridge",
   description:
     "Replace manual bottlenecks with smart AI agents. We analyze your current workflow and build precision-engineered automation that scales with your business.",
   keywords:
-    "workflow automation, AI agents, business automation, process automation, system integration, RC Tech Bridge",
+    "workflow automation, AI agents, business automation, process automation, system integration, RD TechBridge",
 };
 
 export default function WorkflowAutomationPage() {
@@ -117,6 +118,25 @@ export default function WorkflowAutomationPage() {
             </div>
             <div className="absolute -top-4 -right-4 w-64 h-64 bg-[#C67C2A]/5 rounded-full blur-3xl -z-10"></div>
           </div>
+        </div>
+      </section>
+
+      {/* UGC Ad Video */}
+      <section className="py-[80px] px-5 md:px-16 max-w-[1280px] mx-auto">
+        <div className="max-w-2xl mx-auto text-center mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-[#0A0F1E] mb-4">
+            Hear It From a Business That Made the Switch
+          </h2>
+          <p className="text-[#46464c]">
+            Real businesses are replacing manual chaos with AI-driven
+            workflows. Here&apos;s what that looks like in practice.
+          </p>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <VideoPlayer
+            src="https://techconsulting-rc.s3.us-west-1.amazonaws.com/assets/RD+Tech+Bridge+-+Business+Automation+UGC+Ad_1080p_caption.mp4"
+            caption="Business Automation, Told by the People Who Use It"
+          />
         </div>
       </section>
 
@@ -253,7 +273,7 @@ export default function WorkflowAutomationPage() {
           </h2>
           <p className="text-lg text-[#46464c]">
             Join 200+ forward-thinking businesses who have successfully bridged
-            their manual processes into the AI era with RC Tech Bridge.
+            their manual processes into the AI era with RD TechBridge.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-6">
             <Link

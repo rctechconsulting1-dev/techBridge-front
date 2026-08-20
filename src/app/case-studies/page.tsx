@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Case Studies | RC Tech Bridge",
+  title: "Case Studies | RD TechBridge",
   description:
-    "Real results for real businesses. See how RC Tech Bridge helped clients increase traffic by 114%, improve performance by 34%, and save 10+ hours per week through automation.",
+    "Real results for real businesses. See how RD TechBridge helped clients increase traffic by 114%, improve performance by 34%, and save 10+ hours per week through automation.",
   keywords:
-    "case studies, client results, web development results, automation ROI, RC Tech Bridge",
+    "case studies, client results, web development results, automation ROI, RD TechBridge",
 };
 
 const caseStudies = [

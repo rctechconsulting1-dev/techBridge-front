@@ -347,7 +347,7 @@ export function buildTenantIntakeHtml({
     ${sectionHtml("Website Setup &amp; Launch", content.setupQs)}
     ${ctaBlock}
     <p style="margin:24px 0 0;font-size:15px;color:#374151;">
-      — The RD Tech Bridge Team
+      — The RD TechBridge Team
     </p>`,
   );
 }
@@ -392,7 +392,7 @@ export function buildBillingInviteHtml({
 }: BillingInviteTemplateOptions): string {
   const greeting = firstName ? `Hi ${firstName},` : "Hi,";
   return layout(
-    `Subscribe to ${planName} – RC TechBridge`,
+    `Subscribe to ${planName} – RD TechBridge`,
     `<h1 style="margin:0 0 16px;font-size:24px;color:#111827;font-weight:700;">${greeting}</h1>
     <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 8px;">
       Your account has been set up and you&rsquo;ve been assigned the <strong>${planName}</strong> plan.
@@ -454,7 +454,7 @@ export function buildProspectInviteHtml({
       Once you've completed the questionnaire, we'll send you a link to book your kickoff call.
     </p>
     <p style="margin:24px 0 0;font-size:15px;color:#374151;">
-      — The RD Tech Bridge Team
+      — The RD TechBridge Team
     </p>`,
   );
 }

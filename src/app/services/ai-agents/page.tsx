@@ -3,11 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "AI Email & Task Agents | RC Tech Bridge",
+  title: "AI Email & Task Agents | RD TechBridge",
   description:
     "Stop losing 10+ hours a week to email triage. Our intelligent AI agents draft replies, sort inboxes, and surface urgent messages automatically.",
   keywords:
-    "AI agents, email automation, AI productivity, email triage, RC Tech Bridge, intelligent agents",
+    "AI agents, email automation, AI productivity, email triage, RD TechBridge, intelligent agents",
 };
 
 export default function AiAgentsPage() {
@@ -220,7 +220,7 @@ export default function AiAgentsPage() {
         <div className="max-w-[1280px] mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-[#0A0F1E]">
-              Why RC Tech Bridge AI Agents
+              Why RD TechBridge AI Agents
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
