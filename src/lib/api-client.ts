@@ -493,6 +493,56 @@ class ApiClient {
   async updateAiAgentConfig(config: Record<string, unknown>) {
     return this.put('/ai-agent/config', config);
   }
+
+  // ─── Outreach Leads (cold-outreach tracker) ──────────────────────────────────
+
+  async getOutreachLeads(params?: { status?: string; source?: string; tier?: string }) {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.source) qs.set('source', params.source);
+    if (params?.tier) qs.set('tier', params.tier);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return this.get(`/outreach-leads${query}`);
+  }
+
+  async getOutreachLead(id: string) {
+    return this.get(`/outreach-leads/${id}`);
+  }
+
+  async createOutreachLeads(leads: Record<string, unknown>[]) {
+    return this.post(`/outreach-leads`, { leads });
+  }
+
+  async updateOutreachLead(id: string, patch: Record<string, unknown>) {
+    return this.patch(`/outreach-leads/${id}`, patch);
+  }
+
+  async logOutreachTouch(
+    id: string,
+    touch: { channel: 'call' | 'text'; outcomeNotes: string },
+  ) {
+    return this.post(`/outreach-leads/${id}/touches`, touch);
+  }
+
+  async getOutreachLeadTouches(id: string) {
+    return this.get(`/outreach-leads/${id}/touches`);
+  }
+
+  async sendLeadOutreachEmail(payload: {
+    leadId: string;
+    to: string;
+    subject: string;
+    body: string;
+    source: string;
+    tier: string;
+  }): Promise<{ id: string }> {
+    const response = await fetch('/api/email/lead-outreach', {
+      method: 'POST',
+      headers: this.getHeaders(true),
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse(response);
+  }
 }
 
 export const apiClient = new ApiClient();
