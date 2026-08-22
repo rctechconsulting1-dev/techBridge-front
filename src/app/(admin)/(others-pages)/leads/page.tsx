@@ -5,6 +5,7 @@ import ComponentCard from "@/components/common/ComponentCard";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import { apiClient } from "@/lib/api-client";
+import LeadCaptureModal from "@/components/leads/LeadCaptureModal";
 
 export interface OutreachLead {
   id: string;
@@ -180,7 +181,11 @@ export default function LeadsPage() {
           </table>
         </div>
       </ComponentCard>
-      {/* Task 8 wires isCaptureOpen/setIsCaptureOpen/loadLeads into a capture modal here. */}
+      <LeadCaptureModal
+        isOpen={isCaptureOpen}
+        onClose={() => setIsCaptureOpen(false)}
+        onSaved={loadLeads}
+      />
       {/* Task 9 wires actionLead/setActionLead/loadLeads into row-action modals here. */}
     </div>
   );
