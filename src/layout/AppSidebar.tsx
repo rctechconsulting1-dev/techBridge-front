@@ -92,6 +92,12 @@ const navItems: NavItem[] = [
   },
   {
     icon: <ListIcon />,
+    name: "Leads",
+    path: "/leads",
+    requiredRoles: ["admin", "platform_admin"],
+  },
+  {
+    icon: <ListIcon />,
     name: "Clients",
     path: "/clients",
     requiredRoles: ["admin", "platform_admin"],
