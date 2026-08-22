@@ -6,6 +6,7 @@ import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import { apiClient } from "@/lib/api-client";
 import LeadCaptureModal from "@/components/leads/LeadCaptureModal";
+import LeadActionsModal from "@/components/leads/LeadActionsModal";
 
 export interface OutreachLead {
   id: string;
@@ -186,7 +187,13 @@ export default function LeadsPage() {
         onClose={() => setIsCaptureOpen(false)}
         onSaved={loadLeads}
       />
-      {/* Task 9 wires actionLead/setActionLead/loadLeads into row-action modals here. */}
+      {actionLead && (
+        <LeadActionsModal
+          lead={actionLead}
+          onClose={() => setActionLead(null)}
+          onUpdated={loadLeads}
+        />
+      )}
     </div>
   );
 }
