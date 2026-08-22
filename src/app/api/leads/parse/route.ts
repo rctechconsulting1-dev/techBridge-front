@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
-import { decodeJwtPayload } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -53,11 +53,30 @@ export async function POST(request: Request) {
     }
 
     const authorizationHeader = request.headers.get("authorization");
-    const token = authorizationHeader?.startsWith("Bearer ")
-      ? authorizationHeader.slice("Bearer ".length).trim()
-      : null;
-    const payload = token ? decodeJwtPayload(token) : null;
-    const role = typeof payload?.role === "string" ? payload.role : null;
+    if (!authorizationHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401 });
+    }
+
+    // Verify the caller against the backend's /auth/me, which runs the token
+    // through jwt.verify — never trust an unverified, client-decoded payload
+    // for an authorization decision (anyone can hand-craft a base64 JWT body
+    // claiming role: "admin").
+    let role: string | null = null;
+    try {
+      const meResponse = await fetch(`${getApiBaseUrl()}/auth/me`, {
+        headers: { Authorization: authorizationHeader },
+        cache: "no-store",
+      });
+      if (!meResponse.ok) {
+        return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401 });
+      }
+      const meData = await meResponse.json().catch(() => null);
+      role = typeof meData?.user?.role === "string" ? meData.user.role : null;
+    } catch (verifyError) {
+      console.error("[leads/parse] failed to verify auth token:", verifyError);
+      return new Response(JSON.stringify({ error: "Could not verify authorization" }), { status: 502 });
+    }
+
     if (role !== "admin" && role !== "platform_admin") {
       return new Response(JSON.stringify({ error: "Admin role required" }), { status: 403 });
     }

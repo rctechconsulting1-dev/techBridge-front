@@ -6,7 +6,7 @@ import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
 import TextArea from "@/components/form/input/TextArea";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, getErrorMessage } from "@/lib/api-client";
 import { getStoredAuthToken } from "@/lib/auth-context";
 
 const SOURCE_OPTIONS = [
@@ -50,11 +50,18 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
 
   const reset = () => {
     setRawText("");
     setDrafts([]);
     setError(null);
+    setDuplicateNotice(null);
+  };
+
+  const handleCancel = () => {
+    reset();
+    onClose();
   };
 
   const handleParse = async () => {
@@ -94,8 +101,9 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
     if (drafts.length === 0) return;
     setIsSaving(true);
     setError(null);
+    setDuplicateNotice(null);
     try {
-      await apiClient.createOutreachLeads(
+      const response = await apiClient.createOutreachLeads(
         drafts.map((d) => ({
           businessName: d.businessName,
           contactName: d.contactName || undefined,
@@ -113,18 +121,40 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
           rawSourceText: rawText,
         })),
       );
-      reset();
+      type CreatedLead = { duplicateWarning?: { matchedOn?: string } | null };
+      const created = Array.isArray((response as { created?: CreatedLead[] } | null)?.created)
+        ? (response as { created: CreatedLead[] }).created
+        : [];
+      // The backend attaches duplicateWarning in two distinct cases: a
+      // business_name_city match is only advisory (a new row was still
+      // inserted), while an email/license_number match means the row
+      // returned is the pre-existing lead — nothing was inserted, and any
+      // edits made in the preview table for that row were discarded.
+      const skippedCount = created.filter((item) => {
+        const matchedOn = item?.duplicateWarning?.matchedOn;
+        return matchedOn === "email" || matchedOn === "license_number";
+      }).length;
+
       onSaved();
-      onClose();
+      if (skippedCount > 0) {
+        const newCount = created.length - skippedCount;
+        // Keep the modal open so the operator sees which rows were skipped.
+        setDuplicateNotice(
+          `${newCount} lead${newCount === 1 ? "" : "s"} created, ${skippedCount} already tracked (skipped — matched an existing lead by email/license, any edits here were not applied).`,
+        );
+      } else {
+        reset();
+        onClose();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save leads");
+      setError(getErrorMessage(err, "Failed to save leads"));
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl p-6">
+    <Modal isOpen={isOpen} onClose={handleCancel} className="max-w-3xl p-6">
       <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Capture leads</h3>
 
       <div className="grid grid-cols-3 gap-4">
@@ -153,6 +183,11 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {duplicateNotice && (
+        <p className="mt-3 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-500">
+          {duplicateNotice}
+        </p>
+      )}
 
       <div className="mt-4 flex justify-end">
         <Button onClick={handleParse} disabled={isParsing || !rawText.trim()}>
@@ -221,7 +256,7 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
       )}
 
       <div className="mt-6 flex justify-end gap-3">
-        <Button variant="outline" onClick={onClose}>
+        <Button variant="outline" onClick={handleCancel}>
           Cancel
         </Button>
         <Button onClick={handleSave} disabled={isSaving || drafts.length === 0}>

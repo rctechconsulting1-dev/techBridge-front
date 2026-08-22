@@ -5,7 +5,7 @@ import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
 import TextArea from "@/components/form/input/TextArea";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, getErrorMessage } from "@/lib/api-client";
 import { buildOutreachEmail, type LeadSource, type LeadTier } from "@/lib/outreach-templates";
 import type { OutreachLead } from "@/app/(admin)/(others-pages)/leads/page";
 
@@ -31,6 +31,8 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
   const [isLogging, setIsLogging] = useState(false);
   const [statusChoice, setStatusChoice] = useState("");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,9 +68,25 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
       onUpdated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send email");
+      setError(getErrorMessage(err, "Failed to send email"));
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    const trimmed = emailInput.trim();
+    if (!trimmed) return;
+    setIsSavingEmail(true);
+    setError(null);
+    try {
+      await apiClient.updateOutreachLead(lead.id, { email: trimmed });
+      setEmailInput("");
+      onUpdated();
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to save email"));
+    } finally {
+      setIsSavingEmail(false);
     }
   };
 
@@ -81,7 +99,7 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
       setCallNotes("");
       onUpdated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to log touch");
+      setError(getErrorMessage(err, "Failed to log touch"));
     } finally {
       setIsLogging(false);
     }
@@ -96,7 +114,7 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
       onUpdated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update status");
+      setError(getErrorMessage(err, "Failed to update status"));
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -133,9 +151,28 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
           </div>
         </div>
       ) : (
-        <p className="mb-6 text-sm text-gray-500">
-          No email on file yet — look one up (e.g. via the listed website) and add it via status update below before you can send.
-        </p>
+        <div className="mb-6">
+          <p className="mb-3 text-sm text-gray-500">
+            No email on file yet — look one up (e.g. via the listed website) and add it below to unlock sending.
+          </p>
+          <Label>Email</Label>
+          <div className="flex gap-3">
+            <input
+              type="email"
+              className="h-11 flex-1 rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="name@business.com"
+            />
+            <Button
+              variant="outline"
+              onClick={handleSaveEmail}
+              disabled={isSavingEmail || !emailInput.trim()}
+            >
+              {isSavingEmail ? "Saving..." : "Save email"}
+            </Button>
+          </div>
+        </div>
       )}
 
       <div className="mb-6 border-t border-gray-100 pt-4 dark:border-gray-800">

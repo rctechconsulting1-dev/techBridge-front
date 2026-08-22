@@ -38,6 +38,21 @@ export interface ApiError {
   statusCode?: number;
 }
 
+/**
+ * apiClient's handleResponse throws a plain ApiError object (not an Error
+ * instance) on non-2xx responses, so `err instanceof Error` checks at call
+ * sites always fall through to the generic fallback and swallow the real
+ * backend message (e.g. the do-not-contact 409 reason). Use this helper at
+ * any catch block that may see an apiClient error.
+ */
+export function getErrorMessage(err: unknown, fallback = "Something went wrong"): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err && typeof (err as Record<string, unknown>).message === "string") {
+    return (err as Record<string, unknown>).message as string;
+  }
+  return fallback;
+}
+
 class ApiClient {
   private token: string | null = null;
 

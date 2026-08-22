@@ -4,7 +4,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import ComponentCard from "@/components/common/ComponentCard";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, getErrorMessage } from "@/lib/api-client";
 import LeadCaptureModal from "@/components/leads/LeadCaptureModal";
 import LeadActionsModal from "@/components/leads/LeadActionsModal";
 
@@ -75,9 +75,37 @@ export default function LeadsPage() {
       });
       setLeads(Array.isArray(response) ? (response as OutreachLead[]) : []);
     } catch (err) {
-      setListError(err instanceof Error ? err.message : "Failed to load leads");
+      setListError(getErrorMessage(err, "Failed to load leads"));
     } finally {
       setIsLoadingLeads(false);
+    }
+  };
+
+  // LeadActionsModal is handed a static `lead` snapshot (set once when
+  // "Manage" is clicked). loadLeads() alone only refreshes the `leads`
+  // array, not that snapshot, so actions that keep the modal open (saving
+  // an email, logging a touch) would otherwise leave it showing stale data
+  // until the operator closed and reopened it. Refetch the one open lead
+  // alongside the list so the modal re-renders with fresh data immediately.
+  //
+  // LeadActionsModal's `onUpdated` prop is `() => void` and is called
+  // fire-and-forget (not awaited) right before `onClose()` in the
+  // send/status-update flows — so by the time this async function's
+  // `await`s resolve, the operator may have already closed the modal (or
+  // opened a different lead). Capture the target id up front and apply the
+  // refetched row via the functional setState form, which reads the
+  // *current* state rather than this closure's stale snapshot, so a
+  // late-arriving response can't resurrect a closed modal or clobber a
+  // different lead's data.
+  const refreshActionLead = async () => {
+    const targetId = actionLead?.id;
+    await loadLeads();
+    if (!targetId) return;
+    try {
+      const fresh = await apiClient.getOutreachLead(targetId);
+      setActionLead((current) => (current && current.id === targetId ? (fresh as OutreachLead) : current));
+    } catch {
+      // Leave actionLead as-is if the refetch fails; the list still updated.
     }
   };
 
@@ -191,7 +219,7 @@ export default function LeadsPage() {
         <LeadActionsModal
           lead={actionLead}
           onClose={() => setActionLead(null)}
-          onUpdated={loadLeads}
+          onUpdated={refreshActionLead}
         />
       )}
     </div>
