@@ -1,3 +1,5 @@
+import { promises as dns } from "node:dns";
+
 const IMAGE_ISH_SUFFIX = /\.(png|jpe?g|gif|svg|webp|ico|css|js)$/i;
 
 /**
@@ -72,4 +74,81 @@ export function findContactLink(html: string, baseUrl: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Rejects non-http(s) URLs and URLs whose hostname resolves to a
+ * loopback/private/link-local address. This is a pre-flight DNS check, not
+ * a connection-time guarantee (a determined attacker could race a DNS
+ * rebind between this check and the fetch in fetchTextCapped) — acceptable
+ * here because the URL comes from Google Places' own index, not directly
+ * from user input, and the caller is always an authenticated admin.
+ */
+export async function isSafeExternalUrl(urlString: string): Promise<boolean> {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return false;
+  }
+
+  try {
+    const { address } = await dns.lookup(parsed.hostname);
+    // dns.lookup can return an IPv4-mapped IPv6 address (e.g. "::ffff:127.0.0.1")
+    // in some environments. Strip the prefix so the embedded IPv4 address is
+    // checked by isPrivateOrLoopbackIp's IPv4 branch instead of falling through
+    // its IPv6 branch, which wouldn't otherwise recognize it as private/loopback.
+    const normalizedAddress = address.replace(/^::ffff:/i, "");
+    return !isPrivateOrLoopbackIp(normalizedAddress);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetches a URL with a timeout and a byte cap enforced during the stream
+ * read (not after the fact), and refuses to follow redirects (a redirect
+ * to an internal address would otherwise bypass isSafeExternalUrl's check
+ * on the original URL). Returns null on any failure — callers treat that
+ * the same as "nothing found", not a hard error.
+ */
+export async function fetchTextCapped(
+  url: string,
+  options: { timeoutMs: number; maxBytes: number },
+): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal, redirect: "manual" });
+    if (!response.ok || !response.body) {
+      return null;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let received = 0;
+    let text = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > options.maxBytes) {
+        await reader.cancel();
+        break;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+
+    return text;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
