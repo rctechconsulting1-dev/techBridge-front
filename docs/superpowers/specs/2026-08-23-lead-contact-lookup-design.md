@@ -26,8 +26,8 @@ Request body: `{ leadId: string, businessName: string, city?: string, hasEmail: 
 
 1. **Auth** — same as `leads/parse`: require `Authorization` header, verify via backend `/auth/me`, require admin role.
 2. **Rate limit** — reuse `checkRateLimit` (same helper `leads/parse` uses), separate namespace (`leads-investigate`) so tuning one never affects the other.
-3. **Find the place** — Google Places Text Search (`https://maps.googleapis.com/maps/api/place/textsearch/json`) with `query = "${businessName} ${city ?? ""}"`. Take the top result's `place_id`. No result → respond with a "no matching business found" outcome, nothing further attempted.
-4. **Get the website** — Places Details for that `place_id`, `fields=website` only (minimizes cost — this call is billed per field mask). No website → stop here with a partial outcome.
+3. **Find the place** — Places API (New) Text Search: `POST https://places.googleapis.com/v1/places:searchText` with header `X-Goog-FieldMask: places.id` (only the field this step needs) and body `{ "textQuery": "${businessName} ${city ?? ""}" }`. Take `places[0].id`. No results → respond with a "no matching business found" outcome, nothing further attempted.
+4. **Get the website** — `GET https://places.googleapis.com/v1/places/{placeId}` with header `X-Goog-FieldMask: websiteUri` (minimizes cost — this endpoint is billed per field mask, and `websiteUri` alone is the cheaper "Pro" SKU rather than pulling the whole place). No `websiteUri` in the response → stop here with a partial outcome. Both calls authenticate via the `X-Goog-Api-Key` header, not a query param.
 5. **Look for an email** (only if `hasEmail` is false and a website was found):
    - Fetch the homepage: 5s timeout, abort if response body exceeds ~500KB, only follow `http`/`https`, resolve the hostname first and reject if it points at a loopback/private/link-local address (SSRF guard — this is the first place either repo fetches an arbitrary third-party URL from external, less-trusted data).
    - Scan the HTML for `mailto:` links first (most reliable signal); if none, fall back to a plain email regex over the visible text.
