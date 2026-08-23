@@ -22,6 +22,10 @@ const TIER_OPTIONS = [
   { value: "medium", label: "Medium" },
 ];
 
+// Mirrors AI_LEADS_PARSE_MAX_RAW_TEXT_CHARS in src/app/api/leads/parse/route.ts
+// (default 10000) so the modal can warn before the server rejects the paste.
+const MAX_RAW_TEXT_CHARS = 10000;
+
 interface DraftLead {
   businessName: string;
   contactName: string;
@@ -79,7 +83,8 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to parse text");
+        const rawTextError = data?.details?.fieldErrors?.rawText?.[0];
+        throw new Error(rawTextError || data?.error || "Failed to parse text");
       }
       setDrafts(data.leads as DraftLead[]);
     } catch (err) {
@@ -180,6 +185,16 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
       <div className="mt-4">
         <Label>Pasted text</Label>
         <TextArea rows={8} value={rawText} onChange={setRawText} placeholder="Paste the copied listing(s) here" />
+        <p
+          className={`mt-1 text-xs ${
+            rawText.length > MAX_RAW_TEXT_CHARS
+              ? "text-red-600 dark:text-red-400"
+              : "text-gray-400 dark:text-gray-500"
+          }`}
+        >
+          {rawText.length.toLocaleString()} / {MAX_RAW_TEXT_CHARS.toLocaleString()} characters
+          {rawText.length > MAX_RAW_TEXT_CHARS && " — too long, split into smaller batches"}
+        </p>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -190,7 +205,10 @@ export default function LeadCaptureModal({ isOpen, onClose, onSaved }: LeadCaptu
       )}
 
       <div className="mt-4 flex justify-end">
-        <Button onClick={handleParse} disabled={isParsing || !rawText.trim()}>
+        <Button
+          onClick={handleParse}
+          disabled={isParsing || !rawText.trim() || rawText.length > MAX_RAW_TEXT_CHARS}
+        >
           {isParsing ? "Parsing..." : "Parse"}
         </Button>
       </div>
