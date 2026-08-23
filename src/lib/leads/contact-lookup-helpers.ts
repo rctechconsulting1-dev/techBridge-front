@@ -35,9 +35,13 @@ export function isPrivateOrLoopbackIp(ip: string): boolean {
 export function extractEmailFromHtml(html: string): string | null {
   const mailtoMatch = html.match(/mailto:([^"'\s?>]+)/i);
   if (mailtoMatch) {
-    const candidate = decodeURIComponent(mailtoMatch[1]);
-    if (!IMAGE_ISH_SUFFIX.test(candidate)) {
-      return candidate;
+    try {
+      const candidate = decodeURIComponent(mailtoMatch[1]);
+      if (!IMAGE_ISH_SUFFIX.test(candidate)) {
+        return candidate;
+      }
+    } catch {
+      // Fall through to plain-text email regex scan if decoding fails
     }
   }
 
