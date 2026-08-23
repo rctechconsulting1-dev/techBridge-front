@@ -11,19 +11,22 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 60000
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.AI_RATE_LIMIT_MAX_REQUESTS || 20);
 // This route runs on a Vercel Hobby-tier function, hard-killed at ~60s
 // regardless of anything set here. Measured generation speed for this
-// model/schema is ~77 completion tokens/sec, so a paste this size (~65-70
-// CSLB rows) needs ~3000-3500 completion tokens to finish, ~40-45s — safe
-// margin under the platform ceiling. A larger paste must be split into
-// multiple captures rather than raising these numbers further; raising
-// them without more function time just trades a clean 422 for a bare
-// platform timeout. Dedicated (not shared with content-agent's smaller,
-// faster calls) so tuning one never silently affects the other.
-const MAX_RAW_TEXT_CHARS = Number(process.env.AI_LEADS_PARSE_MAX_RAW_TEXT_CHARS || 7000);
+// model/schema is ~77 completion tokens/sec, ~0.44 completion tokens per
+// input char. At 10000 chars (~95 CSLB rows) that's ~4400 tokens, ~57s —
+// deliberately close to the platform ceiling (chosen over a smaller,
+// safer cap to allow bigger pastes); AI_LEADS_PARSE_TIMEOUT_MS below is
+// set just under the platform's own kill so a request that runs long
+// fails with our own clean error instead of a bare platform timeout, but
+// there's little margin left if actual generation is slower than
+// measured. A paste that still doesn't fit must be split into multiple
+// captures. Dedicated (not shared with content-agent's smaller, faster
+// calls) so tuning one never silently affects the other.
+const MAX_RAW_TEXT_CHARS = Number(process.env.AI_LEADS_PARSE_MAX_RAW_TEXT_CHARS || 10000);
 const AI_LEADS_PARSE_MAX_COMPLETION_TOKENS = Number(
-  process.env.AI_LEADS_PARSE_MAX_COMPLETION_TOKENS || 6000,
+  process.env.AI_LEADS_PARSE_MAX_COMPLETION_TOKENS || 7500,
 );
 const AI_LEADS_PARSE_TIMEOUT_MS = Number(
-  process.env.AI_LEADS_PARSE_TIMEOUT_MS || 50000,
+  process.env.AI_LEADS_PARSE_TIMEOUT_MS || 58000,
 );
 
 const RequestSchema = z.object({
