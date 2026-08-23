@@ -7,10 +7,24 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const AI_MODEL = process.env.OPENAI_MODEL_CONTENT_AGENT || "gpt-4o-mini";
-const AI_TIMEOUT_MS = Number(process.env.AI_AGENT_TIMEOUT_MS || 60000);
 const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 60000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.AI_RATE_LIMIT_MAX_REQUESTS || 20);
-const MAX_RAW_TEXT_CHARS = 20000;
+// This route runs on a Vercel Hobby-tier function, hard-killed at ~60s
+// regardless of anything set here. Measured generation speed for this
+// model/schema is ~77 completion tokens/sec, so a paste this size (~65-70
+// CSLB rows) needs ~3000-3500 completion tokens to finish, ~40-45s — safe
+// margin under the platform ceiling. A larger paste must be split into
+// multiple captures rather than raising these numbers further; raising
+// them without more function time just trades a clean 422 for a bare
+// platform timeout. Dedicated (not shared with content-agent's smaller,
+// faster calls) so tuning one never silently affects the other.
+const MAX_RAW_TEXT_CHARS = Number(process.env.AI_LEADS_PARSE_MAX_RAW_TEXT_CHARS || 7000);
+const AI_LEADS_PARSE_MAX_COMPLETION_TOKENS = Number(
+  process.env.AI_LEADS_PARSE_MAX_COMPLETION_TOKENS || 6000,
+);
+const AI_LEADS_PARSE_TIMEOUT_MS = Number(
+  process.env.AI_LEADS_PARSE_TIMEOUT_MS || 50000,
+);
 
 const RequestSchema = z.object({
   source: z.enum(["google_maps", "facebook", "instagram", "craigslist", "cslb"]),
@@ -96,11 +110,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const { source, rawText } = RequestSchema.parse(await request.json());
+    const requestBody = RequestSchema.safeParse(await request.json());
+    if (!requestBody.success) {
+      return new Response(
+        JSON.stringify({
+          error: "Invalid request",
+          details: requestBody.error.flatten(),
+        }),
+        { status: 400 },
+      );
+    }
+    const { source, rawText } = requestBody.data;
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`AI request timed out after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS);
+      setTimeout(() => reject(new Error(`AI request timed out after ${AI_LEADS_PARSE_TIMEOUT_MS}ms`)), AI_LEADS_PARSE_TIMEOUT_MS);
     });
 
     const completion = await Promise.race([
@@ -115,11 +139,16 @@ export async function POST(request: Request) {
           },
           { role: "user", content: rawText },
         ],
-        max_completion_tokens: 3000,
+        max_completion_tokens: AI_LEADS_PARSE_MAX_COMPLETION_TOKENS,
         response_format: {
           type: "json_schema",
           json_schema: {
             name: "parsed_leads",
+            // Without strict mode, OpenAI treats `required` as a hint, not
+            // a guarantee — the model can (and did, in production) omit
+            // fields our Zod schema requires, failing validation. Strict
+            // mode makes every listed field actually always present.
+            strict: true,
             schema: {
               type: "object",
               properties: {
@@ -149,16 +178,34 @@ export async function POST(request: Request) {
                       "reviewCount",
                       "notes",
                     ],
+                    additionalProperties: false,
                   },
                 },
               },
               required: ["leads"],
+              additionalProperties: false,
             },
           },
         },
       }),
       timeoutPromise,
     ]);
+
+    // Defense in depth: even with a generous token budget, an unusually
+    // dense paste can still exhaust it mid-generation, leaving `content` as
+    // truncated (invalid) JSON. finish_reason === "length" is OpenAI's own
+    // signal that this happened — catch it here with an actionable message
+    // instead of letting JSON.parse fail with an opaque syntax error.
+    if (completion.choices[0]?.finish_reason === "length") {
+      return new Response(
+        JSON.stringify({
+          error: "Too much text to parse in one request",
+          details:
+            "The AI response was cut off before finishing. Try pasting fewer listings at once.",
+        }),
+        { status: 422 },
+      );
+    }
 
     const content = completion.choices[0]?.message?.content || '{"leads":[]}';
     const parsed = ParsedLeads.parse(JSON.parse(content));
