@@ -20,8 +20,6 @@ const RequestSchema = z.object({
   leadId: z.string().uuid(),
   businessName: z.string().min(1),
   city: z.string().optional(),
-  hasEmail: z.boolean(),
-  hasWebsite: z.boolean(),
 });
 
 interface PlacesSearchResponse {
@@ -89,60 +87,86 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const { leadId, businessName, city, hasEmail, hasWebsite } = requestBody.data;
+    const { leadId, businessName, city } = requestBody.data;
 
-    if (hasEmail && hasWebsite) {
-      return new Response(JSON.stringify({ foundWebsite: false, foundEmail: false }), { status: 200 });
-    }
-
-    const searchResponse = await fetch("https://places.googleapis.com/v1/places:searchText", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.id",
-      },
-      body: JSON.stringify({ textQuery: `${businessName} ${city ?? ""}`.trim() }),
+    // Never trust client-supplied "hasEmail"/"hasWebsite" flags: a stale prop
+    // (another tab/admin edited the lead) or a crafted request could overwrite
+    // a value a human already entered. Read the real row server-side instead.
+    const leadResponse = await fetch(`${getApiBaseUrl()}/outreach-leads/${leadId}`, {
+      headers: { Authorization: authorizationHeader },
+      cache: "no-store",
     });
 
-    if (!searchResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: "Google Places search failed", details: `HTTP ${searchResponse.status}` }),
-        { status: 502 },
-      );
+    if (leadResponse.status === 404) {
+      return new Response(JSON.stringify({ error: "Lead not found" }), { status: 404 });
+    }
+    if (!leadResponse.ok) {
+      return new Response(JSON.stringify({ error: "Failed to fetch lead" }), { status: 502 });
     }
 
-    const searchData = (await searchResponse.json()) as PlacesSearchResponse;
-    const placeId = searchData.places?.[0]?.id;
-    if (!placeId) {
-      return new Response(JSON.stringify({ foundWebsite: false, foundEmail: false }), { status: 200 });
+    const leadData = (await leadResponse.json()) as { email?: string | null; website_url?: string | null };
+    const currentEmail = leadData.email || null;
+    const currentWebsite = leadData.website_url || null;
+
+    if (currentEmail && currentWebsite) {
+      return new Response(JSON.stringify({ outcome: "already_complete" }), { status: 200 });
     }
 
-    const detailsResponse = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
-      headers: {
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "websiteUri",
-      },
-    });
+    let discoveredWebsite: string | null = null;
+    let placeSearched = false;
+    let placeFound = false;
 
-    if (!detailsResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: "Google Places details failed", details: `HTTP ${detailsResponse.status}` }),
-        { status: 502 },
-      );
+    // Only search Places when there is no website on file. Searching anyway
+    // would spend a call and risk scanning a different business with the same
+    // name instead of the site already recorded for this lead.
+    if (!currentWebsite) {
+      placeSearched = true;
+      const searchResponse = await fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "places.id",
+        },
+        body: JSON.stringify({ textQuery: `${businessName} ${city ?? ""}`.trim() }),
+      });
+
+      if (!searchResponse.ok) {
+        return new Response(
+          JSON.stringify({ error: "Google Places search failed", details: `HTTP ${searchResponse.status}` }),
+          { status: 502 },
+        );
+      }
+
+      const searchData = (await searchResponse.json()) as PlacesSearchResponse;
+      const placeId = searchData.places?.[0]?.id;
+
+      if (placeId) {
+        placeFound = true;
+        const detailsResponse = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+          headers: {
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "websiteUri",
+          },
+        });
+
+        if (!detailsResponse.ok) {
+          return new Response(
+            JSON.stringify({ error: "Google Places details failed", details: `HTTP ${detailsResponse.status}` }),
+            { status: 502 },
+          );
+        }
+
+        const detailsData = (await detailsResponse.json()) as PlacesDetailsResponse;
+        discoveredWebsite = detailsData.websiteUri || null;
+      }
     }
 
-    const detailsData = (await detailsResponse.json()) as PlacesDetailsResponse;
-    const websiteUri = detailsData.websiteUri;
-
-    if (!websiteUri) {
-      return new Response(JSON.stringify({ foundWebsite: false, foundEmail: false }), { status: 200 });
-    }
-
+    const scanTargetUrl = currentWebsite || discoveredWebsite;
     let foundEmail: string | null = null;
 
-    if (!hasEmail && (await isSafeExternalUrl(websiteUri))) {
-      const homepageHtml = await fetchTextCapped(websiteUri, {
+    if (!currentEmail && scanTargetUrl && (await isSafeExternalUrl(scanTargetUrl))) {
+      const homepageHtml = await fetchTextCapped(scanTargetUrl, {
         timeoutMs: FETCH_TIMEOUT_MS,
         maxBytes: FETCH_MAX_BYTES,
       });
@@ -151,7 +175,7 @@ export async function POST(request: Request) {
         foundEmail = extractEmailFromHtml(homepageHtml);
 
         if (!foundEmail) {
-          const contactUrl = findContactLink(homepageHtml, websiteUri);
+          const contactUrl = findContactLink(homepageHtml, scanTargetUrl);
           if (contactUrl && (await isSafeExternalUrl(contactUrl))) {
             const contactHtml = await fetchTextCapped(contactUrl, {
               timeoutMs: FETCH_TIMEOUT_MS,
@@ -165,9 +189,12 @@ export async function POST(request: Request) {
       }
     }
 
+    const newWebsiteUrl = !currentWebsite && discoveredWebsite ? discoveredWebsite : null;
+    const newEmail = !currentEmail && foundEmail ? foundEmail : null;
+
     const patchBody: Record<string, string> = {};
-    if (!hasWebsite) patchBody.websiteUrl = websiteUri;
-    if (!hasEmail && foundEmail) patchBody.email = foundEmail;
+    if (newWebsiteUrl) patchBody.websiteUrl = newWebsiteUrl;
+    if (newEmail) patchBody.email = newEmail;
 
     if (Object.keys(patchBody).length > 0) {
       const patchResponse = await fetch(`${getApiBaseUrl()}/outreach-leads/${leadId}`, {
@@ -184,12 +211,32 @@ export async function POST(request: Request) {
       }
     }
 
+    // Outcome semantics: these describe what was DISCOVERED, not whether
+    // something happened to be newly saved.
+    //   already_complete  - handled above, short-circuits before this point
+    //   found_email       - an email was found (and saved) this call, whether
+    //                       the website was pre-existing or newly found
+    //   place_no_website  - no website on file, Places matched a business, but
+    //                       it has no website listed
+    //   no_match          - no website on file, Places found no matching business
+    //   website_no_email  - a website (pre-existing or newly found) was scanned
+    //                       but no email was found on it
+    let outcome: string;
+    if (newEmail) {
+      outcome = "found_email";
+    } else if (scanTargetUrl) {
+      outcome = "website_no_email";
+    } else if (placeSearched && placeFound) {
+      outcome = "place_no_website";
+    } else {
+      outcome = "no_match";
+    }
+
     return new Response(
       JSON.stringify({
-        foundWebsite: !hasWebsite && Boolean(websiteUri),
-        foundEmail: Boolean(!hasEmail && foundEmail),
-        websiteUrl: !hasWebsite ? websiteUri : undefined,
-        email: !hasEmail && foundEmail ? foundEmail : undefined,
+        outcome,
+        websiteUrl: newWebsiteUrl ?? undefined,
+        email: newEmail ?? undefined,
       }),
       { status: 200 },
     );

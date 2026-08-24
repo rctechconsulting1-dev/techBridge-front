@@ -109,21 +109,20 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
           leadId: lead.id,
           businessName: lead.business_name,
           city: lead.city || undefined,
-          hasEmail: Boolean(lead.email),
-          hasWebsite: Boolean(lead.website_url),
         }),
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.error || "Failed to investigate lead");
       }
-      if (data.foundWebsite && data.foundEmail) {
-        setInvestigateResult("Found website and email — saved.");
-      } else if (data.foundWebsite) {
-        setInvestigateResult("Found website, no email visible on the site.");
-      } else {
-        setInvestigateResult("No matching business found.");
-      }
+      const outcomeMessages: Record<string, string> = {
+        already_complete: "This lead already has a website and email on file.",
+        found_email: "Found a contact email and saved it.",
+        place_no_website: "Found the business, but it has no website on file.",
+        no_match: "No matching business found.",
+        website_no_email: "No email found on the site.",
+      };
+      setInvestigateResult(outcomeMessages[data.outcome] || "Investigation complete.");
       onUpdated();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to investigate lead"));
