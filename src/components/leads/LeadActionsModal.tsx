@@ -118,6 +118,7 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
       const outcomeMessages: Record<string, string> = {
         already_complete: "This lead already has a website and email on file.",
         found_email: "Found a contact email and saved it.",
+        found_website: "Found a website and saved it.",
         place_no_website: "Found the business, but it has no website on file.",
         no_match: "No matching business found.",
         website_no_email: "No email found on the site.",

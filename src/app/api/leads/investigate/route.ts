@@ -216,15 +216,20 @@ export async function POST(request: Request) {
     //   already_complete  - handled above, short-circuits before this point
     //   found_email       - an email was found (and saved) this call, whether
     //                       the website was pre-existing or newly found
+    //   found_website     - a website was newly found (and saved) this call,
+    //                       but no email scan was attempted because an email
+    //                       was already on file
     //   place_no_website  - no website on file, Places matched a business, but
     //                       it has no website listed
     //   no_match          - no website on file, Places found no matching business
-    //   website_no_email  - a website (pre-existing or newly found) was scanned
-    //                       but no email was found on it
+    //   website_no_email  - a website (pre-existing or newly found) WAS scanned
+    //                       for an email but none was found on it
     let outcome: string;
     if (newEmail) {
       outcome = "found_email";
-    } else if (scanTargetUrl) {
+    } else if (newWebsiteUrl && currentEmail) {
+      outcome = "found_website";
+    } else if (scanTargetUrl && !currentEmail) {
       outcome = "website_no_email";
     } else if (placeSearched && placeFound) {
       outcome = "place_no_website";
