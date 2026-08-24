@@ -6,6 +6,7 @@ import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
 import TextArea from "@/components/form/input/TextArea";
 import { apiClient, getErrorMessage } from "@/lib/api-client";
+import { getStoredAuthToken } from "@/lib/auth-context";
 import { buildOutreachEmail, type LeadSource, type LeadTier } from "@/lib/outreach-templates";
 import type { OutreachLead } from "@/app/(admin)/(others-pages)/leads/page";
 
@@ -34,6 +35,8 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
   const [emailInput, setEmailInput] = useState("");
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInvestigating, setIsInvestigating] = useState(false);
+  const [investigateResult, setInvestigateResult] = useState<string | null>(null);
 
   useEffect(() => {
     const draft = buildOutreachEmail({
@@ -87,6 +90,45 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
       setError(getErrorMessage(err, "Failed to save email"));
     } finally {
       setIsSavingEmail(false);
+    }
+  };
+
+  const handleInvestigate = async () => {
+    setIsInvestigating(true);
+    setInvestigateResult(null);
+    setError(null);
+    try {
+      const token = getStoredAuthToken();
+      const response = await fetch("/api/leads/investigate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          leadId: lead.id,
+          businessName: lead.business_name,
+          city: lead.city || undefined,
+          hasEmail: Boolean(lead.email),
+          hasWebsite: Boolean(lead.website_url),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to investigate lead");
+      }
+      if (data.foundWebsite && data.foundEmail) {
+        setInvestigateResult("Found website and email — saved.");
+      } else if (data.foundWebsite) {
+        setInvestigateResult("Found website, no email visible on the site.");
+      } else {
+        setInvestigateResult("No matching business found.");
+      }
+      onUpdated();
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to investigate lead"));
+    } finally {
+      setIsInvestigating(false);
     }
   };
 
@@ -172,6 +214,17 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
               {isSavingEmail ? "Saving..." : "Save email"}
             </Button>
           </div>
+        </div>
+      )}
+
+      {lead.status !== "do_not_contact" && (!lead.email || !lead.website_url) && (
+        <div className="mb-6 border-t border-gray-100 pt-4 dark:border-gray-800">
+          <Button variant="outline" onClick={handleInvestigate} disabled={isInvestigating}>
+            {isInvestigating ? "Investigating..." : "Investigate (find website/email)"}
+          </Button>
+          {investigateResult && (
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{investigateResult}</p>
+          )}
         </div>
       )}
 
