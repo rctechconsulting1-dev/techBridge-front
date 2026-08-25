@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { ChevronDownIcon } from "@/icons";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -9,6 +10,16 @@ const NAV_LINKS = [
   { label: "About", href: "/#about" },
   { label: "Contact", href: "/#contact" },
   { label: "Plans", href: "/plans" },
+];
+
+const SERVICES_DROPDOWN = [
+  { label: "Web Development", href: "/services/web-development" },
+  { label: "Workflow Automation", href: "/services/workflow-automation" },
+  { label: "AI Agents", href: "/services/ai-agents" },
+  { label: "Enterprise AI Integration", href: "/services/enterprise" },
+  { label: "eCommerce AI", href: "/services/ecommerce" },
+  { label: "Small Business Tech", href: "/services/small-business" },
+  { label: "Custom Software Engineering", href: "/services/custom-software-engineering" },
 ];
 
 const Navbar = () => {
@@ -37,7 +48,35 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden items-center space-x-8 md:flex">
-            {NAV_LINKS.map(({ label, href }) => (
+            <Link
+              href="/"
+              className="font-medium text-gray-700 no-underline transition-colors hover:text-[#CD7F32]"
+            >
+              Home
+            </Link>
+
+            <div className="group relative">
+              <Link
+                href="/#services"
+                className="flex items-center gap-1 font-medium text-gray-700 no-underline transition-colors hover:text-[#CD7F32]"
+              >
+                Services
+                <ChevronDownIcon className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180" />
+              </Link>
+              <div className="invisible absolute top-full left-0 z-50 w-64 rounded-lg border border-gray-100 bg-white py-2 opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-focus-within:visible group-hover:opacity-100 group-focus-within:opacity-100">
+                {SERVICES_DROPDOWN.map(({ label, href }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="block px-4 py-2 text-sm font-medium text-gray-700 no-underline transition-colors hover:bg-[#F5F7FF] hover:text-[#CD7F32]"
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {NAV_LINKS.filter(({ label }) => label !== "Home" && label !== "Services").map(({ label, href }) => (
               <Link
                 key={href}
                 href={href}
