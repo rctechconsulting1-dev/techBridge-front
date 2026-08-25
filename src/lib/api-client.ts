@@ -511,11 +511,19 @@ class ApiClient {
 
   // ─── Outreach Leads (cold-outreach tracker) ──────────────────────────────────
 
-  async getOutreachLeads(params?: { status?: string; source?: string; tier?: string }) {
+  async getOutreachLeads(params?: {
+    status?: string;
+    source?: string;
+    tier?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ leads: Record<string, unknown>[]; total: number; page: number; limit: number }> {
     const qs = new URLSearchParams();
     if (params?.status) qs.set('status', params.status);
     if (params?.source) qs.set('source', params.source);
     if (params?.tier) qs.set('tier', params.tier);
+    if (params?.page !== undefined) qs.set('page', String(params.page));
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return this.get(`/outreach-leads${query}`);
   }

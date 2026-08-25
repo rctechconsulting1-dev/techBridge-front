@@ -7,6 +7,9 @@ import Select from "@/components/form/Select";
 import { apiClient, getErrorMessage } from "@/lib/api-client";
 import LeadCaptureModal from "@/components/leads/LeadCaptureModal";
 import LeadActionsModal from "@/components/leads/LeadActionsModal";
+import Pagination from "@/components/tables/Pagination";
+
+const PAGE_SIZE = 25;
 
 export interface OutreachLead {
   id: string;
@@ -56,6 +59,8 @@ export default function LeadsPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
   const [leads, setLeads] = useState<OutreachLead[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -64,7 +69,7 @@ export default function LeadsPage() {
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
   const [actionLead, setActionLead] = useState<OutreachLead | null>(null);
 
-  const loadLeads = async () => {
+  const loadLeads = async (targetPage = page) => {
     setIsLoadingLeads(true);
     setListError(null);
     try {
@@ -72,8 +77,11 @@ export default function LeadsPage() {
         status: statusFilter || undefined,
         source: sourceFilter || undefined,
         tier: tierFilter || undefined,
+        page: targetPage,
+        limit: PAGE_SIZE,
       });
-      setLeads(Array.isArray(response) ? (response as OutreachLead[]) : []);
+      setLeads(Array.isArray(response?.leads) ? (response.leads as unknown as OutreachLead[]) : []);
+      setTotal(typeof response?.total === "number" ? response.total : 0);
     } catch (err) {
       setListError(getErrorMessage(err, "Failed to load leads"));
     } finally {
@@ -126,10 +134,27 @@ export default function LeadsPage() {
 
   useEffect(() => {
     if (isAuthorized) {
-      loadLeads();
+      loadLeads(page);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthorized, statusFilter, sourceFilter, tierFilter]);
+  }, [isAuthorized, statusFilter, sourceFilter, tierFilter, page]);
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handleSourceFilterChange = (value: string) => {
+    setSourceFilter(value);
+    setPage(1);
+  };
+
+  const handleTierFilterChange = (value: string) => {
+    setTierFilter(value);
+    setPage(1);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   if (loadingSession) {
     return <div className="text-sm text-gray-500 dark:text-gray-300">Loading leads...</div>;
@@ -152,13 +177,13 @@ export default function LeadsPage() {
       <ComponentCard title="Cold Outreach Leads" desc="Capture, track, and follow up on cold outreach leads.">
         <div className="flex flex-wrap items-end gap-4">
           <div className="w-48">
-            <Select options={STATUS_OPTIONS} placeholder="All statuses" onChange={setStatusFilter} />
+            <Select options={STATUS_OPTIONS} placeholder="All statuses" onChange={handleStatusFilterChange} />
           </div>
           <div className="w-48">
-            <Select options={SOURCE_OPTIONS} placeholder="All sources" onChange={setSourceFilter} />
+            <Select options={SOURCE_OPTIONS} placeholder="All sources" onChange={handleSourceFilterChange} />
           </div>
           <div className="w-40">
-            <Select options={TIER_OPTIONS} placeholder="All tiers" onChange={setTierFilter} />
+            <Select options={TIER_OPTIONS} placeholder="All tiers" onChange={handleTierFilterChange} />
           </div>
           <Button onClick={() => setIsCaptureOpen(true)}>Capture leads</Button>
         </div>
@@ -209,6 +234,15 @@ export default function LeadsPage() {
             </tbody>
           </table>
         </div>
+
+        {total > 0 && (
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {total.toLocaleString()} lead{total === 1 ? "" : "s"}
+            </p>
+            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+          </div>
+        )}
       </ComponentCard>
       <LeadCaptureModal
         isOpen={isCaptureOpen}
