@@ -4,8 +4,14 @@ import { getResendClient } from "@/lib/resend-client";
 import { getApiBaseUrl } from "@/lib/api";
 import { complianceFooter } from "@/lib/outreach-templates";
 
+// Cold outreach reads as a real person, not the company mailer, so it uses
+// its own from/reply-to pair rather than the shared RESEND_FROM_EMAIL — the
+// mailbox behind OUTREACH_FROM_EMAIL doesn't exist, so replies must route to
+// OUTREACH_REPLY_TO_EMAIL (a real inbox) via Resend's replyTo, not the from
+// address itself.
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL ?? "RD TechBridge <noreply@rdtechbridge.com>";
+  process.env.OUTREACH_FROM_EMAIL ?? process.env.RESEND_FROM_EMAIL ?? "RD TechBridge <noreply@rdtechbridge.com>";
+const REPLY_TO_EMAIL = process.env.OUTREACH_REPLY_TO_EMAIL;
 const BACKEND_API_BASE = getApiBaseUrl();
 
 const RequestSchema = z.object({
@@ -76,6 +82,7 @@ export async function POST(req: NextRequest) {
     to,
     subject,
     text: `${emailBody}${footer}`,
+    ...(REPLY_TO_EMAIL ? { replyTo: REPLY_TO_EMAIL } : {}),
   });
   if (error) {
     console.error("[email/lead-outreach] Resend error:", JSON.stringify(error));
