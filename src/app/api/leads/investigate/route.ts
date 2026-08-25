@@ -32,9 +32,9 @@ interface PlacesDetailsResponse {
 
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "GOOGLE_PLACES_API_KEY is not set." }), { status: 500 });
+      return new Response(JSON.stringify({ error: "GOOGLE_API_KEY is not set." }), { status: 500 });
     }
 
     const authorizationHeader = request.headers.get("authorization");

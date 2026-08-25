@@ -131,7 +131,7 @@ The dashboard includes a set of reusable UI primitives and template components d
 | `GOOGLE_CLIENT_ID`                   | Google OAuth client ID                                                                                         |
 | `GOOGLE_CLIENT_SECRET`               | Google OAuth client secret                                                                                     |
 | `GOOGLE_REDIRECT_URI`                | Google OAuth redirect URI                                                                                      |
-| `GOOGLE_PLACES_API_KEY`              | Google Cloud Console API key with **Places API (New)** enabled. Required by the lead "Investigate" website/email lookup |
+| `GOOGLE_API_KEY`                     | Google Cloud Console API key with **Places API (New)** enabled. Required by the lead "Investigate" website/email lookup |
 | `OPENAI_API_KEY`                     | OpenAI API key                                                                                                 |
 | `REVALIDATE_SECRET`                  | Secret for ISR revalidation webhook                                                                            |
 | `S3_UPLOAD_KEY`                      | AWS S3 access key                                                                                              |
