@@ -64,12 +64,12 @@ export default function SmallBusinessPage() {
           {/* Image + Stat cards + AI market positioning widget */}
           <div className="lg:col-span-6 space-y-4">
             {/* Hero image */}
-            <div className="relative w-full h-[220px] rounded-2xl overflow-hidden shadow-lg">
+            <div className="relative w-full h-[360px] rounded-2xl overflow-hidden shadow-lg">
               <Image
                 src="/images/product/small-business-salon-dashboard.png"
                 alt="Small business owner reviewing her AI dashboard on a tablet"
                 fill
-                className="object-cover object-top"
+                className="object-cover object-[50%_20%]"
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
               />

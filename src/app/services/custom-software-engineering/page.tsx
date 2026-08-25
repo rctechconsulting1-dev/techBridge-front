@@ -71,12 +71,12 @@ export default function CustomSoftwareEngineeringPage() {
 
           {/* Glass cards */}
           <div className="lg:col-span-6 flex flex-col gap-4">
-            <div className="relative w-full h-[200px] rounded-2xl overflow-hidden shadow-lg">
+            <div className="relative w-full h-[360px] rounded-2xl overflow-hidden shadow-lg">
               <Image
                 src="/images/product/custom-software-network-tablet.png"
                 alt="Reviewing a custom software integration on a tablet"
                 fill
-                className="object-cover"
+                className="object-cover object-top"
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
               />
