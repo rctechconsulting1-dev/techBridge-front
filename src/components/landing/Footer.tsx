@@ -13,6 +13,7 @@ const Footer = () => {
       { name: "Business Automation", href: "/services/ai-agents" },
       { name: "Digital Transformation", href: "/services/enterprise" },
       { name: "eCommerce AI", href: "/services/ecommerce" },
+      { name: "Custom Software Engineering", href: "/services/custom-software-engineering" },
       { name: "Consulting", href: "/#contact" },
     ],
     company: [

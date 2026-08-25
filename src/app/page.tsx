@@ -3,6 +3,7 @@ import Navbar from "../components/landing/Navbar";
 import HeroSection from "../components/landing/HeroSection";
 import VideoSection from "../components/landing/VideoSection";
 import ServicesSection from "../components/landing/ServicesSection";
+import CustomSoftwareSection from "../components/landing/CustomSoftwareSection";
 import AiFaqSection from "../components/landing/AiFaqSection";
 import AboutSection from "../components/landing/AboutSection";
 import ContactSection from "../components/landing/ContactSection";
@@ -27,6 +28,7 @@ export default function HomePage() {
         <HeroSection />
         <VideoSection />
         <ServicesSection />
+        <CustomSoftwareSection />
         <AiFaqSection />
         <AboutSection />
         {/* TODO: PricingSection hidden — pricing to be updated in the future */}
