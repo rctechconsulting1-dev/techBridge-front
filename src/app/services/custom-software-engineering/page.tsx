@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  BoxCubeIcon,
+  PlugInIcon,
+  LockIcon,
+  PieChartIcon,
+  BoltIcon,
+  GroupIcon,
+  DollarLineIcon,
+  PencilIcon,
+} from "@/icons";
 
 export const metadata: Metadata = {
   title: "Custom Software Engineering | RD TechBridge",
@@ -61,8 +71,8 @@ export default function CustomSoftwareEngineeringPage() {
           {/* Glass cards */}
           <div className="lg:col-span-6 flex flex-col gap-4">
             <div className="bg-[#0A0F1E] border border-white/10 rounded-2xl p-6 shadow-sm text-white flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#1ED28C]/20 rounded-xl flex items-center justify-center text-[#1ED28C] text-2xl">
-                🧩
+              <div className="w-12 h-12 bg-[#1ED28C]/20 rounded-xl flex items-center justify-center text-[#1ED28C]">
+                <BoxCubeIcon className="h-6 w-6" />
               </div>
               <div>
                 <div className="font-bold">Built Around Your Process</div>
@@ -72,8 +82,8 @@ export default function CustomSoftwareEngineeringPage() {
               </div>
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#C67C2A]/10 rounded-xl flex items-center justify-center text-2xl">
-                🔗
+              <div className="w-12 h-12 bg-[#C67C2A]/10 rounded-xl flex items-center justify-center text-[#C67C2A]">
+                <PlugInIcon className="h-6 w-6" />
               </div>
               <div>
                 <div className="font-bold text-[#0A0F1E]">
@@ -85,8 +95,8 @@ export default function CustomSoftwareEngineeringPage() {
               </div>
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#1ED28C]/10 rounded-xl flex items-center justify-center text-2xl">
-                🔑
+              <div className="w-12 h-12 bg-[#1ED28C]/10 rounded-xl flex items-center justify-center text-[#009762]">
+                <LockIcon className="h-6 w-6" />
               </div>
               <div>
                 <div className="font-bold text-[#0A0F1E]">You Own What We Build</div>
@@ -112,7 +122,7 @@ export default function CustomSoftwareEngineeringPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
             {
-              icon: "📊",
+              icon: <PieChartIcon className="h-9 w-9 text-[#0A0F1E]" />,
               title: "Internal Dashboards & Reporting",
               desc: "One live view of the numbers scattered across your spreadsheets, tools, and inboxes today.",
               items: [
@@ -123,7 +133,7 @@ export default function CustomSoftwareEngineeringPage() {
               ],
             },
             {
-              icon: "⚙️",
+              icon: <BoltIcon className="h-9 w-9 text-[#0A0F1E]" />,
               title: "Workflow & Process Automation",
               desc: "Turn a manual, multi-step process into a tool your team opens once and trusts.",
               items: [
@@ -134,7 +144,7 @@ export default function CustomSoftwareEngineeringPage() {
               ],
             },
             {
-              icon: "🖥️",
+              icon: <GroupIcon className="h-9 w-9 text-[#0A0F1E]" />,
               title: "Portals & Integrations",
               desc: "A single login for your team or clients, wired directly into the tools you already pay for.",
               items: [
@@ -149,7 +159,7 @@ export default function CustomSoftwareEngineeringPage() {
               key={title}
               className="bg-white border border-gray-100 rounded-2xl p-8 hover:shadow-xl transition-shadow flex flex-col"
             >
-              <div className="text-4xl mb-4">{icon}</div>
+              <div className="mb-4">{icon}</div>
               <h3 className="text-xl font-bold text-[#0A0F1E] mb-3">{title}</h3>
               <p className="text-[#46464c] text-sm leading-relaxed mb-6">
                 {desc}
@@ -183,17 +193,17 @@ export default function CustomSoftwareEngineeringPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                icon: "🧩",
+                icon: <BoxCubeIcon className="h-8 w-8 text-[#0A0F1E]" />,
                 title: "Fits Your Process",
                 desc: "Off-the-shelf software makes you adapt to it. Custom software adapts to you — no workarounds for the 20% it doesn't cover.",
               },
               {
-                icon: "💸",
+                icon: <DollarLineIcon className="h-8 w-8 text-[#0A0F1E]" />,
                 title: "No Per-Seat Fees",
                 desc: "Add every employee or client without another monthly subscription line. You own the software outright.",
               },
               {
-                icon: "🔧",
+                icon: <PencilIcon className="h-8 w-8 text-[#0A0F1E]" />,
                 title: "Built to Extend",
                 desc: "As your process changes, the software changes with it — no waiting on a vendor's roadmap to ship the feature you need.",
               },
@@ -202,7 +212,7 @@ export default function CustomSoftwareEngineeringPage() {
                 key={title}
                 className="bg-white p-8 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
               >
-                <div className="text-3xl mb-4">{icon}</div>
+                <div className="mb-4">{icon}</div>
                 <h3 className="text-lg font-bold text-[#0A0F1E] mb-2">
                   {title}
                 </h3>

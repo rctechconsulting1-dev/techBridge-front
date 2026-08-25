@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowUpIcon, CheckCircleIcon, TimeIcon } from "@/icons";
 
 export const metadata: Metadata = {
   title: "AI Email & Task Agents | RD TechBridge",
@@ -226,17 +227,17 @@ export default function AiAgentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                icon: "📈",
+                icon: <ArrowUpIcon className="h-8 w-8 text-[#0A0F1E]" />,
                 title: "Increased Performance",
                 desc: "AI agents operate at machine speed. No context-switching, no cognitive overload — just fast, consistent execution.",
               },
               {
-                icon: "🎯",
+                icon: <CheckCircleIcon className="h-8 w-8 text-[#0A0F1E]" />,
                 title: "Zero Manual Errors",
                 desc: "Eliminate typos, misfiled documents, and missed follow-ups. Every action is logged, verified, and reversible.",
               },
               {
-                icon: "🌙",
+                icon: <TimeIcon className="h-8 w-8 text-[#0A0F1E]" />,
                 title: "24/7 AI Operation",
                 desc: "Your agents never sleep. Handle inquiries, sort data, and trigger workflows overnight — without additional cost.",
               },
@@ -245,7 +246,7 @@ export default function AiAgentsPage() {
                 key={title}
                 className="bg-white p-8 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
               >
-                <div className="text-3xl mb-4">{icon}</div>
+                <div className="mb-4">{icon}</div>
                 <h3 className="text-lg font-bold text-[#0A0F1E] mb-2">
                   {title}
                 </h3>

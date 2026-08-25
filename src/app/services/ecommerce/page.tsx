@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BoxIcon, ChatIcon, DollarLineIcon } from "@/icons";
 
 export const metadata: Metadata = {
   title: "eCommerce AI Solutions | RD TechBridge",
@@ -103,7 +104,7 @@ export default function EcommercePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
-              icon: "📦",
+              icon: <BoxIcon className="h-7 w-7 text-[#0A0F1E]" />,
               tag: "Inventory",
               title: "Smart Inventory",
               desc: "Predictive reorder triggers, dead stock detection, and supplier sync — all on autopilot. Never run out or overstock again.",
@@ -111,7 +112,7 @@ export default function EcommercePage() {
               statLabel: "Stock Accuracy",
             },
             {
-              icon: "🤖",
+              icon: <ChatIcon className="h-7 w-7 text-[#0A0F1E]" />,
               tag: "Support · AI Prime",
               title: "Agentic Support",
               desc: "AI agents handle returns, shipping questions, and product queries 24/7. Escalates intelligently to humans when nuance is needed.",
@@ -119,7 +120,7 @@ export default function EcommercePage() {
               statLabel: "Tickets Resolved Autonomously",
             },
             {
-              icon: "💹",
+              icon: <DollarLineIcon className="h-7 w-7 text-[#0A0F1E]" />,
               tag: "Pricing",
               title: "Dynamic Pricing",
               desc: "Real-time competitive price monitoring with auto-adjustment. Maximize margin while staying conversion-optimized.",
@@ -132,7 +133,7 @@ export default function EcommercePage() {
               className="bg-white border border-gray-100 rounded-2xl p-8 flex flex-col gap-6 hover:shadow-lg transition-shadow"
             >
               <div className="flex items-center justify-between">
-                <span className="text-3xl">{icon}</span>
+                <span>{icon}</span>
                 <span className="text-xs font-bold text-[#46464c] bg-[#F5F7FF] px-3 py-1 rounded-full">
                   {tag}
                 </span>

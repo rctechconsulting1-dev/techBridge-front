@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LockIcon, BoltIcon, BoxCubeIcon, PlugInIcon } from "@/icons";
 
 export const metadata: Metadata = {
   title: "Enterprise AI Integration | RD TechBridge",
@@ -71,8 +72,8 @@ export default function EnterprisePage() {
               </p>
             </div>
             <div className="bg-[#0A0F1E] border border-white/10 rounded-2xl p-6 shadow-sm text-white flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#1ED28C]/20 rounded-xl flex items-center justify-center text-[#1ED28C] text-2xl">
-                🛡️
+              <div className="w-12 h-12 bg-[#1ED28C]/20 rounded-xl flex items-center justify-center text-[#1ED28C]">
+                <LockIcon className="h-6 w-6" />
               </div>
               <div>
                 <div className="font-bold">SOC2 Type II Compliant</div>
@@ -82,8 +83,8 @@ export default function EnterprisePage() {
               </div>
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#C67C2A]/10 rounded-xl flex items-center justify-center text-2xl">
-                ⚡
+              <div className="w-12 h-12 bg-[#C67C2A]/10 rounded-xl flex items-center justify-center text-[#C67C2A]">
+                <BoltIcon className="h-6 w-6" />
               </div>
               <div>
                 <div className="font-bold text-[#0A0F1E]">
@@ -111,7 +112,7 @@ export default function EnterprisePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
             {
-              icon: "☁️",
+              icon: <BoxCubeIcon className="h-9 w-9 text-[#0A0F1E]" />,
               title: "Cloud Modernization",
               desc: "Migrate monolithic applications to microservices and cloud-native architectures. Reduce infra cost by up to 40% while improving reliability.",
               items: [
@@ -122,7 +123,7 @@ export default function EnterprisePage() {
               ],
             },
             {
-              icon: "🤖",
+              icon: <PlugInIcon className="h-9 w-9 text-[#0A0F1E]" />,
               title: "AI Integration",
               desc: "Embed machine learning models directly into your existing business intelligence and operational workflows — no rebuild required.",
               items: [
@@ -133,7 +134,7 @@ export default function EnterprisePage() {
               ],
             },
             {
-              icon: "🔒",
+              icon: <LockIcon className="h-9 w-9 text-[#0A0F1E]" />,
               title: "Systems Security",
               desc: "Enterprise-grade hardening with continuous vulnerability scanning, threat modeling, and compliance automation for regulated industries.",
               items: [
@@ -148,7 +149,7 @@ export default function EnterprisePage() {
               key={title}
               className="bg-white border border-gray-100 rounded-2xl p-8 hover:shadow-xl transition-shadow flex flex-col"
             >
-              <div className="text-4xl mb-4">{icon}</div>
+              <div className="mb-4">{icon}</div>
               <h3 className="text-xl font-bold text-[#0A0F1E] mb-3">{title}</h3>
               <p className="text-[#46464c] text-sm leading-relaxed mb-6">
                 {desc}

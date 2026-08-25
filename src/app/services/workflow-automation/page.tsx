@@ -1,6 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import VideoPlayer from "@/components/landing/VideoPlayer";
+import {
+  FileIcon,
+  TimeIcon,
+  AlertIcon,
+  BoltIcon,
+  CheckCircleIcon,
+  ShootingStarIcon,
+  BoxIcon,
+  ChatIcon,
+  LockIcon,
+  PieChartIcon,
+} from "@/icons";
 
 export const metadata: Metadata = {
   title: "Workflow Automation | RD TechBridge",
@@ -81,16 +93,27 @@ export default function WorkflowAutomationPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { icon: "📄", label: "Paper Waste" },
-                  { icon: "⏰", label: "Time Drain" },
-                  { icon: "🔄", label: "Inconsistency" },
-                  { icon: "⚠️", label: "Human Error" },
+                  { icon: <FileIcon className="h-8 w-8" />, label: "Paper Waste" },
+                  { icon: <TimeIcon className="h-8 w-8" />, label: "Time Drain" },
+                  {
+                    icon: (
+                      <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ),
+                    label: "Inconsistency",
+                  },
+                  { icon: <AlertIcon className="h-8 w-8" />, label: "Human Error" },
                 ].map(({ icon, label }) => (
                   <div
                     key={label}
                     className="p-6 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center space-y-2 grayscale opacity-60"
                   >
-                    <span className="text-3xl">{icon}</span>
+                    <span>{icon}</span>
                     <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
                       {label}
                     </span>
@@ -160,19 +183,19 @@ export default function WorkflowAutomationPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20">
             {[
               {
-                icon: "⚡",
+                icon: <BoltIcon className="h-8 w-8 text-[#1ED28C]" />,
                 stat: "85%",
                 title: "Speed Increase",
                 desc: "Slash operational turnaround times by automating repetitive manual verification tasks.",
               },
               {
-                icon: "✅",
+                icon: <CheckCircleIcon className="h-8 w-8 text-[#1ED28C]" />,
                 stat: "99.9%",
                 title: "Accuracy",
                 desc: "Eliminate human fatigue errors in data ingestion and document processing pipelines.",
               },
               {
-                icon: "🚀",
+                icon: <ShootingStarIcon className="h-8 w-8 text-[#1ED28C]" />,
                 stat: "10×",
                 title: "Seamless Scale",
                 desc: "Handle ten times the volume without adding headcount by leveraging elastic AI cloud agents.",
@@ -182,7 +205,7 @@ export default function WorkflowAutomationPage() {
                 key={title}
                 className="p-8 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors"
               >
-                <div className="text-3xl mb-4">{icon}</div>
+                <div className="mb-4">{icon}</div>
                 <div className="text-3xl font-bold text-[#1ED28C] mb-1">
                   {stat}
                 </div>
@@ -206,8 +229,8 @@ export default function WorkflowAutomationPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-10 rounded-2xl border border-gray-100 flex flex-col justify-end group cursor-pointer relative overflow-hidden hover:border-[#C67C2A] transition-colors">
-            <div className="absolute top-10 right-10 opacity-5 group-hover:opacity-10 transition-opacity text-[120px] select-none">
-              ⚙️
+            <div className="absolute top-10 right-10 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+              <BoxIcon className="h-[120px] w-[120px]" />
             </div>
             <div className="relative z-10">
               <h3 className="text-2xl font-bold text-[#0A0F1E] mb-4">
@@ -228,7 +251,7 @@ export default function WorkflowAutomationPage() {
 
           <div className="bg-[#F5F7FF] p-10 rounded-2xl border border-gray-100 flex flex-col justify-between hover:border-[#1ED28C]/30 transition-all group">
             <div className="flex justify-between items-start">
-              <div className="text-3xl">🤖</div>
+              <div><ChatIcon className="h-8 w-8 text-[#0A0F1E]" /></div>
               <span className="bg-[#1ED28C] text-[#0A0F1E] px-3 py-1 rounded text-xs font-bold uppercase">
                 New
               </span>
@@ -245,7 +268,7 @@ export default function WorkflowAutomationPage() {
           </div>
 
           <div className="bg-white p-10 rounded-2xl border border-gray-100 flex flex-col justify-center text-center hover:shadow-lg transition-shadow">
-            <div className="text-3xl mb-4">☁️</div>
+            <div className="mb-4 flex justify-center"><LockIcon className="h-8 w-8 text-[#0A0F1E]" /></div>
             <h4 className="font-bold text-[#0A0F1E]">Secure Cloud Data</h4>
             <p className="text-[#46464c] text-sm mt-2">
               Enterprise-grade security at every architectural layer.
@@ -253,7 +276,7 @@ export default function WorkflowAutomationPage() {
           </div>
 
           <div className="bg-[#0A0F1E] p-10 rounded-2xl border border-white/10 flex flex-col justify-center text-center text-white hover:bg-[#1ED28C] hover:text-[#0A0F1E] transition-all duration-300">
-            <div className="text-3xl mb-4">📊</div>
+            <div className="mb-4 flex justify-center"><PieChartIcon className="h-8 w-8" /></div>
             <h4 className="font-bold">Live ROI Dashboards</h4>
             <p className="text-sm mt-2 opacity-70">
               Real-time visibility into every automated workflow.
@@ -265,8 +288,8 @@ export default function WorkflowAutomationPage() {
       {/* CTA */}
       <section className="py-24 px-5 bg-white">
         <div className="max-w-4xl mx-auto text-center space-y-8">
-          <div className="w-20 h-20 bg-[#C67C2A]/10 rounded-full flex items-center justify-center mx-auto text-4xl">
-            🚀
+          <div className="w-20 h-20 bg-[#C67C2A]/10 rounded-full flex items-center justify-center mx-auto text-[#C67C2A]">
+            <ShootingStarIcon className="h-9 w-9" />
           </div>
           <h2 className="text-3xl md:text-5xl font-bold text-[#0A0F1E]">
             Ready to Bridge the Gap?

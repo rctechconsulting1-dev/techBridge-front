@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EyeIcon, PlugInIcon, BoltIcon } from "@/icons";
 
 export const metadata: Metadata = {
   title: "Web Development | RD TechBridge",
@@ -87,7 +88,7 @@ export default function WebDevelopmentPage() {
             {
               phase: "01",
               title: "Analyze",
-              icon: "🔍",
+              icon: <EyeIcon className="h-9 w-9 text-[#0A0F1E]" />,
               desc: "We audit your existing tech, understand your goals, and map out a precise architecture plan tailored to your business model.",
               items: [
                 "Technical audit",
@@ -99,7 +100,7 @@ export default function WebDevelopmentPage() {
             {
               phase: "02",
               title: "Integrate",
-              icon: "🔗",
+              icon: <PlugInIcon className="h-9 w-9 text-[#0A0F1E]" />,
               desc: "We build with best-in-class tools — React, Next.js, TypeScript — and integrate cleanly with your CRM, payments, and analytics stack.",
               items: [
                 "Next.js / React frontend",
@@ -111,7 +112,7 @@ export default function WebDevelopmentPage() {
             {
               phase: "03",
               title: "Automate",
-              icon: "⚡",
+              icon: <BoltIcon className="h-9 w-9 text-[#0A0F1E]" />,
               desc: "Post-launch, we layer in AI-powered features: smart search, personalization, A/B testing, and automated performance monitoring.",
               items: [
                 "Adaptive AI feedback loops",
@@ -129,7 +130,7 @@ export default function WebDevelopmentPage() {
                 {phase}
               </div>
               <div className="relative z-10">
-                <div className="text-4xl mb-4">{icon}</div>
+                <div className="mb-4">{icon}</div>
                 <h3 className="text-xl font-bold text-[#0A0F1E] mb-3">
                   {title}
                 </h3>

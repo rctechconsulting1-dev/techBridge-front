@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { PageIcon, BoltIcon, EyeIcon } from "@/icons";
 
 export const metadata: Metadata = {
   title: "Small Business Tech Solutions | RD TechBridge",
@@ -139,7 +140,7 @@ export default function SmallBusinessPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                icon: "🌐",
+                icon: <PageIcon className="h-9 w-9 text-[#0A0F1E]" />,
                 title: "Web Presence",
                 desc: "Professional, fast-loading websites and landing pages that convert visitors into customers. Includes SEO foundations and Google Business integration.",
                 items: [
@@ -150,7 +151,7 @@ export default function SmallBusinessPage() {
                 ],
               },
               {
-                icon: "⚙️",
+                icon: <BoltIcon className="h-9 w-9 text-[#0A0F1E]" />,
                 title: "Smart Automation",
                 desc: "Stop doing the same tasks over and over. We identify your biggest time drains and build simple automations that save 10+ hours per week.",
                 items: [
@@ -161,7 +162,7 @@ export default function SmallBusinessPage() {
                 ],
               },
               {
-                icon: "🔍",
+                icon: <EyeIcon className="h-9 w-9 text-[#0A0F1E]" />,
                 title: "Competitor Intel",
                 desc: "Know exactly what competitors are doing — their pricing, reviews, and marketing strategies — and counter with AI-powered responses.",
                 items: [
@@ -176,7 +177,7 @@ export default function SmallBusinessPage() {
                 key={title}
                 className="bg-white border border-gray-100 rounded-2xl p-8 hover:shadow-lg transition-shadow flex flex-col"
               >
-                <div className="text-4xl mb-4">{icon}</div>
+                <div className="mb-4">{icon}</div>
                 <h3 className="text-xl font-bold text-[#0A0F1E] mb-3">
                   {title}
                 </h3>
