@@ -52,6 +52,7 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
     });
     setSubject(draft.subject);
     setEmailBody(draft.body);
+    setEmailInput(lead.email || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id]);
 
@@ -84,7 +85,6 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
     setError(null);
     try {
       await apiClient.updateOutreachLead(lead.id, { email: trimmed });
-      setEmailInput("");
       onUpdated();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to save email"));
@@ -173,31 +173,14 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
         <p className="mb-6 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">
           This lead is flagged do not contact and cannot be emailed.
         </p>
-      ) : lead.email ? (
-        <div className="mb-6">
-          <Label>Subject</Label>
-          <input
-            className="mb-3 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-          <Label>Body</Label>
-          <TextArea rows={8} value={emailBody} onChange={setEmailBody} />
-          <p className="mt-2 text-xs text-gray-400">
-            A mailing address and opt-out line are appended automatically before sending — not shown here, not editable.
-          </p>
-          <div className="mt-3 flex justify-end">
-            <Button onClick={handleSend} disabled={isSending}>
-              {isSending ? "Sending..." : `Send to ${lead.email}`}
-            </Button>
-          </div>
-        </div>
       ) : (
         <div className="mb-6">
-          <p className="mb-3 text-sm text-gray-500">
-            No email on file yet — look one up (e.g. via the listed website) and add it below to unlock sending.
-          </p>
           <Label>Email</Label>
+          {!lead.email && (
+            <p className="mb-2 text-sm text-gray-500">
+              No email on file yet — look one up (e.g. via the listed website) and add it below to unlock sending.
+            </p>
+          )}
           <div className="flex gap-3">
             <input
               type="email"
@@ -209,11 +192,32 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
             <Button
               variant="outline"
               onClick={handleSaveEmail}
-              disabled={isSavingEmail || !emailInput.trim()}
+              disabled={isSavingEmail || !emailInput.trim() || emailInput.trim() === lead.email}
             >
-              {isSavingEmail ? "Saving..." : "Save email"}
+              {isSavingEmail ? "Saving..." : lead.email ? "Update email" : "Save email"}
             </Button>
           </div>
+
+          {lead.email && (
+            <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+              <Label>Subject</Label>
+              <input
+                className="mb-3 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+              <Label>Body</Label>
+              <TextArea rows={8} value={emailBody} onChange={setEmailBody} />
+              <p className="mt-2 text-xs text-gray-400">
+                A mailing address and opt-out line are appended automatically before sending — not shown here, not editable.
+              </p>
+              <div className="mt-3 flex justify-end">
+                <Button onClick={handleSend} disabled={isSending}>
+                  {isSending ? "Sending..." : `Send to ${lead.email}`}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
