@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { LockIcon, BoltIcon, BoxCubeIcon, PlugInIcon } from "@/icons";
 
@@ -54,6 +55,16 @@ export default function EnterprisePage() {
 
           {/* Glass cards */}
           <div className="lg:col-span-6 flex flex-col gap-4">
+            <div className="relative w-full h-[200px] rounded-2xl overflow-hidden shadow-lg">
+              <Image
+                src="/images/product/enterprise-crm-boardroom.png"
+                alt="Enterprise team reviewing a CRM integration on a boardroom display"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                priority
+              />
+            </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-bold text-[#0A0F1E]">

@@ -95,6 +95,15 @@ export default function AiAgentsPage() {
                 />
               </div>
             </div>
+            <div className="relative w-[160px] h-[260px] rounded-2xl overflow-hidden shadow-xl ring-1 ring-black/5 flex-shrink-0 hidden lg:block">
+              <Image
+                src="/images/product/ai-agent-voice-call.png"
+                alt="AI voice agent handling a live call"
+                fill
+                className="object-cover"
+                sizes="160px"
+              />
+            </div>
           </div>
         </div>
       </section>

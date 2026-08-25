@@ -1,19 +1,8 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import Link from "next/link";
-
-const businessItems = [
-  "Customer Growth",
-  "Revenue Increase",
-  "Market Expansion",
-];
-const techItems = [
-  "Web Development",
-  "System Integration",
-  "Technical Support",
-  "AI Solutions",
-];
 
 const HeroSection = () => {
   return (
@@ -80,51 +69,16 @@ const HeroSection = () => {
           {/* Right Column - Visual */}
           <div className="relative">
             <div className="relative z-10">
-              {/* Hero Illustration - Tech Bridge Concept */}
-              <div className="rotate-3 transform rounded-2xl bg-white p-8 shadow-2xl transition-transform duration-500 hover:rotate-0">
-                <div className="space-y-6">
-                  {/* Business Side */}
-                  <div className="rounded-lg bg-gradient-to-r from-green-50 to-blue-50 p-6">
-                    <h3 className="mb-3 font-bold text-gray-800">
-                      Your Business Focus
-                    </h3>
-                    <div className="space-y-2">
-                      {businessItems.map((item) => (
-                        <div key={item} className="flex items-center space-x-2">
-                          <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                          <span className="text-sm text-gray-600">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Bridge Connection */}
-                  <div className="flex justify-center">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-3xl font-bold text-[#CD7F32]">
-                        R
-                      </span>
-                      <div className="h-1 w-12 rounded-full bg-[#C41E3A]"></div>
-                      <span className="text-3xl font-bold text-[#CD7F32]">
-                        D
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Technology Side */}
-                  <div className="rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 p-6">
-                    <h3 className="mb-3 font-bold text-gray-800">
-                      We Handle Tech
-                    </h3>
-                    <div className="space-y-2">
-                      {techItems.map((item) => (
-                        <div key={item} className="flex items-center space-x-2">
-                          <div className="h-3 w-3 rounded-full bg-[#CD7F32]"></div>
-                          <span className="text-sm text-gray-600">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              <div className="rotate-3 transform rounded-2xl bg-white p-3 shadow-2xl transition-transform duration-500 hover:rotate-0">
+                <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl">
+                  <Image
+                    src="/images/product/hero-team-review.png"
+                    alt="RD TechBridge team reviewing a client website build"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    priority
+                  />
                 </div>
               </div>
             </div>

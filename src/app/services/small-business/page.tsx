@@ -66,8 +66,8 @@ export default function SmallBusinessPage() {
             {/* Hero image */}
             <div className="relative w-full h-[220px] rounded-2xl overflow-hidden shadow-lg">
               <Image
-                src="/images/product/construction-tech.png"
-                alt="AI tools helping small businesses compete"
+                src="/images/product/small-business-salon-dashboard.png"
+                alt="Small business owner reviewing her AI dashboard on a tablet"
                 fill
                 className="object-cover object-top"
                 sizes="(max-width: 1024px) 100vw, 50vw"

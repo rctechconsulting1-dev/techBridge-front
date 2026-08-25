@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import {
   BoxCubeIcon,
@@ -70,6 +71,16 @@ export default function CustomSoftwareEngineeringPage() {
 
           {/* Glass cards */}
           <div className="lg:col-span-6 flex flex-col gap-4">
+            <div className="relative w-full h-[200px] rounded-2xl overflow-hidden shadow-lg">
+              <Image
+                src="/images/product/custom-software-network-tablet.png"
+                alt="Reviewing a custom software integration on a tablet"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                priority
+              />
+            </div>
             <div className="bg-[#0A0F1E] border border-white/10 rounded-2xl p-6 shadow-sm text-white flex items-center gap-4">
               <div className="w-12 h-12 bg-[#1ED28C]/20 rounded-xl flex items-center justify-center text-[#1ED28C]">
                 <BoxCubeIcon className="h-6 w-6" />
