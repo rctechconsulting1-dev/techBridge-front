@@ -326,6 +326,9 @@ export default function TermsOfServicePage() {
         <Link href="/subscription-terms" className="text-[#C67C2A] hover:underline">
           Subscription Terms →
         </Link>
+        <Link href="/data-processing-agreement" className="text-[#C67C2A] hover:underline">
+          Data Processing Agreement →
+        </Link>
         <Link href="/help" className="text-[#C67C2A] hover:underline">
           Help Center →
         </Link>

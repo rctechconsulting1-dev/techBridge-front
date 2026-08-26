@@ -308,6 +308,9 @@ export default function SubscriptionTermsPage() {
         <Link href="/plans" className="text-[#C67C2A] hover:underline">
           Plans →
         </Link>
+        <Link href="/data-processing-agreement" className="text-[#C67C2A] hover:underline">
+          Data Processing Agreement →
+        </Link>
       </div>
     </article>
   );

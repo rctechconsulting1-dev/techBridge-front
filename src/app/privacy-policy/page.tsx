@@ -284,6 +284,9 @@ export default function PrivacyPolicyPage() {
         <Link href="/cookie-policy" className="text-[#C67C2A] hover:underline">
           Cookie Policy →
         </Link>
+        <Link href="/data-processing-agreement" className="text-[#C67C2A] hover:underline">
+          Data Processing Agreement →
+        </Link>
         <Link href="/help" className="text-[#C67C2A] hover:underline">
           Help Center →
         </Link>
