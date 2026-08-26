@@ -94,7 +94,36 @@ you're actually proposing.
 - [ ] Close asks for a discovery call, not a low-pressure "no worries
       either way"
 
-## 6. Open question for later
+## 6. Once they say yes — onboarding checklist
+
+Enterprise deals don't onboard like a Starter/Professional/Business Plan
+signup (no self-serve checkout, no standard SOW). Before any work starts:
+
+- [ ] Fill in `docs/legal/MASTER_SERVICE_AGREEMENT_TEMPLATE.md` with the
+      client's legal entity name, address, and signatory — every
+      `[BRACKETED]` field, none left as placeholder text
+- [ ] Confirm `docs/TODO.md`'s mailing-address item is resolved — the MSA
+      template's `[COMPLIANCE MAILING ADDRESS]` field can't ship blank or
+      with a home address
+- [ ] Negotiate and fill in the liability cap (Section 8.2) — the
+      standard Terms of Service use a 3-month-of-fees cap; Enterprise
+      deals commonly negotiate a longer look-back or a flat dollar figure
+- [ ] Fill in term length, renewal notice period, and payment terms
+      (Sections 2 and 3) to match what was actually agreed on the
+      discovery call
+- [ ] Have the filled-in draft reviewed by an attorney before it goes to
+      the client — this template hasn't been reviewed, and an MSA is a
+      signed contract, not a marketing page
+- [ ] Confirm the client's data flows (what of *their* customers' data
+      will touch the platform) so `/data-processing-agreement` — which
+      the MSA incorporates by reference in Section 6 — actually covers
+      what they need; flag anything outside its US-only scope (Section 12
+      of the DPA) before signing
+- [ ] Get the MSA countersigned before any SOW-level work begins,
+      consistent with Section 1.2 of the MSA (SOWs are executed *under*
+      this Agreement, not instead of it)
+
+## 7. Open question for later
 
 The leads tracker's `tier` field is currently `small` | `medium` only
 (`backend-rc/routes/outreachLeads.js`), with no `enterprise` value and no
