@@ -57,9 +57,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not verify lead status" }, { status: 502 });
   }
   const lead = await leadResponse.json();
-  if (lead.status === "do_not_contact") {
+  if (lead.stage === "do_not_contact") {
     return NextResponse.json(
       { error: "This lead is flagged do_not_contact and cannot be emailed", code: "LEAD_DO_NOT_CONTACT" },
+      { status: 409 },
+    );
+  }
+  if (lead.stage !== "interested" && lead.stage !== "examples_sent") {
+    return NextResponse.json(
+      { error: "The examples email is only available once a lead is interested", code: "LEAD_NOT_INTERESTED" },
       { status: 409 },
     );
   }

@@ -157,6 +157,7 @@ const AppSidebar = ({}) => {
   const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
   const [enabledFeatures, setEnabledFeatures] = useState<string[] | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [dueCount, setDueCount] = useState(0);
 
   useEffect(() => {
     apiClient.getSession().then((user) => {
@@ -177,6 +178,13 @@ const AppSidebar = ({}) => {
         setCurrentRole(u.role);
       }
     });
+  }, []);
+
+  useEffect(() => {
+    apiClient
+      .getOutreachDueCount()
+      .then((r) => setDueCount(typeof r?.count === "number" ? r.count : 0))
+      .catch(() => setDueCount(0));
   }, []);
 
   const entitlementSnapshot = createEntitlementSnapshot(
@@ -310,6 +318,11 @@ const AppSidebar = ({}) => {
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <span className={`menu-item-text`}>{nav.name}</span>
+                )}
+                {nav.path === "/leads" && dueCount > 0 && (isExpanded || isHovered || isMobileOpen) && (
+                  <span className="ml-auto rounded-full bg-brand-500 px-2 py-0.5 text-xs text-white">
+                    {dueCount}
+                  </span>
                 )}
               </Link>
             )
