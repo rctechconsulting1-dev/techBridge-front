@@ -181,11 +181,14 @@ const AppSidebar = ({}) => {
   }, []);
 
   useEffect(() => {
+    // The due-count endpoint is admin-only; only the Leads nav item (same
+    // roles) ever renders the badge, so skip the call for everyone else.
+    if (currentRole !== "admin" && currentRole !== "platform_admin") return;
     apiClient
       .getOutreachDueCount()
       .then((r) => setDueCount(typeof r?.count === "number" ? r.count : 0))
       .catch(() => setDueCount(0));
-  }, []);
+  }, [currentRole]);
 
   const entitlementSnapshot = createEntitlementSnapshot(
     enabledModules,

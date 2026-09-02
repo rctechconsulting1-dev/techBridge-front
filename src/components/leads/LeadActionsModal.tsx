@@ -25,6 +25,7 @@ const STAGE_OVERRIDE_OPTIONS = [
   { value: "qualified", label: "Qualified" },
   { value: "disqualified", label: "Disqualified" },
   { value: "attempting", label: "Attempting" },
+  { value: "callback_scheduled", label: "Callback scheduled" },
   { value: "interested", label: "Interested" },
   { value: "examples_sent", label: "Examples sent" },
   { value: "won", label: "Won" },
@@ -85,6 +86,8 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
     setSubject(draft.subject);
     setEmailBody(draft.body);
     setEmailInput(lead.email || "");
+    setRescheduleAt("");
+    setRescheduleNote(lead.next_action_note || "");
     loadTouches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id]);
@@ -438,17 +441,19 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
         </div>
       )}
 
-      <div className="border-t border-gray-100 pt-4 dark:border-gray-800">
-        <Label>Update stage</Label>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <Select options={STAGE_OVERRIDE_OPTIONS} onChange={setStatusChoice} />
+      {lead.stage !== "do_not_contact" && (
+        <div className="border-t border-gray-100 pt-4 dark:border-gray-800">
+          <Label>Update stage</Label>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Select options={STAGE_OVERRIDE_OPTIONS} onChange={setStatusChoice} />
+            </div>
+            <Button variant="outline" onClick={handleStageUpdate} disabled={isUpdatingStatus || !statusChoice}>
+              {isUpdatingStatus ? "Updating..." : "Update"}
+            </Button>
           </div>
-          <Button variant="outline" onClick={handleStageUpdate} disabled={isUpdatingStatus || !statusChoice}>
-            {isUpdatingStatus ? "Updating..." : "Update"}
-          </Button>
         </div>
-      </div>
+      )}
     </Modal>
   );
 }

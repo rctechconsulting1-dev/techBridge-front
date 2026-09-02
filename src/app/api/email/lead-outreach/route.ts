@@ -57,6 +57,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not verify lead status" }, { status: 502 });
   }
   const lead = await leadResponse.json();
+  if (to !== lead.email) {
+    return NextResponse.json(
+      { error: "the recipient does not match the lead on file", code: "RECIPIENT_MISMATCH" },
+      { status: 409 },
+    );
+  }
   if (lead.stage === "do_not_contact") {
     return NextResponse.json(
       { error: "This lead is flagged do_not_contact and cannot be emailed", code: "LEAD_DO_NOT_CONTACT" },

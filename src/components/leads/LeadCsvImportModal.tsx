@@ -28,7 +28,7 @@ const FIELD_LABELS: Record<FieldKey, string> = {
 
 const GUESSES: Record<FieldKey, string[]> = {
   businessName: ["name", "business", "title"],
-  phone: ["phone", "telephone", "tel"],
+  phone: ["phone", "telephone"],
   websiteUrl: ["website", "site", "url", "domain"],
   rating: ["rating", "stars", "score"],
   reviewCount: ["reviews", "review_count", "review count", "ratings", "user_ratings"],

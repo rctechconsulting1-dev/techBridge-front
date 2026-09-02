@@ -92,8 +92,11 @@ export function buildCallScript(lead: {
   city?: string | null;
   reviewCount?: number | null;
 }): CallScript {
-  const tradePlural = lead.trade?.trim() || "local businesses";
-  const tradeSingular = tradePlural.replace(/s$/, "");
+  const trade = lead.trade?.trim();
+  const tradePlural = trade || "local businesses";
+  // Only singularise a real trade; with no trade on file "a local businesse"
+  // reads wrong, so fall back to a natural phrase.
+  const tradeSingular = trade ? trade.replace(/s$/, "") : "business like yours";
   const city = lead.city?.trim() || "your area";
   const reviews =
     typeof lead.reviewCount === "number" && lead.reviewCount > 0
