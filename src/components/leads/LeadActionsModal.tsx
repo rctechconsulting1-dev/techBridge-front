@@ -63,6 +63,13 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
   const [rescheduleNote, setRescheduleNote] = useState("");
   const [isRescheduling, setIsRescheduling] = useState(false);
 
+  const loadTouches = () => {
+    apiClient
+      .getOutreachLeadTouches(lead.id)
+      .then((rows) => setTouches(Array.isArray(rows) ? (rows as Record<string, unknown>[]) : []))
+      .catch(() => setTouches([]));
+  };
+
   useEffect(() => {
     const draft = buildOutreachEmail({
       source: lead.source as LeadSource,
@@ -78,10 +85,7 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
     setSubject(draft.subject);
     setEmailBody(draft.body);
     setEmailInput(lead.email || "");
-    apiClient
-      .getOutreachLeadTouches(lead.id)
-      .then((rows) => setTouches(Array.isArray(rows) ? (rows as Record<string, unknown>[]) : []))
-      .catch(() => setTouches([]));
+    loadTouches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id]);
 
@@ -194,6 +198,7 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
       setCallNotes("");
       setCallbackAt("");
       setCallbackNote("");
+      loadTouches();
       onUpdated();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to log call"));
@@ -213,6 +218,7 @@ export default function LeadActionsModal({ lead, onClose, onUpdated }: LeadActio
       });
       setRescheduleAt("");
       setRescheduleNote("");
+      loadTouches();
       onUpdated();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to reschedule"));
