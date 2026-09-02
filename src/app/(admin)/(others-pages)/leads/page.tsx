@@ -6,6 +6,7 @@ import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import { apiClient, getErrorMessage } from "@/lib/api-client";
 import LeadCaptureModal from "@/components/leads/LeadCaptureModal";
+import LeadCsvImportModal from "@/components/leads/LeadCsvImportModal";
 import LeadActionsModal from "@/components/leads/LeadActionsModal";
 import Pagination from "@/components/tables/Pagination";
 
@@ -67,6 +68,7 @@ export default function LeadsPage() {
   const [sourceFilter, setSourceFilter] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+  const [isCsvOpen, setIsCsvOpen] = useState(false);
   const [actionLead, setActionLead] = useState<OutreachLead | null>(null);
 
   const loadLeads = async (targetPage = page) => {
@@ -186,6 +188,7 @@ export default function LeadsPage() {
             <Select options={TIER_OPTIONS} placeholder="All tiers" onChange={handleTierFilterChange} />
           </div>
           <Button onClick={() => setIsCaptureOpen(true)}>Capture leads</Button>
+          <Button variant="outline" onClick={() => setIsCsvOpen(true)}>Import CSV</Button>
         </div>
 
         {listError && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{listError}</p>}
@@ -249,6 +252,7 @@ export default function LeadsPage() {
         onClose={() => setIsCaptureOpen(false)}
         onSaved={loadLeads}
       />
+      <LeadCsvImportModal isOpen={isCsvOpen} onClose={() => setIsCsvOpen(false)} onSaved={loadLeads} />
       {actionLead && (
         <LeadActionsModal
           lead={actionLead}
