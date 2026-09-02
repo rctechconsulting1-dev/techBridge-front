@@ -68,3 +68,68 @@ export function buildOutreachEmail(fields: OutreachMergeFields): { subject: stri
     body: `${greeting}\n\n${opener} ${body}\n\n${close}`,
   };
 }
+
+export interface CallScript {
+  opener: string;
+  pitch: string[];
+  objections: { objection: string; response: string }[];
+}
+
+// Returns a weekday name roughly two business days out, for the "can I call you
+// back on X" ask. Purely cosmetic; no timezone precision needed.
+function suggestedCallbackDay(): string {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  if (d.getDay() === 6) d.setDate(d.getDate() + 2);
+  return days[d.getDay()];
+}
+
+export function buildCallScript(lead: {
+  businessName: string;
+  trade?: string | null;
+  city?: string | null;
+  reviewCount?: number | null;
+}): CallScript {
+  const tradePlural = lead.trade?.trim() || "local businesses";
+  const tradeSingular = tradePlural.replace(/s$/, "");
+  const city = lead.city?.trim() || "your area";
+  const reviews =
+    typeof lead.reviewCount === "number" && lead.reviewCount > 0
+      ? `your ${lead.reviewCount} reviews on Google Maps`
+      : "your Google Maps listing";
+
+  return {
+    opener:
+      `Hi, is that ${lead.businessName}? I came across ${reviews} and noticed you do not have a website yet. ` +
+      `I build websites for ${tradePlural} in ${city}. Is now a bad time for a quick two-minute chat?`,
+    pitch: [
+      `What I do: a clean, professional site, usually live within a week, built and hosted for you.`,
+      `I have done this for other ${tradePlural} nearby. It tends to pay for itself the first time someone finds you on Google instead of a competitor.`,
+      `The ask: let me put together a couple of free mockups for ${lead.businessName} so you can see it. Could I call you back ${suggestedCallbackDay()} to walk through them?`,
+    ],
+    objections: [
+      {
+        objection: "I do not need a website",
+        response: `Can I show you what comes up when someone searches for a ${tradeSingular} in ${city} right now? Usually it is your competitors, not you.`,
+      },
+      {
+        objection: "I get all my work by word of mouth",
+        response: `That is the best kind of work. A site is just where those referrals check you out before they call. Right now they find nothing, or an old social page.`,
+      },
+      {
+        objection: "Someone is already building one for me",
+        response: `No problem. Happy to be a second set of eyes on it before it goes live, no charge.`,
+      },
+      {
+        objection: "How much is it?",
+        response: `It depends what you need, and I would rather show you the mockups first so we are talking about something real. Can I send those over?`,
+      },
+      {
+        objection: "Just email me the details",
+        response: `Will do. What is the best address? I will send a couple of examples and a short note, then follow up in a few days.`,
+      },
+    ],
+  };
+}
