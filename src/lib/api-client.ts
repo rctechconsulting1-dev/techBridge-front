@@ -512,16 +512,20 @@ class ApiClient {
   // ─── Outreach Leads (cold-outreach tracker) ──────────────────────────────────
 
   async getOutreachLeads(params?: {
-    status?: string;
+    stage?: string;
     source?: string;
     tier?: string;
+    dueOnly?: boolean;
+    sort?: 'reviews_desc' | 'next_action_asc';
     page?: number;
     limit?: number;
   }): Promise<{ leads: Record<string, unknown>[]; total: number; page: number; limit: number }> {
     const qs = new URLSearchParams();
-    if (params?.status) qs.set('status', params.status);
+    if (params?.stage) qs.set('stage', params.stage);
     if (params?.source) qs.set('source', params.source);
     if (params?.tier) qs.set('tier', params.tier);
+    if (params?.dueOnly) qs.set('dueOnly', 'true');
+    if (params?.sort) qs.set('sort', params.sort);
     if (params?.page !== undefined) qs.set('page', String(params.page));
     if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     const query = qs.toString() ? `?${qs.toString()}` : '';
@@ -536,19 +540,47 @@ class ApiClient {
     return this.post(`/outreach-leads`, { leads });
   }
 
-  async updateOutreachLead(id: string, patch: Record<string, unknown>) {
+  async updateOutreachLead(
+    id: string,
+    patch: {
+      stage?: string;
+      email?: string | null;
+      phone?: string | null;
+      websiteUrl?: string | null;
+      notes?: string | null;
+      nextActionAt?: string | null;
+      nextActionNote?: string | null;
+    },
+  ) {
     return this.patch(`/outreach-leads/${id}`, patch);
   }
 
   async logOutreachTouch(
     id: string,
-    touch: { channel: 'call' | 'text'; outcomeNotes: string },
+    touch: {
+      channel: 'call' | 'text';
+      callOutcome?:
+        | 'no_answer'
+        | 'voicemail'
+        | 'gatekeeper'
+        | 'wrong_number'
+        | 'interested'
+        | 'callback'
+        | 'not_interested';
+      outcomeNotes?: string;
+      nextActionAt?: string;
+      nextActionNote?: string;
+    },
   ) {
     return this.post(`/outreach-leads/${id}/touches`, touch);
   }
 
   async getOutreachLeadTouches(id: string) {
     return this.get(`/outreach-leads/${id}/touches`);
+  }
+
+  async getOutreachDueCount(): Promise<{ count: number }> {
+    return this.get(`/outreach-leads/due-count`);
   }
 
   async sendLeadOutreachEmail(payload: {
