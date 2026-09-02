@@ -26,20 +26,25 @@ export interface OutreachLead {
   tier: string;
   rating: number | null;
   review_count: number | null;
-  status: string;
+  stage: string;
+  next_action_at: string | null;
+  next_action_note: string | null;
+  attempt_count: number;
   notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
-const STATUS_OPTIONS = [
+const STAGE_OPTIONS = [
   { value: "new", label: "New" },
-  { value: "needs_email_lookup", label: "Needs email lookup" },
-  { value: "ready_to_send", label: "Ready to send" },
-  { value: "contacted", label: "Contacted" },
-  { value: "responded", label: "Responded" },
-  { value: "not_interested", label: "Not interested" },
-  { value: "converted", label: "Converted" },
+  { value: "qualified", label: "Qualified" },
+  { value: "disqualified", label: "Disqualified" },
+  { value: "attempting", label: "Attempting" },
+  { value: "callback_scheduled", label: "Callback scheduled" },
+  { value: "interested", label: "Interested" },
+  { value: "examples_sent", label: "Examples sent" },
+  { value: "won", label: "Won" },
+  { value: "lost", label: "Lost" },
   { value: "do_not_contact", label: "Do not contact" },
 ];
 
@@ -49,6 +54,7 @@ const SOURCE_OPTIONS = [
   { value: "instagram", label: "Instagram" },
   { value: "craigslist", label: "Craigslist" },
   { value: "cslb", label: "CSLB" },
+  { value: "csv_import", label: "CSV import" },
 ];
 
 const TIER_OPTIONS = [
@@ -64,7 +70,8 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [stageFilter, setStageFilter] = useState("");
+  const [dueOnly, setDueOnly] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
@@ -76,9 +83,11 @@ export default function LeadsPage() {
     setListError(null);
     try {
       const response = await apiClient.getOutreachLeads({
-        status: statusFilter || undefined,
+        stage: stageFilter || undefined,
         source: sourceFilter || undefined,
         tier: tierFilter || undefined,
+        dueOnly: dueOnly || undefined,
+        sort: dueOnly ? "next_action_asc" : "reviews_desc",
         page: targetPage,
         limit: PAGE_SIZE,
       });
@@ -139,10 +148,15 @@ export default function LeadsPage() {
       loadLeads(page);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthorized, statusFilter, sourceFilter, tierFilter, page]);
+  }, [isAuthorized, stageFilter, dueOnly, sourceFilter, tierFilter, page]);
 
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
+  const handleStageFilterChange = (value: string) => {
+    setStageFilter(value);
+    setPage(1);
+  };
+
+  const handleDueToggle = () => {
+    setDueOnly((v) => !v);
     setPage(1);
   };
 
@@ -179,7 +193,7 @@ export default function LeadsPage() {
       <ComponentCard title="Cold Outreach Leads" desc="Capture, track, and follow up on cold outreach leads.">
         <div className="flex flex-wrap items-end gap-4">
           <div className="w-48">
-            <Select options={STATUS_OPTIONS} placeholder="All statuses" onChange={handleStatusFilterChange} />
+            <Select options={STAGE_OPTIONS} placeholder="All stages" onChange={handleStageFilterChange} />
           </div>
           <div className="w-48">
             <Select options={SOURCE_OPTIONS} placeholder="All sources" onChange={handleSourceFilterChange} />
@@ -187,6 +201,9 @@ export default function LeadsPage() {
           <div className="w-40">
             <Select options={TIER_OPTIONS} placeholder="All tiers" onChange={handleTierFilterChange} />
           </div>
+          <Button variant={dueOnly ? "primary" : "outline"} onClick={handleDueToggle}>
+            {dueOnly ? "Showing follow-ups due" : "Follow-ups due"}
+          </Button>
           <Button onClick={() => setIsCaptureOpen(true)}>Capture leads</Button>
           <Button variant="outline" onClick={() => setIsCsvOpen(true)}>Import CSV</Button>
         </div>
@@ -199,10 +216,13 @@ export default function LeadsPage() {
             <thead>
               <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400">
                 <th className="py-2 pr-4">Business</th>
+                <th className="py-2 pr-4">Phone</th>
                 <th className="py-2 pr-4">Contact</th>
                 <th className="py-2 pr-4">Source</th>
                 <th className="py-2 pr-4">Tier</th>
-                <th className="py-2 pr-4">Status</th>
+                <th className="py-2 pr-4">Stage</th>
+                <th className="py-2 pr-4">Next action</th>
+                <th className="py-2 pr-4">Attempts</th>
                 <th className="py-2 pr-4">Rating</th>
                 <th className="py-2 pr-4">Actions</th>
               </tr>
@@ -211,12 +231,20 @@ export default function LeadsPage() {
               {leads.map((lead) => (
                 <tr key={lead.id} className="border-b border-gray-100 dark:border-gray-800">
                   <td className="py-2 pr-4">{lead.business_name}</td>
+                  <td className="py-2 pr-4">{lead.phone || "-"}</td>
                   <td className="py-2 pr-4">
                     {lead.email || lead.phone || "—"}
                   </td>
                   <td className="py-2 pr-4">{lead.source}</td>
                   <td className="py-2 pr-4">{lead.tier}</td>
-                  <td className="py-2 pr-4">{lead.status}</td>
+                  <td className="py-2 pr-4">{lead.stage}</td>
+                  <td className="py-2 pr-4">
+                    {lead.next_action_at
+                      ? new Date(lead.next_action_at).toLocaleDateString() +
+                        (lead.next_action_note ? ` - ${lead.next_action_note.slice(0, 30)}` : "")
+                      : "-"}
+                  </td>
+                  <td className="py-2 pr-4">{lead.attempt_count || 0}</td>
                   <td className="py-2 pr-4">
                     {lead.rating ? `${lead.rating} (${lead.review_count ?? 0})` : "—"}
                   </td>
@@ -229,7 +257,7 @@ export default function LeadsPage() {
               ))}
               {leads.length === 0 && !isLoadingLeads && (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-gray-500">
+                  <td colSpan={10} className="py-6 text-center text-gray-500">
                     No leads yet. Click &quot;Capture leads&quot; to add some.
                   </td>
                 </tr>
